@@ -1,0 +1,47 @@
+
+
+/* ==========================================================================
+   Graph custom styles
+   ========================================================================== */
+
+svg {
+    overflow: hidden;
+}
+
+.node rect {
+    stroke: #666;
+    stroke-width: 1px;
+    fill: #fff;
+}
+
+.edgeLabel rect {
+    fill: #fff;
+}
+
+.edgePath {
+    stroke: #666;
+    stroke-width: 1px;
+    fill: none;
+}
+
+g p {
+    margin: 10px;
+}
+
+g p.small {
+    font-size: 10px;
+}
+
+
+.flow-container {
+    overflow:hidden;
+    margin-right: 0;
+    margin-left: 0;
+    background-color: #fff;
+    border-color: #ddd;
+    border-width: 1px;
+    border-radius: 4px 4px 0 0;
+    -webkit-box-shadow: none;
+    box-shadow: none;
+    border-style: solid;
+}
