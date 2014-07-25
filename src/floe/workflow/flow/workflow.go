@@ -52,6 +52,7 @@ func (w *Workflow) Exec(p *Params) {
 	fmt.Println("no task")
 }
 
+// a flow structure is a structureal relationship of nodes and edges that can be rendered
 type FlowStruct struct {
 	Id    string
 	Name  string

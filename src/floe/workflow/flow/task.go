@@ -17,6 +17,7 @@ type Props map[string]string
 type Params struct {
 	FlowName string // these three make up a unique ID for the task
 	ThreadId int
+	TaskId   string
 	TaskName string
 
 	TaskType string
@@ -50,7 +51,7 @@ type TriggeredTaskNode interface {
 
 func MakeParams() *Params {
 	return &Params{
-		Props: make(Props),
+		Props: Props{"workspace": "workspace"},
 	}
 }
 
@@ -59,6 +60,7 @@ func (p *Params) Copy(ip *Params) {
 	p.FlowName = ip.FlowName
 	p.ThreadId = ip.ThreadId
 	p.TaskName = ip.TaskName
+	p.TaskId = ip.TaskId
 
 	// and the other info stuff
 	p.TaskType = ip.TaskType
@@ -67,16 +69,19 @@ func (p *Params) Copy(ip *Params) {
 
 // task tree structure
 type TaskNode struct {
-	Name string // unique name within a flow
-	Type string // the type of task that this node has
-	Flow *Workflow
-	C    chan *Params
-	do   Task
+	Id   string              // unique id made from the name but should be html friendly
+	Name string              // unique name within a flow
+	Type string              // the type of task that this node has
+	Flow *Workflow           // this node knows which workflow it is part of
+	C    chan *Params        // the comms/event result chanel - of things to listen to - particularly mergenodes
+	do   Task                // this will be the concrete task to execute
 	Next map[int][]*TaskNode // mapped on the return code
 }
 
+// TODO - check uniqueness in the flow
 func MakeTaskNode(name string, t Task) *TaskNode {
 	tn := &TaskNode{
+		Id:   MakeID(name),
 		Name: name,
 		C:    make(chan *Params),
 	}
@@ -150,46 +155,54 @@ func (tn *TaskNode) Exec(inPar *Params) {
 	if tn.do != nil {
 
 		// copy the parameters now as these will be the status update
-		newPar := MakeParams()
+		curPar := MakeParams()
 		if inPar == nil {
 			fmt.Println("Booo - you cant have null parameters")
 			return
 		}
-		newPar.Copy(inPar)
 
+		// copy the parameters to fill in during this execution
+		curPar.Copy(inPar)
+		curPar.TaskName = tn.Name
+		curPar.TaskId = tn.Id
+
+		fmt.Println("================= >>>> <<<< ========== ", curPar.TaskName, curPar.TaskId, curPar.ThreadId)
+
+		// wait for stepper trigger
 		<-tn.Flow.Stepper
 
 		// actually execute the task
-		retPar := tn.do.Exec(tn, newPar)
+		tn.do.Exec(tn, curPar)
 
-		if retPar == nil {
+		if curPar == nil {
 			panic("Return parameters cant be nil - at least return the passed in parameters")
 		}
 
 		// TODO - consider adding all results to the props - for use in later tasks
 
-		// fire message to flow notification channel
-		tn.Flow.C <- retPar
+		// fire message to the flow notification channel
+		tn.Flow.C <- curPar
 
 		// if this node has a result channel fire it
 		if tn.C != nil {
-			tn.C <- retPar
+			tn.C <- curPar
 		}
 
-		fmt.Println("    result = ", retPar.Status)
-		next, ok := tn.Next[retPar.Status]
+		fmt.Println("    result =", curPar.Status)
+		next, ok := tn.Next[curPar.Status]
 		// if we have another task that matches this return code execute it
 		if ok {
 			for _, n := range next {
-				go n.Exec(retPar) // launch the next one with the results of this one (TODO - results of all props past?)
+				go n.Exec(curPar) // launch the next one with the results of this one (TODO - results of all props past?)
 			}
 		} else {
 			// otherwise trigger the last tasks channel - as that is the signal that this thread has finished
-			tn.Flow.End.Trigger() <- retPar
+			tn.Flow.End.Trigger() <- curPar
 		}
 	}
 }
 
+// TODO - make html friendly id
 func MakeID(name string) string {
 	s := strings.Split(strings.ToLower(name), " ")
 	return strings.Join(s, "-")
@@ -197,6 +210,6 @@ func MakeID(name string) string {
 
 type Task interface {
 	// exec fills in and returns the params
-	Exec(t *TaskNode, p *Params) *Params
+	Exec(t *TaskNode, p *Params)
 	Type() string
 }

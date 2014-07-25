@@ -6,9 +6,10 @@ import (
 	"sync"
 )
 
-// task tree structure
+// A merge node is a type of task that simply waits for all of its registered tasks to complete (trigger)
 type MergeNode struct {
 	Name     string
+	Id       string
 	Flow     *Workflow
 	C        chan *Params
 	Next     *TaskNode
@@ -21,6 +22,7 @@ func MakeMergeNode(fl *Workflow, name string) *MergeNode {
 	mn := &MergeNode{
 		Flow:  fl,
 		Name:  name,
+		Id:    MakeID(name),
 		first: true,
 		C:     make(chan *Params),
 	}
@@ -95,7 +97,12 @@ func (tn *MergeNode) AddTrigger(t *TaskNode) error {
 			go func() {
 				tn.Group.Wait()
 				// tell the flow status channel we have completed
-				tn.Flow.C <- par
+				curPar := &Params{}
+				curPar.Copy(par)
+				curPar.TaskName = tn.Name
+				curPar.TaskId = tn.Id
+
+				tn.Flow.C <- curPar
 				fmt.Println("Trigger fired")
 
 				// and trigger our end channel

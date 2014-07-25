@@ -7,14 +7,18 @@ import (
 
 type GetFlowFunc func(threadId int) *Workflow
 
+// a load of structures to service a multiple workflow threads- which is passed in via the GetFlowFunc which constructs the workflow
+// these can be used to fire off parallel test workflows for example - as a load test
 type FlowLauncher struct {
-	Name     string
-	FlowFunc GetFlowFunc
-	Threads  int
-	Flows    []*Workflow
-	Props    *Props
-	CStat    chan *Params
-	CEnd     chan *Params
+	Name          string
+	FlowFunc      GetFlowFunc
+	Threads       int
+	Flows         []*Workflow // each thread creates a full workflow in memory - so the implementor of tasks does not have to wory about thread conflicts
+	Props         *Props
+	CStat         chan *Params
+	CEnd          chan *Params
+	LastRunResult *FlowLaunchResult // a set of response stats by task id in our workflow for the last run
+	// TODO - historical stats / logs
 }
 
 // the launchers trigger is the end tasknodes trigger
@@ -40,6 +44,7 @@ func MakeFlowLauncher(name string, flowFunc GetFlowFunc, threads int) *FlowLaunc
 }
 
 // p are initial environment properties
+// run this workflow with this number of threads and gather the success/fail response statistics
 func (fl *FlowLauncher) Exec(p Props) {
 
 	fmt.Println("workflow launcher", fl.Name, " with", fl.Threads, "threads")
@@ -49,6 +54,9 @@ func (fl *FlowLauncher) Exec(p Props) {
 	endParams.Props = p
 
 	fl.Flows = make([]*Workflow, fl.Threads, fl.Threads)
+
+	// new stats for this run
+	fl.LastRunResult = NewFlowLaunchResult()
 
 	// fire off some threads
 	for i := 0; i < fl.Threads; i++ {
@@ -91,7 +99,9 @@ func (fl *FlowLauncher) Exec(p Props) {
 		go func() {
 			for loop {
 				stat := <-flow.C // each tasknode sends status to the flows main channel
-				fl.CStat <- stat
+				fl.LastRunResult.AddResult(stat)
+
+				fl.CStat <- stat // tiger any stats change chanel (e.g. for push messages like websockets)
 			}
 			fmt.Println("launcher loop stoppped")
 		}()

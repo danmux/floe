@@ -20,7 +20,8 @@ func MakeLsTask(path string) *LsTask {
 	}
 }
 
-func (ft *LsTask) Exec(t *f.TaskNode, p *f.Params) *f.Params {
+// params are passed in and mutated with results
+func (ft *LsTask) Exec(t *f.TaskNode, p *f.Params) {
 	fmt.Println("executing list directory")
 
 	path, ok := p.Props["path"]
@@ -33,7 +34,7 @@ func (ft *LsTask) Exec(t *f.TaskNode, p *f.Params) *f.Params {
 	if path == "" {
 		p.Status = f.FAIL
 		p.Response = "no path specified"
-		return p
+		return
 	}
 
 	// this is mandatory node
@@ -47,5 +48,5 @@ func (ft *LsTask) Exec(t *f.TaskNode, p *f.Params) *f.Params {
 	p.Response = "list directory done"
 	p.Status = f.SUCCESS
 
-	return p
+	return
 }

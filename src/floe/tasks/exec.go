@@ -25,7 +25,7 @@ func MakeExecTask(cmd, args string) ExecTask {
 	}
 }
 
-func (ft ExecTask) Exec(t *f.TaskNode, p *f.Params) *f.Params {
+func (ft ExecTask) Exec(t *f.TaskNode, p *f.Params) {
 	fmt.Println("executing command")
 
 	cmd, ok := p.Props["cmd"]
@@ -37,7 +37,7 @@ func (ft ExecTask) Exec(t *f.TaskNode, p *f.Params) *f.Params {
 	if cmd == "" {
 		p.Status = f.FAIL
 		p.Response = "no cmd specified"
-		return p
+		return
 	}
 
 	args, ok := p.Props["args"]
@@ -59,20 +59,20 @@ func (ft ExecTask) Exec(t *f.TaskNode, p *f.Params) *f.Params {
 	if err != nil {
 		fmt.Println(err)
 		p.Status = 1
-		return p
+		return
 	}
 	eout, err := eCmd.StderrPipe()
 	if err != nil {
 		fmt.Println(err)
 		p.Status = 1
-		return p
+		return
 	}
 
 	err = eCmd.Start()
 	if err != nil {
 		fmt.Println(err)
 		p.Status = 1
-		return p
+		return
 	}
 
 	io.Copy(os.Stdout, sout)
@@ -80,8 +80,13 @@ func (ft ExecTask) Exec(t *f.TaskNode, p *f.Params) *f.Params {
 
 	eCmd.Wait()
 
+	output, err := eCmd.Output()
+
+	fmt.Println(output)
+
 	p.Response = "exec command done"
 	p.Status = f.SUCCESS
 
-	return p
+	fmt.Println("executing command complete")
+	return
 }

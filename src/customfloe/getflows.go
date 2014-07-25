@@ -12,10 +12,9 @@ func (ft *SecondTask) Type() string {
 	return "second"
 }
 
-func (ft *SecondTask) Exec(t *f.TaskNode, p *f.Params) *f.Params {
+func (ft *SecondTask) Exec(t *f.TaskNode, p *f.Params) {
 	fmt.Println("executing second task")
 	p.Response = "second done"
-	return p
 }
 
 type CrapTask struct{}
@@ -24,16 +23,17 @@ func (ft *CrapTask) Type() string {
 	return "crap"
 }
 
-func (ft *CrapTask) Exec(t *f.TaskNode, p *f.Params) *f.Params {
+func (ft *CrapTask) Exec(t *f.TaskNode, p *f.Params) {
 	fmt.Println("executing crap task")
 	p.Response = "crap done"
-	return p
+	return
 }
 
 func GetMainFlow(threadId int) *f.Workflow {
 	w := f.MakeWorkflow("main flow")
 	fn := f.MakeTaskNode("start", tasks.MakeLsTask("."))
-	sn := f.MakeTaskNode("ls -lrt", tasks.MakeExecTask("git", "clone git@github.com:centralway/m-api.git"))
+	// sn := f.MakeTaskNode("big clone", tasks.MakeExecTask("git", "clone git@github.com:centralway/m-api.git"))
+	sn := f.MakeTaskNode("ls -lrt", tasks.MakeExecTask("ls", "-lrt"))
 	ct := f.MakeTaskNode("something", &CrapTask{})
 
 	// a merge node waits for all triggers to fire before continuing or triggering
@@ -100,7 +100,7 @@ func GetFlows() *f.Project {
 	p := f.MakeProject("test project")
 
 	name := "main launcher"
-	p.Flows[name] = f.MakeFlowLauncher(name, GetMainFlow, 1)
+	p.AddFlow(f.MakeFlowLauncher(name, GetMainFlow, 3))
 
 	// name = "test launcher"
 	// p.Flows[name] = f.MakeFlowLauncher(name, GetTestFlow, 200)

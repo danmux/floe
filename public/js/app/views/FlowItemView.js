@@ -1,10 +1,11 @@
 /*global define */
 
 define([
+    'utils',
     'marionette',
     'templates',
     'models/Page',
-], function (Marionette, templates) {
+], function (Utils, Marionette, templates) {
     'use strict';
 
     return Marionette.ItemView.extend({
@@ -13,7 +14,8 @@ define([
         className: 'row',
 
         events: {
-            'click a': 'activateMenu'
+            'click a': 'activateMenu',
+            'click button.play': 'playButtonClick'
         },
         modelEvents: {
             "change:active": function() {
@@ -62,8 +64,24 @@ define([
                                 .nodeSep(20)
                                 .rankDir("LR");
             renderer.layout(layout).run(g, d3.select("#" + this.model.get("Id") + " svg g"));
+        },
+        
+        playButtonClick: function(e) {
+            // e.preventDefault();
+            // e.stopPropagation();
+            console.log("play clicked on "+ this.model.get("Id"))
 
+            var pl = {
+              Id: "main-launcher",
+              Command: "exec",
+              Delay: 2
+            };
+
+            Utils.sendObj(pl, app.API_ROOT + '/api/exec', function (resp){
+                console.log(resp);
+            }, function (resp) {
+                console.log(resp);
+            });
         }
-
     });
 });

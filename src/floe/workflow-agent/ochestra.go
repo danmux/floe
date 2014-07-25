@@ -1,5 +1,6 @@
 package main
 
+// orchestra - the set of orchestration routines
 import (
 	"customfloe"
 	f "floe/workflow/flow"
@@ -14,9 +15,9 @@ func setup() {
 	project = customflow.GetFlows()
 }
 
-func exec(name string, step time.Duration) {
+func exec(flowId string, step time.Duration) {
 
-	flow := project.Flows[name]
+	flow := project.Flows[flowId]
 
 	// todo fill in initial properties
 	props := make(f.Props)
@@ -45,6 +46,8 @@ func exec(name string, step time.Duration) {
 	}()
 
 	res := <-flow.CEnd
+
+	flow.LastRunResult.Completed = true
 
 	loop = false
 
