@@ -6,7 +6,7 @@ import (
 
 // command line with 2 second step delay
 func runCommandLine() {
-	exec("main launcher", 2*time.Second)
+	exec("main-flow", 1*time.Second)
 }
 
 // serve as an rpc

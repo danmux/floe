@@ -65,23 +65,58 @@ define([
                                 .rankDir("LR");
             renderer.layout(layout).run(g, d3.select("#" + this.model.get("Id") + " svg g"));
         },
-        
+
         playButtonClick: function(e) {
+            var self = this;
             // e.preventDefault();
             // e.stopPropagation();
-            console.log("play clicked on "+ this.model.get("Id"))
+            var id = this.model.get("Id")
+
+            console.log("play clicked on "+ id)
 
             var pl = {
-              Id: "main-launcher",
+              Id: id,
               Command: "exec",
               Delay: 2
             };
 
             Utils.sendObj(pl, app.API_ROOT + '/api/exec', function (resp){
-                console.log(resp);
+                self.playLoop(id);
             }, function (resp) {
                 console.log(resp);
             });
+        },
+
+        playLoop: function(id) {
+            var stop = false;
+            // 10 seconds max job for now
+            setTimeout(function() {
+                stopLoop();
+            }, 20000);
+
+            var loop = setInterval(function() {
+                Utils.getObj(app.API_ROOT + '/api/status/current', function (resp){
+
+                    var res = resp[id].Results
+
+                    console.log(res);
+
+                    for (var key in res) {
+                        console.log(key);
+                        $('#node-' + key + ' div').addClass('success')
+                    }
+
+                    if (resp[id].Completed) {
+                        stopLoop();
+                    }
+                }, function (resp) {
+                    console.log(resp);
+                });    
+            }, 500);
+
+            function stopLoop() {
+                clearInterval(loop)
+            }
         }
     });
 });

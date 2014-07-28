@@ -24,7 +24,7 @@ func MakeMergeNode(fl *Workflow, name string) *MergeNode {
 		Name:  name,
 		Id:    MakeID(name),
 		first: true,
-		C:     make(chan *Params),
+		C:     make(chan *Params, 1), // a buffer of one - as we always send the end even if no one is listening
 	}
 	fl.registerNode(mn)
 	return mn
@@ -42,14 +42,14 @@ func (tn *MergeNode) GetType() string {
 	return "merge"
 }
 
-func (n *MergeNode) GetEdges() []Edge {
+func (tn *MergeNode) GetEdges() []Edge {
 	edges := make([]Edge, 0, 1)
-	for _, x := range n.Triggers { // triggers are inbound
-		edges = append(edges, Edge{Name: "", From: x.Name, To: n.Name})
+	for _, x := range tn.Triggers { // triggers are inbound
+		edges = append(edges, Edge{Name: "", From: x.Name, To: tn.Name})
 	}
 
-	if n.Next != nil {
-		edges = append(edges, Edge{Name: fmt.Sprintf("%v", 0), From: n.Name, To: n.Next.Name})
+	if tn.Next != nil {
+		edges = append(edges, Edge{Name: fmt.Sprintf("%v", 0), From: tn.Name, To: tn.Next.Name})
 	}
 
 	return edges
@@ -82,6 +82,9 @@ func (tn *MergeNode) AddTrigger(t *TaskNode) error {
 	// add it to the flow
 	t.Flow = tn.Flow
 
+	// tell the tasknode it does trigger something
+	t.Triggers = true
+
 	_, ok := tn.Triggers[t.Name]
 	if !ok {
 		tn.Triggers[t.Name] = t
@@ -106,11 +109,12 @@ func (tn *MergeNode) AddTrigger(t *TaskNode) error {
 				fmt.Println("Trigger fired")
 
 				// and trigger our end channel
-				tn.C <- par
+				tn.C <- curPar
 
 				// and if there is another task fire that off
 				if tn.Next != nil {
-					go tn.Next.Exec(par)
+					fmt.Println("Merge node calling single next node")
+					go tn.Next.Exec(curPar)
 				}
 			}()
 		}

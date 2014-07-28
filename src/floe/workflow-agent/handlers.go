@@ -29,11 +29,21 @@ func execHandler(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 
-		fmt.Println(v)
+		v.Delay = v.Delay * time.Second
 
-		exec(v.Id, v.Delay*time.Second)
+		fmt.Println("V", v)
 
-		respondWithJson(w, http.StatusOK, v)
+		flow, err := exec_async(v.Id, v.Delay)
+		fmt.Println("flow", flow)
+
+		if err != nil {
+			fmt.Println("ERORRO", err)
+			respondWithJson(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		respondWithJson(w, http.StatusOK, nil)
+
 	} else {
 		respondWithJson(w, http.StatusMethodNotAllowed, "method not allowed")
 	}
@@ -71,10 +81,16 @@ func JsonHeaders(w http.ResponseWriter, r *http.Request) {
 }
 
 func respondWithJson(w http.ResponseWriter, code int, v interface{}) {
-	b, err := json.MarshalIndent(v, "", "  ")
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
+	b := []byte(`{"status": "ok"}`)
+	var err error
+	if v != nil {
+		b, err = json.MarshalIndent(v, "", "  ")
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			fmt.Println("error", err)
+			w.Write([]byte(err.Error()))
+			return
+		}
 	}
 
 	w.WriteHeader(code)
@@ -98,6 +114,7 @@ func runWeb() {
 	})
 
 	n := negroni.Classic()
+	// n := negroni.New()
 
 	n.UseHandler(mux)
 	n.Run(":3000")

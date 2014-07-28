@@ -3,6 +3,7 @@ package main
 // orchestra - the set of orchestration routines
 import (
 	"customfloe"
+	"errors"
 	f "floe/workflow/flow"
 	"fmt"
 	"time"
@@ -15,41 +16,53 @@ func setup() {
 	project = customflow.GetFlows()
 }
 
-func exec(flowId string, step time.Duration) {
+func start(flowId string) (*f.FlowLauncher, error) {
+	flow, ok := project.Flows[flowId]
 
-	flow := project.Flows[flowId]
+	if !ok {
+		fmt.Println("GOOOOOOOOOOON")
+		return nil, errors.New("flow not found")
+	}
 
-	// todo fill in initial properties
 	props := make(f.Props)
 
 	props["workspace"] = "workspace"
 	props["path"] = "/"
 
+	fmt.Println("executing")
+
 	go flow.Exec(props)
 
-	loop := true
-	go func() {
-		for loop {
-			stat := <-flow.CStat
-			fmt.Println("          -------------> Status", stat)
-		}
-		fmt.Println("loop stoppped")
-	}()
+	fmt.Println("started")
 
-	go func() {
-		for loop {
-			time.Sleep(step)
-			fmt.Println("          (Stepping)")
-			flow.Step(1)
-		}
-		fmt.Println("stepper loop stoppped")
-	}()
+	return flow, nil
+}
 
-	res := <-flow.CEnd
+func exec_async(flowId string, delay time.Duration) (*f.FlowLauncher, error) {
+	flow, err := start(flowId)
 
-	flow.LastRunResult.Completed = true
+	if err != nil {
+		return nil, err
+	}
 
-	loop = false
+	go flow.AutoStep(delay, nil)
+
+	return flow, nil
+}
+
+func exec(flowId string, delay time.Duration) error {
+
+	flow, err := start(flowId)
+
+	if err != nil {
+		return err
+	}
+
+	ec := make(chan *f.Params)
+
+	go flow.AutoStep(delay, ec)
+
+	res := <-ec
 
 	fmt.Println("end result", res)
 
@@ -58,4 +71,6 @@ func exec(flowId string, step time.Duration) {
 	} else {
 		fmt.Println("FLOW FAILED")
 	}
+
+	return nil
 }

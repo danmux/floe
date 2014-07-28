@@ -4,6 +4,7 @@ import (
 	"floe/tasks"
 	f "floe/workflow/flow"
 	"fmt"
+	"time"
 )
 
 type SecondTask struct{}
@@ -25,19 +26,26 @@ func (ft *CrapTask) Type() string {
 
 func (ft *CrapTask) Exec(t *f.TaskNode, p *f.Params) {
 	fmt.Println("executing crap task")
+	time.Sleep(3 * time.Second)
 	p.Response = "crap done"
 	return
 }
 
-func GetMainFlow(threadId int) *f.Workflow {
-	w := f.MakeWorkflow("main flow")
-	fn := f.MakeTaskNode("start", tasks.MakeLsTask("."))
+type MainFlow struct {
+	f.BaseFlow
+}
+
+func (l *MainFlow) FlowFunc(threadId int) *f.Workflow {
+
+	w := f.MakeWorkflow(l.Name())
+	fn := f.MakeTaskNode("task1", tasks.MakeLsTask("."))
 	// sn := f.MakeTaskNode("big clone", tasks.MakeExecTask("git", "clone git@github.com:centralway/m-api.git"))
-	sn := f.MakeTaskNode("ls -lrt", tasks.MakeExecTask("ls", "-lrt"))
-	ct := f.MakeTaskNode("something", &CrapTask{})
+	ct := f.MakeTaskNode("task2", &CrapTask{})
+
+	sn := f.MakeTaskNode("task3", tasks.MakeExecTask("ls", "-lrt"))
 
 	// a merge node waits for all triggers to fire before continuing or triggering
-	mn := f.MakeMergeNode(w, "end")
+	mn := f.MakeMergeNode(w, "task4")
 	mn.AddTrigger(fn)
 	mn.AddTrigger(sn)
 	mn.AddTrigger(ct)
@@ -55,8 +63,12 @@ func GetMainFlow(threadId int) *f.Workflow {
 	return w
 }
 
-func GetTestFlow(threadId int) *f.Workflow {
-	w := f.MakeWorkflow("test flow")
+type TestFlow struct {
+	f.BaseFlow
+}
+
+func (l *TestFlow) FlowFunc(threadId int) *f.Workflow {
+	w := f.MakeWorkflow(l.Name())
 	fn := f.MakeTaskNode("start", tasks.MakeLsTask("."))
 	sn := f.MakeTaskNode("bad", &SecondTask{})
 	ct := f.MakeTaskNode("nothing", &CrapTask{})
@@ -81,6 +93,7 @@ func GetTestFlow(threadId int) *f.Workflow {
 	w.SetStart(fn)
 
 	fn.AddNext(0, ct)
+	fn.AddNext(1, ct)
 
 	ct.AddNext(1, sn)
 	ct.AddNext(0, ct1)
@@ -99,11 +112,13 @@ func GetFlows() *f.Project {
 
 	p := f.MakeProject("test project")
 
-	name := "main launcher"
-	p.AddFlow(f.MakeFlowLauncher(name, GetMainFlow, 3))
+	mf := &MainFlow{}
+	mf.Init("main flow")
+	p.AddFlow(f.MakeFlowLauncher(mf, 3))
 
-	// name = "test launcher"
-	// p.Flows[name] = f.MakeFlowLauncher(name, GetTestFlow, 200)
+	tf := &TestFlow{}
+	tf.Init("test flow")
+	p.AddFlow(f.MakeFlowLauncher(tf, 1))
 
 	return p
 }

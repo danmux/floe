@@ -69,21 +69,23 @@ func (p *Params) Copy(ip *Params) {
 
 // task tree structure
 type TaskNode struct {
-	Id   string              // unique id made from the name but should be html friendly
-	Name string              // unique name within a flow
-	Type string              // the type of task that this node has
-	Flow *Workflow           // this node knows which workflow it is part of
-	C    chan *Params        // the comms/event result chanel - of things to listen to - particularly mergenodes
-	do   Task                // this will be the concrete task to execute
-	Next map[int][]*TaskNode // mapped on the return code
+	Id       string              // unique id made from the name but should be html friendly
+	Name     string              // unique name within a flow
+	Type     string              // the type of task that this node has
+	Flow     *Workflow           // this node knows which workflow it is part of
+	C        chan *Params        // the comms/event result chanel - of things to listen to - particularly mergenodes
+	do       Task                // this will be the concrete task to execute
+	Next     map[int][]*TaskNode // mapped on the return code
+	Triggers bool                // if this triggers one or more merge nodes
 }
 
 // TODO - check uniqueness in the flow
 func MakeTaskNode(name string, t Task) *TaskNode {
 	tn := &TaskNode{
-		Id:   MakeID(name),
-		Name: name,
-		C:    make(chan *Params),
+		Id:       MakeID(name),
+		Name:     name,
+		C:        make(chan *Params, 1), // a buffer of one - as we always send the end even if no one is listening
+		Triggers: false,
 	}
 
 	tn.SetTask(t)
@@ -166,13 +168,14 @@ func (tn *TaskNode) Exec(inPar *Params) {
 		curPar.TaskName = tn.Name
 		curPar.TaskId = tn.Id
 
-		fmt.Println("================= >>>> <<<< ========== ", curPar.TaskName, curPar.TaskId, curPar.ThreadId)
-
 		// wait for stepper trigger
 		<-tn.Flow.Stepper
 
+		fmt.Println("================= >>>> Executing <<<< ========== ", curPar.TaskName, curPar.TaskId, curPar.ThreadId)
 		// actually execute the task
 		tn.do.Exec(tn, curPar)
+
+		fmt.Println("                    >>>> Done <<<< ", curPar.TaskName, curPar.TaskId, curPar.ThreadId)
 
 		if curPar == nil {
 			panic("Return parameters cant be nil - at least return the passed in parameters")
@@ -197,8 +200,12 @@ func (tn *TaskNode) Exec(inPar *Params) {
 			}
 		} else {
 			// otherwise trigger the last tasks channel - as that is the signal that this thread has finished
-			tn.Flow.End.Trigger() <- curPar
+			if !tn.Triggers {
+				fmt.Println("Problem - Dead end task - this workflow may never end")
+			}
 		}
+	} else {
+		fmt.Println("Error - Task missing for node")
 	}
 }
 

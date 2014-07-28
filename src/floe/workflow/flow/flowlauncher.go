@@ -3,49 +3,111 @@ package flow
 import (
 	"fmt"
 	"sync"
+	"time"
 )
 
 type GetFlowFunc func(threadId int) *Workflow
+
+// the end user returns these
+type LaunchableFlow interface {
+	FlowFunc(threadId int) *Workflow
+	Name() string
+	Id() string
+}
+
+type BaseFlow struct {
+	name string
+	id   string
+}
+
+func (b *BaseFlow) Init(name string) {
+	b.name = name
+	b.id = MakeID(name)
+}
+
+func (b *BaseFlow) Name() string {
+	return b.name
+}
+
+func (b *BaseFlow) Id() string {
+	return b.id
+}
 
 // a load of structures to service a multiple workflow threads- which is passed in via the GetFlowFunc which constructs the workflow
 // these can be used to fire off parallel test workflows for example - as a load test
 type FlowLauncher struct {
 	Name          string
+	Id            string
 	FlowFunc      GetFlowFunc
 	Threads       int
 	Flows         []*Workflow // each thread creates a full workflow in memory - so the implementor of tasks does not have to wory about thread conflicts
 	Props         *Props
 	CStat         chan *Params
-	CEnd          chan *Params
+	iEnd          chan *Params      // internal end chanel for auto stepper
 	LastRunResult *FlowLaunchResult // a set of response stats by task id in our workflow for the last run
 	// TODO - historical stats / logs
 }
 
-// the launchers trigger is the end tasknodes trigger
-func (fl *FlowLauncher) Trigger() chan *Params {
-	return fl.CEnd
+func MakeFlowLauncher(launchable LaunchableFlow, threads int) *FlowLauncher {
+
+	return &FlowLauncher{
+		Name:     launchable.Name(),
+		Id:       launchable.Id(),
+		FlowFunc: launchable.FlowFunc,
+		Threads:  threads,
+	}
 }
 
+// the launchers trigger is the end tasknodes trigger
+func (fl *FlowLauncher) Trigger() chan *Params {
+	return fl.iEnd
+}
+
+// can call own step - perhaps via ui
 func (fl *FlowLauncher) Step(v int) {
 	for i := 0; i < fl.Threads; i++ {
 		fl.Flows[i].Stepper <- v
 	}
 }
 
-func MakeFlowLauncher(name string, flowFunc GetFlowFunc, threads int) *FlowLauncher {
+func (fl *FlowLauncher) AutoStep(delay time.Duration, endChan chan *Params) {
+	loop := true
 
-	return &FlowLauncher{
-		Name:     name,
-		FlowFunc: flowFunc,
-		Threads:  threads,
-		CStat:    make(chan *Params),
-		CEnd:     make(chan *Params),
+	// swallow statuses
+	go func() {
+		for stat := range fl.CStat {
+			fmt.Println("          -------------> Status", stat)
+		}
+		fmt.Println("loop stoppped")
+	}()
+
+	go func() {
+		for loop {
+			time.Sleep(delay)
+			if loop {
+				fmt.Println("          (Stepping)")
+				go fl.Step(1)
+			}
+		}
+		fmt.Println("stepper loop stoppped")
+	}()
+
+	res := <-fl.iEnd
+	loop = false
+
+	fmt.Println("signal CEnd")
+	if endChan != nil {
+		endChan <- res
 	}
 }
 
 // p are initial environment properties
 // run this workflow with this number of threads and gather the success/fail response statistics
 func (fl *FlowLauncher) Exec(p Props) {
+
+	// make fresh chanels on each exec
+	fl.CStat = make(chan *Params)
+	fl.iEnd = make(chan *Params)
 
 	fmt.Println("workflow launcher", fl.Name, " with", fl.Threads, "threads")
 	var waitGroup sync.WaitGroup
@@ -95,24 +157,24 @@ func (fl *FlowLauncher) Exec(p Props) {
 		go flow.Exec(params)
 
 		// loop round forwarding status updates
-		loop := true
 		go func() {
-			for loop {
-				stat := <-flow.C // each tasknode sends status to the flows main channel
+			for stat := range flow.C {
 				fl.LastRunResult.AddResult(stat)
-
+				fmt.Println("got and pushing stat", stat.ThreadId, stat.TaskName)
 				fl.CStat <- stat // tiger any stats change chanel (e.g. for push messages like websockets)
 			}
-			fmt.Println("launcher loop stoppped")
+			fmt.Println("launcher status loop stoppped")
 		}()
 
 		// set up the flow end trigger
 		go func() {
 			par := <-flow.End.Trigger()
-			fmt.Println("got flow end", par.ThreadId)
+			fmt.Println("got flow end", par.ThreadId, flow.End.GetName())
 			// collect all end event triggers - last par wins
 			endParams.Status = endParams.Status + par.Status
-			loop = false
+
+			// close the flow status chanel
+			close(flow.C)
 			waitGroup.Done()
 		}()
 	}
@@ -121,7 +183,10 @@ func (fl *FlowLauncher) Exec(p Props) {
 		waitGroup.Wait()
 		fmt.Println("completed launcher", fl.Name, "with", fl.Threads, "threads")
 		// trigger end
-		fl.CEnd <- endParams
+		fl.LastRunResult.Completed = true
+		close(fl.CStat)
+
+		fl.iEnd <- endParams
 	}()
 }
 

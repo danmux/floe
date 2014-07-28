@@ -80,6 +80,11 @@ background-color: #fff;
     padding-bottom: 10px;
 }
 
+.success {
+    background-color: #CDEBCA;
+    border-radius: 5px;
+}
+
 /* Responsive: Portrait tablets and up */
 @media screen and (min-width: 768px) {
     /* Remove the padding we set earlier */
