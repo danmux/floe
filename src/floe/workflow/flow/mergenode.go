@@ -3,6 +3,7 @@ package flow
 import (
 	"errors"
 	"fmt"
+	"io"
 	"sync"
 )
 
@@ -34,6 +35,10 @@ func (tn *MergeNode) Trigger() chan *Params {
 	return tn.C
 }
 
+func (tn *MergeNode) FireTrigger() {
+	tn.C <- &Params{}
+}
+
 func (tn *MergeNode) GetName() string {
 	return tn.Name
 }
@@ -42,10 +47,12 @@ func (tn *MergeNode) GetType() string {
 	return "merge"
 }
 
+func (tn *MergeNode) SetStream(cs *io.PipeWriter) {}
+
 func (tn *MergeNode) GetEdges() []Edge {
 	edges := make([]Edge, 0, 1)
 	for _, x := range tn.Triggers { // triggers are inbound
-		edges = append(edges, Edge{Name: "", From: x.Name, To: tn.Name})
+		edges = append(edges, Edge{Name: "", From: x.Id, To: tn.Id})
 	}
 
 	if tn.Next != nil {
@@ -105,6 +112,7 @@ func (tn *MergeNode) AddTrigger(t *TaskNode) error {
 				curPar.TaskName = tn.Name
 				curPar.TaskId = tn.Id
 
+				curPar.Complete = true
 				tn.Flow.C <- curPar
 				fmt.Println("Trigger fired")
 

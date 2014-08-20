@@ -3,7 +3,9 @@ package flow
 import (
 	"errors"
 	"fmt"
+	"io"
 	"strings"
+	"third_party/github.com/golang/glog"
 )
 
 const (
@@ -12,19 +14,24 @@ const (
 	WORKING
 )
 
+const (
+	KEY_WORKSPACE = "workspace"
+)
+
 type Props map[string]string
 
 type Params struct {
-	FlowName string // these three make up a unique ID for the task
-	ThreadId int
-	TaskId   string
-	TaskName string
-
-	TaskType string
-	Status   int
-	Response string
-	Props    Props
-	Raw      []byte
+	FlowName   string // these three make up a unique ID for the task
+	ThreadId   int
+	TaskId     string
+	TaskName   string
+	Complete   bool // set true on complete tasks
+	TaskType   string
+	Status     int
+	ExitStatus int
+	Response   string
+	Props      Props
+	Raw        []byte
 }
 
 // descriptive stuff for json-ifying
@@ -46,12 +53,14 @@ type TriggeredTaskNode interface {
 	GetType() string
 	GetName() string
 	Trigger() chan *Params
+	FireTrigger()
 	GetEdges() []Edge
+	SetStream(*io.PipeWriter)
 }
 
 func MakeParams() *Params {
 	return &Params{
-		Props: Props{"workspace": "workspace"},
+		Props: Props{KEY_WORKSPACE: "workspace"}, // default workspace name is .... well ... workspace
 	}
 }
 
@@ -61,6 +70,7 @@ func (p *Params) Copy(ip *Params) {
 	p.ThreadId = ip.ThreadId
 	p.TaskName = ip.TaskName
 	p.TaskId = ip.TaskId
+	p.Complete = false // just to make sure
 
 	// and the other info stuff
 	p.TaskType = ip.TaskType
@@ -69,32 +79,23 @@ func (p *Params) Copy(ip *Params) {
 
 // task tree structure
 type TaskNode struct {
-	Id       string              // unique id made from the name but should be html friendly
-	Name     string              // unique name within a flow
-	Type     string              // the type of task that this node has
-	Flow     *Workflow           // this node knows which workflow it is part of
-	C        chan *Params        // the comms/event result chanel - of things to listen to - particularly mergenodes
-	do       Task                // this will be the concrete task to execute
-	Next     map[int][]*TaskNode // mapped on the return code
-	Triggers bool                // if this triggers one or more merge nodes
-}
-
-// TODO - check uniqueness in the flow
-func MakeTaskNode(name string, t Task) *TaskNode {
-	tn := &TaskNode{
-		Id:       MakeID(name),
-		Name:     name,
-		C:        make(chan *Params, 1), // a buffer of one - as we always send the end even if no one is listening
-		Triggers: false,
-	}
-
-	tn.SetTask(t)
-
-	return tn
+	Id            string              // unique id made from the name but should be html friendly
+	Name          string              // unique name within a flow
+	Type          string              // the type of task that this node has
+	Flow          *Workflow           // this node knows which workflow it is part of
+	C             chan *Params        // the comms/event result chanel - of things to listen to - particularly mergenodes
+	do            Task                // this will be the concrete task to execute
+	Next          map[int][]*TaskNode // mapped on the return code
+	Triggers      bool                // if this triggers one or more merge nodes
+	CommandStream *io.PipeWriter      // the passed in stream - only on thread 0 normally
 }
 
 func (tn *TaskNode) Trigger() chan *Params {
 	return tn.C
+}
+
+func (tn *TaskNode) FireTrigger() {
+	tn.C <- &Params{}
 }
 
 func (tn *TaskNode) GetName() string {
@@ -105,11 +106,15 @@ func (tn *TaskNode) GetType() string {
 	return tn.Type
 }
 
+func (tn *TaskNode) SetStream(cs *io.PipeWriter) {
+	tn.CommandStream = cs
+}
+
 func (n *TaskNode) GetEdges() []Edge {
 	edges := make([]Edge, 0, 1)
 	for val, x := range n.Next {
 		for _, xi := range x {
-			edges = append(edges, Edge{Name: fmt.Sprintf("%v", val), From: n.Name, To: xi.Name})
+			edges = append(edges, Edge{Name: fmt.Sprintf("%v", val), From: n.Id, To: xi.Id})
 		}
 	}
 
@@ -124,11 +129,15 @@ func (tn *TaskNode) SetTask(t Task) {
 
 func (tn *TaskNode) AddNext(forStatus int, t *TaskNode) error {
 	if tn.do == nil {
-		return errors.New("can't add next nodes if current task not set")
+		es := "can't add next nodes if current task not set"
+		glog.Error(es)
+		return errors.New(es)
 	}
 
 	if tn.Flow == nil {
-		return errors.New("can't add next nodes if current flow not set")
+		es := "can't add next nodes if current flow not set"
+		glog.Error(es)
+		return errors.New(es)
 	}
 
 	if tn.Next == nil {
@@ -153,13 +162,13 @@ func (tn *TaskNode) AddNext(forStatus int, t *TaskNode) error {
 }
 
 func (tn *TaskNode) Exec(inPar *Params) {
-	fmt.Println("task node exec", tn.Name)
+	glog.Info("exec ", tn.Name)
 	if tn.do != nil {
 
 		// copy the parameters now as these will be the status update
 		curPar := MakeParams()
 		if inPar == nil {
-			fmt.Println("Booo - you cant have null parameters")
+			glog.Error("ooo - you cant have null parameters")
 			return
 		}
 
@@ -171,41 +180,62 @@ func (tn *TaskNode) Exec(inPar *Params) {
 		// wait for stepper trigger
 		<-tn.Flow.Stepper
 
-		fmt.Println("================= >>>> Executing <<<< ========== ", curPar.TaskName, curPar.TaskId, curPar.ThreadId)
-		// actually execute the task
-		tn.do.Exec(tn, curPar)
+		glog.Info("====== Executing >>>>>>>> ", curPar.TaskName, " ", curPar.TaskId, " ", curPar.ThreadId)
 
-		fmt.Println("                    >>>> Done <<<< ", curPar.TaskName, curPar.TaskId, curPar.ThreadId)
+		// send a not completed signal to mark the start - must copy because reciever may only get the
+		// par after the task has finished and marked it complete
+		startPar := MakeParams()
+		startPar.Copy(curPar)
+		startPar.Complete = false
+		tn.Flow.C <- startPar
+
+		// actually execute the task
+		tn.do.Exec(tn, curPar, tn.CommandStream)
+
+		glog.Info("===== Done <<<< ", curPar.TaskId, " ", curPar.Status, " ", curPar.ExitStatus, " ", curPar.ThreadId)
+
+		// TODO - consider adding all results to the props - for use in later tasks
+
+		// fire message to the flow notification channel
+		curPar.Complete = true
+		glog.Info("send")
+		tn.Flow.C <- curPar
+		glog.Info("sent")
 
 		if curPar == nil {
 			panic("Return parameters cant be nil - at least return the passed in parameters")
 		}
 
-		// TODO - consider adding all results to the props - for use in later tasks
-
-		// fire message to the flow notification channel
-		tn.Flow.C <- curPar
-
-		// if this node has a result channel fire it
+		// if this node has a result channel fire it - if this is the end node this will end the flow
 		if tn.C != nil {
 			tn.C <- curPar
 		}
 
-		fmt.Println("    result =", curPar.Status)
+		glog.Info("return staus = ", curPar.Status)
 		next, ok := tn.Next[curPar.Status]
+
+		// check for the Stop all flag
+		if tn.Flow.Stop {
+			glog.Warning("thread stopped")
+			tn.Flow.End.FireTrigger()
+			return
+		}
+
 		// if we have another task that matches this return code execute it
 		if ok {
+			glog.Infof("found %d next task(s)", len(next))
 			for _, n := range next {
 				go n.Exec(curPar) // launch the next one with the results of this one (TODO - results of all props past?)
 			}
 		} else {
 			// otherwise trigger the last tasks channel - as that is the signal that this thread has finished
 			if !tn.Triggers {
-				fmt.Println("Problem - Dead end task - this workflow may never end")
+				glog.Warning("problem - dead end task - this workflow may never end")
 			}
 		}
+
 	} else {
-		fmt.Println("Error - Task missing for node")
+		glog.Error("task missing for node")
 	}
 }
 
@@ -217,6 +247,6 @@ func MakeID(name string) string {
 
 type Task interface {
 	// exec fills in and returns the params
-	Exec(t *TaskNode, p *Params)
+	Exec(t *TaskNode, p *Params, out *io.PipeWriter)
 	Type() string
 }

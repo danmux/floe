@@ -1,7 +1,7 @@
 package flow
 
 import (
-	// "fmt"
+	"fmt"
 	// "sync"
 	"encoding/json"
 )
@@ -12,6 +12,7 @@ type Project struct {
 	Name        string
 	Flows       map[string]*FlowLauncher
 	LastResults map[string]*FlowLaunchResult // a set of response stats by task id in our workflow for the last run
+	RunList     map[string]*RunList          // historical set of run tasks
 }
 
 func MakeProject(name string) *Project {
@@ -36,7 +37,7 @@ func (p *Project) ColectResults() {
 	}
 }
 
-// a project structure is just a list of flowstructs so we can render the project graph
+// a project structure is just a list of flowstructs so we can render the project graph as json
 type ProjectStruct struct {
 	Flows []FlowStruct
 }
@@ -46,6 +47,7 @@ func (p Project) ToJson() []byte {
 		Flows: []FlowStruct{},
 	}
 	for _, f := range p.Flows {
+		fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
 		ps.Flows = append(ps.Flows, f.GetStructure())
 	}
 

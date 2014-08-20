@@ -80,10 +80,45 @@ background-color: #fff;
     padding-bottom: 10px;
 }
 
-.success {
-    background-color: #CDEBCA;
-    border-radius: 5px;
+.task-status {
+    height: 8px;
+    margin-top: 4px;
+    width: 8px;
+    border-radius: 4px;
+    margin-left: 4px;
+    background-color: #EAEAEA;
+    position: fixed;
 }
+
+
+.success .task-status{
+    background-color: #70DB70;
+}
+
+.in-progress .task-status{
+    background-color: #FFB84D;
+}
+
+.failure .task-status{
+    background-color: #D65C33;
+}
+
+.task-status-fade {
+    opacity: 0.1;
+    webkit-transition: opacity .10s linear;
+    transition: opacity .10s linear;
+}
+
+g p {
+    margin-top: 10px;
+}
+
+pre code {
+  overflow: auto;
+  word-wrap: normal;
+  white-space: pre;
+}
+
 
 /* Responsive: Portrait tablets and up */
 @media screen and (min-width: 768px) {

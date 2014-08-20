@@ -90,6 +90,18 @@ define([
             });
     });
 
+
+    app.commands.setHandler("app:dialog:taskstatus", function(model) {
+        require(['views/DialogView', 'tpl!templates/statusModal.html'],
+            function(DialogView, ModalTpl) {
+
+                app.dialog.show(new DialogView({
+                    template: ModalTpl,
+                    model: model
+                }));
+            });
+    });
+
     /**
      * @example
      * app.commands.execute("app:dialog:confirm", {

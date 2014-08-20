@@ -49,6 +49,32 @@ func execHandler(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
+func stopHandler(w http.ResponseWriter, req *http.Request) {
+	JsonHeaders(w, req)
+
+	if req.Method == "POST" {
+		v := ExecInstruction{}
+
+		err := decodeBody(req, &v)
+		if err != nil {
+			respondWithJson(w, http.StatusNotAcceptable, err.Error())
+			return
+		}
+
+		err = stop(v.Id)
+
+		if err != nil {
+			respondWithJson(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		respondWithJson(w, http.StatusOK, nil)
+
+	} else {
+		respondWithJson(w, http.StatusMethodNotAllowed, "method not allowed")
+	}
+}
+
 func curStatHandler(w http.ResponseWriter, req *http.Request) {
 	JsonHeaders(w, req)
 
@@ -102,6 +128,7 @@ func runWeb() {
 
 	mux.HandleFunc("/api/exec", execHandler)
 	mux.HandleFunc("/api/status/current", curStatHandler)
+	mux.HandleFunc("/api/stop", stopHandler)
 
 	// mux.HandleFunc("/api/exec", func(w http.ResponseWriter, req *http.Request) {
 	// 	JsonHeaders(w, req)

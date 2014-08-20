@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"time"
 )
 
@@ -11,6 +12,7 @@ func runCommandLine() {
 
 // serve as an rpc
 func runAgent() {
+	fmt.Println(string(project.ToJson()))
 }
 
 func main() {

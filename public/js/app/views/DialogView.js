@@ -7,8 +7,17 @@ define([
 
 	return Marionette.ItemView.extend({
 		events: {
-            'click .dismiss': 'dismiss'
+            'click .dismiss': 'dismiss',
         },
+        modelEvents: {
+            'change': 'render'
+        },
+
+        onShow: function() {
+            $('pre code').each(function(i, block) {
+                hljs.highlightBlock(block);
+            });
+        },  
 
         dismiss: function(e) {
             e.preventDefault();

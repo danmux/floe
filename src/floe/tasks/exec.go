@@ -2,11 +2,11 @@ package tasks
 
 import (
 	f "floe/workflow/flow"
-	"fmt"
 	"io"
-	"os"
 	"os/exec"
-	"strings"
+	// "strings"
+	"syscall"
+	"third_party/github.com/golang/glog"
 )
 
 type ExecTask struct {
@@ -25,8 +25,8 @@ func MakeExecTask(cmd, args string) ExecTask {
 	}
 }
 
-func (ft ExecTask) Exec(t *f.TaskNode, p *f.Params) {
-	fmt.Println("executing command")
+func (ft ExecTask) Exec(t *f.TaskNode, p *f.Params, out *io.PipeWriter) {
+	glog.Info("executing command")
 
 	cmd, ok := p.Props["cmd"]
 	// if no passed in cmd use defualt
@@ -46,47 +46,70 @@ func (ft ExecTask) Exec(t *f.TaskNode, p *f.Params) {
 		args = ft.args
 	}
 
-	fmt.Println(cmd, args)
+	glog.Info("cmd: ", cmd, " args: >", args, "<")
+	argstr := cmd + " " + args
 
-	ars := strings.Split(args, " ")
-
-	eCmd := exec.Command(cmd, ars...)
+	eCmd := exec.Command("bash", "-c", argstr)
 
 	// this is mandatory
-	eCmd.Dir = t.Flow.Params.Props["workspace"]
+	eCmd.Dir = t.Flow.Params.Props[f.KEY_WORKSPACE]
+	glog.Info("working directory: ", eCmd.Dir)
 
-	sout, err := eCmd.StdoutPipe()
-	if err != nil {
-		fmt.Println(err)
-		p.Status = 1
-		return
-	}
-	eout, err := eCmd.StderrPipe()
-	if err != nil {
-		fmt.Println(err)
-		p.Status = 1
-		return
+	out.Write([]byte(eCmd.Dir + "$ " + argstr + "\n\n"))
+
+	var err error
+	if out != nil {
+		sout, err := eCmd.StdoutPipe()
+		if err != nil {
+			glog.Info(err)
+			p.Status = f.FAIL
+			return
+		}
+		eout, err := eCmd.StderrPipe()
+		if err != nil {
+			glog.Error(err)
+			p.Status = f.FAIL
+			return
+		}
+
+		glog.Info("exec copying")
+		go io.Copy(out, eout)
+		go io.Copy(out, sout)
+
 	}
 
+	glog.Info("exec starting ", p.Complete)
 	err = eCmd.Start()
 	if err != nil {
-		fmt.Println(err)
-		p.Status = 1
+		glog.Error(err)
+		out.Write([]byte(err.Error() + "\n\n"))
+		p.Status = f.FAIL
 		return
 	}
 
-	io.Copy(os.Stdout, sout)
-	io.Copy(os.Stdout, eout)
+	glog.Info("exec waiting")
+	err = eCmd.Wait()
 
-	eCmd.Wait()
+	glog.Info("exec cmd complete")
 
-	output, err := eCmd.Output()
+	if err != nil {
+		glog.Error("command failed ", err)
 
-	fmt.Println(output)
+		if msg, ok := err.(*exec.ExitError); ok {
+
+			if status, ok := msg.Sys().(syscall.WaitStatus); ok {
+				p.ExitStatus = status.ExitStatus()
+				glog.Info("exit status: ", p.Status)
+			}
+		}
+		// we prefer to return 0 for good or one for bad
+		p.Status = f.FAIL
+		return
+	}
 
 	p.Response = "exec command done"
 	p.Status = f.SUCCESS
 
-	fmt.Println("executing command complete")
+	glog.Info("executing command complete")
 	return
 }

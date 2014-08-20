@@ -21,5 +21,7 @@ _testmain.go
 
 *.exe
 *.test
-./bin
+bin/
 
+workspace
+workspace_old
