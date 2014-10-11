@@ -43,7 +43,7 @@ func (l *MainFlow) FlowFunc(threadId int) *f.Workflow {
 	ct := w.MakeTaskNode("task2", tasks.MakeExecTask("./loop.sh", ""))
 
 	// sn := w.MakeTaskNode("task3", tasks.MakeExecTask("ls", "-lrt"))
-	sn := w.MakeTaskNode("big clone", tasks.MakeExecTask("git", "clone --progress git@github.com:centralway/m-api.git"))
+	sn := w.MakeTaskNode("big clone", tasks.MakeExecTask("git", "clone --progress git@github.com:youtube/vitess.git"))
 	// sn := w.MakeTaskNode("task3", tasks.MakeExecTask("./loop.sh", ""))
 
 	// a merge node waits for all triggers to fire before continuing or triggering
