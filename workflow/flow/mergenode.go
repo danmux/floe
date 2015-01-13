@@ -9,54 +9,57 @@ import (
 
 // A merge node is a type of task that simply waits for all of its registered tasks to complete (trigger)
 type MergeNode struct {
-	Name     string
-	Id       string
-	Flow     *Workflow
+	name     string
+	id       string
+	flow     *Workflow
 	C        chan *Params
 	Next     *TaskNode
-	Triggers map[string]*TaskNode
+	Triggers map[string]TriggeredTaskNode
 	Group    sync.WaitGroup
 	first    bool
 }
 
-func MakeMergeNode(fl *Workflow, name string) *MergeNode {
-	mn := &MergeNode{
-		Flow:  fl,
-		Name:  name,
-		Id:    MakeID(name),
-		first: true,
-		C:     make(chan *Params, 1), // a buffer of one - as we always send the end even if no one is listening
-	}
-	fl.registerNode(mn)
-	return mn
+func (tn *MergeNode) SetMergeTrigger() {
 }
 
-func (tn *MergeNode) Trigger() chan *Params {
+func (tn *MergeNode) SetWorkFlow(f *Workflow) {
+	tn.flow = f
+}
+
+func (tn *MergeNode) WorkFlow() *Workflow {
+	return tn.flow
+}
+
+func (tn *MergeNode) DoneChan() chan *Params {
 	return tn.C
 }
 
-func (tn *MergeNode) FireTrigger() {
-	tn.C <- &Params{}
+func (tn *MergeNode) FireDoneChan(p *Params) {
+	tn.C <- p
 }
 
-func (tn *MergeNode) GetName() string {
-	return tn.Name
+func (tn *MergeNode) Name() string {
+	return tn.name
 }
 
-func (tn *MergeNode) GetType() string {
+func (tn *MergeNode) Id() string {
+	return tn.id
+}
+
+func (tn *MergeNode) Type() string {
 	return "merge"
 }
 
 func (tn *MergeNode) SetStream(cs *io.PipeWriter) {}
 
-func (tn *MergeNode) GetEdges() []Edge {
+func (tn *MergeNode) Edges() []Edge {
 	edges := make([]Edge, 0, 1)
 	for _, x := range tn.Triggers { // triggers are inbound
-		edges = append(edges, Edge{Name: "", From: x.Id, To: tn.Id})
+		edges = append(edges, Edge{Name: "0", From: x.Id(), To: tn.Id()})
 	}
 
 	if tn.Next != nil {
-		edges = append(edges, Edge{Name: fmt.Sprintf("%v", 0), From: tn.Name, To: tn.Next.Name})
+		edges = append(edges, Edge{Name: fmt.Sprintf("%v", 0), From: tn.Id(), To: tn.Next.Id()})
 	}
 
 	return edges
@@ -67,39 +70,40 @@ func (tn *MergeNode) Exec(p *Params) {}
 
 func (tn *MergeNode) SetNext(t *TaskNode) {
 	// make sure we have a cpy of this in the parent map
-	tn.Flow.registerNode(t)
+	tn.flow.registerNode(t)
 	tn.Next = t
 }
 
-func (tn *MergeNode) AddTrigger(t *TaskNode) error {
+func (tn *MergeNode) AddTrigger(t TriggeredTaskNode) error {
 
-	if tn.Flow == nil {
+	if tn.flow == nil {
 		return errors.New("can't add next nodes if current flow not set")
 	}
 
 	if tn.Triggers == nil {
-		tn.Triggers = make(map[string]*TaskNode)
+		tn.Triggers = make(map[string]TriggeredTaskNode)
 	}
 
 	// make sure this task has a chanel
-	if t.C == nil {
-		t.C = make(chan *Params)
+	if t.DoneChan() == nil {
+		panic("triggers must have a done chanel")
 	}
 
-	// add it to the flow
-	t.Flow = tn.Flow
+	if t.WorkFlow() != tn.flow {
+		panic("triggers must be in the same workflow as the merge node they trigger")
+	}
 
 	// tell the tasknode it does trigger something
-	t.Triggers = true
+	t.SetMergeTrigger()
 
-	_, ok := tn.Triggers[t.Name]
+	_, ok := tn.Triggers[t.Name()]
 	if !ok {
-		tn.Triggers[t.Name] = t
+		tn.Triggers[t.Name()] = t
 
 		var par *Params // last params wins
 		tn.Group.Add(1)
 		go func() {
-			par = <-t.C
+			par = <-t.DoneChan()
 			tn.Group.Done()
 		}()
 
@@ -109,11 +113,11 @@ func (tn *MergeNode) AddTrigger(t *TaskNode) error {
 				// tell the flow status channel we have completed
 				curPar := &Params{}
 				curPar.Copy(par)
-				curPar.TaskName = tn.Name
-				curPar.TaskId = tn.Id
+				curPar.TaskName = tn.Name()
+				curPar.TaskId = tn.Id()
 
 				curPar.Complete = true
-				tn.Flow.C <- curPar
+				tn.flow.C <- curPar
 				fmt.Println("Trigger fired")
 
 				// and trigger our end channel

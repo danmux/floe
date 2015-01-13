@@ -3,8 +3,8 @@ package flow
 import (
 	"bufio"
 	"errors"
+	"github.com/golang/glog"
 	"io"
-	"third_party/github.com/golang/glog"
 	"time"
 )
 
@@ -18,31 +18,43 @@ type FlowLauncherStats struct {
 	reader          *io.PipeReader // read from this to fill the CommandOutput
 }
 
+type StepResult struct {
+	Stats      *FlowLauncherStats // a set of response stats by task id in our workflow for the last run
+	StartParam *Params
+	EndParam   *Params
+}
+
 type FlowLaunchResult struct {
 	Error        string
 	FlowId       string
 	Start        time.Time
 	Duration     time.Duration
 	Completed    bool
-	Results      map[string]*FlowLauncherStats // a set of response stats by task id in our workflow for the last run
+	Results      map[string]*StepResult // a set of response stats by task id in our workflow for the last run
 	TotalThreads int
 }
 
 func NewFlowLaunchResult(threads int) *FlowLaunchResult {
+	glog.Info("new LaunchResult result ")
 	flr := &FlowLaunchResult{
 		Start:        time.Now(),
 		Completed:    false,
-		Results:      make(map[string]*FlowLauncherStats),
+		Results:      make(map[string]*StepResult),
 		TotalThreads: threads, // how many threads should be executed
 	}
 	return flr
 }
 
 func (f *FlowLaunchResult) AddTask(taskId string) (*FlowLauncherStats, error) {
-	stat, ok := f.Results[taskId]
+	glog.Infof("add result task %s \n", taskId)
+
+	res, ok := f.Results[taskId]
 	if !ok {
+
+		res = &StepResult{}
+
 		rp, wp := io.Pipe()
-		stat = &FlowLauncherStats{
+		res.Stats = &FlowLauncherStats{
 			CommandStream: wp,
 			reader:        rp,
 			CommandOutput: []string{},
@@ -59,20 +71,28 @@ func (f *FlowLaunchResult) AddTask(taskId string) (*FlowLauncherStats, error) {
 			if err := scanner.Err(); err != nil {
 				glog.Error("There was an error with the scanner in attached container ", err)
 			}
-		}(stat, rp)
+		}(res.Stats, rp)
 
-		f.Results[taskId] = stat
-		return stat, nil
+		// and add it to the results
+		f.Results[taskId] = res
+		return res.Stats, nil
 	} else {
 		return nil, errors.New("attempting to add none unique task name " + taskId)
 	}
 }
 
-func (f *FlowLaunchResult) AddStatusOrResult(id string, complete bool, status int) {
-	stat, ok := f.Results[id]
+func (f *FlowLaunchResult) AddStatusOrResult(statusParams *Params) {
+
+	id := statusParams.TaskId
+	complete := statusParams.Complete
+	status := statusParams.Status
+
+	res, ok := f.Results[id]
 	if !ok {
 		panic("a task id was changed or added after initialisation of the flow")
 	}
+
+	stat := res.Stats
 	// mark it at least one percent complete so we can see that it is in progress
 	stat.PercentComplete = 1
 
@@ -83,7 +103,15 @@ func (f *FlowLaunchResult) AddStatusOrResult(id string, complete bool, status in
 		}
 
 		stat.PercentComplete = (stat.Complete * 100) / f.TotalThreads
+
+		res.EndParam = statusParams
+		glog.Info("setting the endparams <<<<<<<<<<<<")
+
+	} else {
+		if res.StartParam == nil {
+			res.StartParam = statusParams
+		}
 	}
 
-	f.Results[id] = stat
+	res.Stats = stat
 }

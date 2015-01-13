@@ -3,9 +3,9 @@ package tasks
 import (
 	f "floe/workflow/flow"
 	"fmt"
+	"github.com/golang/glog"
 	"io"
 	"io/ioutil"
-	"third_party/github.com/golang/glog"
 )
 
 type LsTask struct {
@@ -40,7 +40,7 @@ func (ft *LsTask) Exec(t *f.TaskNode, p *f.Params, out *io.PipeWriter) {
 	}
 
 	// this is mandatory node
-	path = t.Flow.Params.Props[f.KEY_WORKSPACE] + "/" + path
+	path = t.WorkFlow().Params.Props[f.KEY_WORKSPACE] + "/" + path
 
 	files, _ := ioutil.ReadDir(path)
 	for _, f := range files {

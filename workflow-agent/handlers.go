@@ -2,12 +2,13 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
+	"github.com/codegangsta/negroni"
 	"net/http"
 	"strings"
-	"third_party/negroni"
 	"time"
 )
+
+const rootFolder = "/build"
 
 type ExecInstruction struct {
 	Id      string
@@ -15,6 +16,7 @@ type ExecInstruction struct {
 	Delay   time.Duration
 }
 
+// api/exec
 func execHandler(w http.ResponseWriter, req *http.Request) {
 	JsonHeaders(w, req)
 
@@ -31,13 +33,9 @@ func execHandler(w http.ResponseWriter, req *http.Request) {
 
 		v.Delay = v.Delay * time.Second
 
-		fmt.Println("V", v)
-
-		flow, err := exec_async(v.Id, v.Delay)
-		fmt.Println("flow", flow)
+		_, err = exec_async(v.Id, v.Delay)
 
 		if err != nil {
-			fmt.Println("ERORRO", err)
 			respondWithJson(w, http.StatusInternalServerError, err.Error())
 			return
 		}
@@ -113,7 +111,6 @@ func respondWithJson(w http.ResponseWriter, code int, v interface{}) {
 		b, err = json.MarshalIndent(v, "", "  ")
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			fmt.Println("error", err)
 			w.Write([]byte(err.Error()))
 			return
 		}
@@ -123,19 +120,14 @@ func respondWithJson(w http.ResponseWriter, code int, v interface{}) {
 	w.Write(b)
 }
 
-func runWeb() {
+func runWeb(host string) {
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("/api/exec", execHandler)
-	mux.HandleFunc("/api/status/current", curStatHandler)
-	mux.HandleFunc("/api/stop", stopHandler)
+	mux.HandleFunc(rootFolder+"/api/exec", execHandler)
+	mux.HandleFunc(rootFolder+"/api/status/current", curStatHandler)
+	mux.HandleFunc(rootFolder+"/api/stop", stopHandler)
 
-	// mux.HandleFunc("/api/exec", func(w http.ResponseWriter, req *http.Request) {
-	// 	JsonHeaders(w, req)
-	// 	exec("main launcher", 0)
-	// })
-
-	mux.HandleFunc("/api/flow", func(w http.ResponseWriter, req *http.Request) {
+	mux.HandleFunc(rootFolder+"/api/flow", func(w http.ResponseWriter, req *http.Request) {
 		JsonHeaders(w, req)
 		w.Write(project.ToJson())
 	})
@@ -144,5 +136,5 @@ func runWeb() {
 	// n := negroni.New()
 
 	n.UseHandler(mux)
-	n.Run(":3000")
+	n.Run(host)
 }

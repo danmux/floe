@@ -2,91 +2,89 @@ package main
 
 // orchestra - the set of orchestration routines
 import (
-	"customfloe"
 	"errors"
 	"flag"
 	f "floe/workflow/flow"
-	"fmt"
-	"third_party/github.com/golang/glog"
+	"github.com/golang/glog"
 	"time"
 )
 
+// the global project
 var project *f.Project
 
+type GetFlowsFunc func(env string) *f.Project
+
 // load in our specific flows
-func setup() {
+func setup(env string, getfloesFunc GetFlowsFunc) {
 	flag.Parse()
 	glog.Info("Floe starting")
-	project = customflow.GetFlows()
+	project = getfloesFunc(env)
+	project.RunTriggers()
 }
 
-func start(flowId string) (*f.FlowLauncher, error) {
-	flow, ok := project.Flows[flowId]
+// start a particular flow -
+func start(flowId string, delay time.Duration, endChan chan *f.Params) (*f.FlowLauncher, error) {
+	launcher, ok := project.FlowLaunchers[flowId]
 
 	if !ok {
 		glog.Error("cant start - flow not found ", flowId)
 		return nil, errors.New("flow not found")
 	}
 
-	props := make(f.Props)
+	glog.Infoln("executing:", flowId)
 
-	props[f.KEY_WORKSPACE] = "workspace"
-	props["path"] = "/"
+	go launcher.Start(delay, endChan)
 
-	fmt.Println("executing")
+	glog.Infoln("started:", flowId)
 
-	go flow.Exec(props)
-
-	fmt.Println("started")
-
-	return flow, nil
+	return launcher, nil
 }
 
+// stop any flow in progress
 func stop(flowId string) error {
-	flow, ok := project.Flows[flowId]
+	flow, ok := project.FlowLaunchers[flowId]
 
 	if !ok {
 		glog.Error("cant stop - flow not found ", flowId)
 		return errors.New("flow not found")
 	}
 
+	// daleks atack! (and im not even a Dr Who nerd, but I did shit myself as a kid!)
 	flow.ExterminateExterminate()
 
 	return nil
 }
 
+// start the flow and return - expecting some other thing is looking at statuses (e.g. a ajax request)
 func exec_async(flowId string, delay time.Duration) (*f.FlowLauncher, error) {
-	flow, err := start(flowId)
+	flow, err := start(flowId, delay, nil)
 
 	if err != nil {
 		return nil, err
 	}
 
-	go flow.AutoStep(delay, nil)
-
 	return flow, nil
 }
 
+// start the flow but block waiting for the result
 func exec(flowId string, delay time.Duration) error {
 
-	flow, err := start(flowId)
+	ec := make(chan *f.Params)
+
+	_, err := start(flowId, delay, ec)
 
 	if err != nil {
 		return err
 	}
 
-	ec := make(chan *f.Params)
-
-	go flow.AutoStep(delay, ec)
-
 	res := <-ec
 
-	fmt.Println("end result", res)
+	glog.Infoln("end result", res)
 
 	if res.Status == 0 {
-		fmt.Println("FLOW SUCCEEDED")
+		glog.Infoln("FLOW SUCCEEDED")
 	} else {
-		fmt.Println("FLOW FAILED")
+		glog.Infoln("FLOW FAILED")
 	}
 
 	return nil
