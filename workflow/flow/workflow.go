@@ -8,21 +8,23 @@ import (
 // the tasks themselves know which other task to call
 // a workflow is created and run for each thread of a flow launcher
 type Workflow struct {
-	Name      string
-	Start     *TaskNode                    // start is used for a normal workflow there is only one start and it must be a tasknode
-	End       TriggeredTaskNode            // any node to end on
-	Params    *Params                      // initial condition parameters
-	C         chan *Params                 // the chanel that tasknodes attach to and send status updates
-	Stepper   chan int                     // inbound channel - to provide stepping
-	TaskNodes map[string]TriggeredTaskNode // map by name of all our nodes
-	Stop      bool                         // set true to stop this threads flow - or to mark it stopped
+	Name           string
+	Start          *TaskNode                    // start is used for a normal workflow there is only one start and it must be a tasknode
+	End            TriggeredTaskNode            // any node to end on
+	Params         *Params                      // initial condition parameters
+	C              chan *Params                 // the chanel that tasknodes attach to and send status updates
+	Stepper        chan int                     // inbound channel - to provide stepping
+	TaskNodes      map[string]TriggeredTaskNode // map by name of all our nodes
+	Stop           bool                         // set true to stop this threads flow - or to mark it stopped
+	IgnoreTriggers bool                         // set by the first trigger in the flow - stops other triggers from firing
 }
 
 func MakeWorkflow() *Workflow {
 	return &Workflow{
-		C:         make(chan *Params),
-		Stepper:   make(chan int),
-		TaskNodes: make(map[string]TriggeredTaskNode),
+		C:              make(chan *Params),
+		Stepper:        make(chan int),
+		TaskNodes:      make(map[string]TriggeredTaskNode),
+		IgnoreTriggers: false,
 	}
 }
 

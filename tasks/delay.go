@@ -27,6 +27,8 @@ func (ft *DelayTask) Exec(t *f.TaskNode, p *f.Params, out *io.PipeWriter) {
 
 	time.Sleep(ft.delay)
 
+	out.Write([]byte("Delay complete\n"))
+
 	p.Response = "node done"
 	p.Status = f.SUCCESS
 	return

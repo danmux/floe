@@ -16,8 +16,9 @@ const (
 )
 
 const (
-	KEY_WORKSPACE = "workspace"
+	KEY_WORKSPACE = "workspace"       // folder for per project files
 	KEY_TIDY_DESK = "reset_workspace" // reset or keep
+	KEY_TRIGGERS  = "triggers"        // folder for trigger state
 )
 
 // the interface that the tasknodes hod that actually do the work
@@ -193,6 +194,16 @@ func (tn *TaskNode) Exec(inPar *Params) {
 			glog.Warning("thread stopped")
 			tn.flow.End.FireDoneChan(curPar)
 			return
+		}
+
+		if tn.Type() == "trigger" {
+			if tn.flow.IgnoreTriggers {
+				glog.Warning("trigger fired and ignored as one is already underway")
+				return
+			}
+			// set the flag to ignore all triggers
+			glog.Warning("trigger fired - ignoring all others")
+			tn.flow.IgnoreTriggers = true
 		}
 
 		// fire message to the flow notification channel

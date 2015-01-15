@@ -41,6 +41,8 @@ func (b *BaseLaunchable) DefaultProps() *Props {
 	props[KEY_WORKSPACE] = "workspace/" + b.id
 	props["path"] = "/"
 	props[KEY_TIDY_DESK] = "reset" // or keep
+
+	props[KEY_TRIGGERS] = "triggers/" + b.id
 	return &props
 }
 
@@ -145,7 +147,7 @@ func (fl *FlowLauncher) MakeLaunchResults(tf *Workflow) {
 
 	// TaskNodes
 	for _, n := range tf.TaskNodes {
-		glog.Info("add name node to run result", n.Name())
+		glog.Info("add name node to run result: ", n.Name())
 		ls, err := fl.LastRunResult.AddTask(MakeID(n.Name()))
 		if err != nil {
 			glog.Error("dodgy nodes ", err)
@@ -155,6 +157,7 @@ func (fl *FlowLauncher) MakeLaunchResults(tf *Workflow) {
 	}
 }
 
+// clear out the workspace if required - backs up last workspace
 func (fl *FlowLauncher) TidyDeskPolicy(p Props) bool {
 	ws := p[KEY_WORKSPACE]
 	if p[KEY_TIDY_DESK] != "keep" {
@@ -183,7 +186,7 @@ func (fl *FlowLauncher) TidyDeskPolicy(p Props) bool {
 	err := os.MkdirAll(ws, 0777)
 	if err != nil {
 
-		fmt.Println(err)
+		glog.Warning(err)
 		// expect an existing folder if its set to keep
 		if p[KEY_TIDY_DESK] == "keep" {
 			return true
@@ -193,7 +196,16 @@ func (fl *FlowLauncher) TidyDeskPolicy(p Props) bool {
 		fl.LastRunResult.Error = fl.Error
 		return false
 	}
-	// time.Sleep(5 * time.Second)
+
+	// now make sure we have the triggers state folder in place
+	ts := p[KEY_TRIGGERS]
+	err = os.MkdirAll(ts, 0777)
+	if err != nil {
+		glog.Error(err)
+		fl.Error = err.Error()
+		fl.LastRunResult.Error = fl.Error
+		return false
+	}
 
 	glog.Info("removing and moving done")
 	return true

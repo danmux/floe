@@ -5,7 +5,8 @@ import (
 	"io"
 	"os/exec"
 	// "strings"
-	"github.com/golang/glog"
+	"bufio"
+	"floe/log"
 	"syscall"
 )
 
@@ -115,4 +116,33 @@ func (ft ExecTask) Exec(t *f.TaskNode, p *f.Params, out *io.PipeWriter) {
 
 	glog.Info("executing command complete")
 	return
+}
+
+// execute the command but capture the output in string array
+func (ft ExecTask) ExecCapture(t *f.TaskNode, p *f.Params, out *io.PipeWriter) ([]string, error) {
+	glog.Info("exec capture", t.Id())
+	var err error
+	commandOutput := []string{}
+
+	rp, wp := io.Pipe()
+
+	// start the threads to monitor the reader
+	go func() {
+		scanner := bufio.NewScanner(rp)
+		for scanner.Scan() {
+			t := scanner.Text()
+			glog.Info("trigger exec out: ", t)
+			commandOutput = append(commandOutput, t)
+			out.Write([]byte(t + "\n")) // forward it on for display
+		}
+		if err = scanner.Err(); err != nil {
+			glog.Error("There was an error with the scanner in exec capture", err)
+		}
+	}()
+
+	// and add it to the results
+	ft.Exec(t, p, wp)
+
+	glog.Info("Exec Captured: ", commandOutput)
+	return commandOutput, err
 }
