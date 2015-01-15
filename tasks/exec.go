@@ -119,7 +119,9 @@ func (ft ExecTask) Exec(t *f.TaskNode, p *f.Params, out *io.PipeWriter) {
 }
 
 // execute the command but capture the output in string array
-func (ft ExecTask) ExecCapture(t *f.TaskNode, p *f.Params, out *io.PipeWriter) ([]string, error) {
+// forward = shall we forward to the command list (to show in the web page)
+// most triggers which loop round - should set this false
+func (ft ExecTask) ExecCapture(t *f.TaskNode, p *f.Params, out *io.PipeWriter, forward bool) ([]string, error) {
 	glog.Info("exec capture", t.Id())
 	var err error
 	commandOutput := []string{}
@@ -133,7 +135,9 @@ func (ft ExecTask) ExecCapture(t *f.TaskNode, p *f.Params, out *io.PipeWriter) (
 			t := scanner.Text()
 			glog.Info("trigger exec out: ", t)
 			commandOutput = append(commandOutput, t)
-			out.Write([]byte(t + "\n")) // forward it on for display
+			if forward {
+				out.Write([]byte(t + "\n")) // forward it on for display
+			}
 		}
 		if err = scanner.Err(); err != nil {
 			glog.Error("There was an error with the scanner in exec capture", err)

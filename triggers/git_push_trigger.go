@@ -66,7 +66,7 @@ func (ft *TriggerOnGitPush) ExecOnce(t *f.TaskNode, p *f.Params, out *io.PipeWri
 	// get log from url
 	gitCommand := tasks.MakeExecTask("git", "ls-remote "+ft.repoUrl, "")
 
-	outCommands, err := gitCommand.ExecCapture(t, p, out)
+	outCommands, err := gitCommand.ExecCapture(t, p, out, false)
 
 	if err == nil && len(outCommands) > 2 {
 
@@ -97,7 +97,9 @@ func (ft *TriggerOnGitPush) ExecOnce(t *f.TaskNode, p *f.Params, out *io.PipeWri
 			p.Props["git-trigger-hash"] = hash
 			p.Props["git-trigger-branch"] = branch
 
-			out.Write([]byte("Triggering: " + t.Id() + "\n"))
+			out.Write([]byte("triggering: " + t.Id() + "\n"))
+			out.Write([]byte("for branch: " + branch + "\n"))
+			out.Write([]byte("with hash: " + hash + "\n"))
 
 			p.Status = f.SUCCESS
 			p.Response = "trigger done"
