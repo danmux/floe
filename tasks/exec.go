@@ -5,23 +5,26 @@ import (
 	"io"
 	"os/exec"
 	// "strings"
+	"bufio"
+	"floe/log"
 	"syscall"
-	"third_party/github.com/golang/glog"
 )
 
 type ExecTask struct {
 	cmd  string
 	args string
+	path string // path relative to the workspace
 }
 
 func (ft ExecTask) Type() string {
 	return "execute"
 }
 
-func MakeExecTask(cmd, args string) ExecTask {
+func MakeExecTask(cmd, args, path string) ExecTask {
 	return ExecTask{
 		cmd:  cmd,
 		args: args,
+		path: path,
 	}
 }
 
@@ -52,13 +55,14 @@ func (ft ExecTask) Exec(t *f.TaskNode, p *f.Params, out *io.PipeWriter) {
 	eCmd := exec.Command("bash", "-c", argstr)
 
 	// this is mandatory
-	eCmd.Dir = t.Flow.Params.Props[f.KEY_WORKSPACE]
+	eCmd.Dir = t.WorkFlow().Params.Props[f.KEY_WORKSPACE] + ft.path
 	glog.Info("working directory: ", eCmd.Dir)
 
-	out.Write([]byte(eCmd.Dir + "$ " + argstr + "\n\n"))
-
 	var err error
+	// out can be nil - it is only set for the first executing thread
 	if out != nil {
+		out.Write([]byte(eCmd.Dir + "$ " + argstr + "\n\n"))
+
 		sout, err := eCmd.StdoutPipe()
 		if err != nil {
 			glog.Info(err)
@@ -112,4 +116,37 @@ func (ft ExecTask) Exec(t *f.TaskNode, p *f.Params, out *io.PipeWriter) {
 
 	glog.Info("executing command complete")
 	return
+}
+
+// execute the command but capture the output in string array
+// forward = shall we forward to the command list (to show in the web page)
+// most triggers which loop round - should set this false
+func (ft ExecTask) ExecCapture(t *f.TaskNode, p *f.Params, out *io.PipeWriter, forward bool) ([]string, error) {
+	glog.Info("exec capture", t.Id())
+	var err error
+	commandOutput := []string{}
+
+	rp, wp := io.Pipe()
+
+	// start the threads to monitor the reader
+	go func() {
+		scanner := bufio.NewScanner(rp)
+		for scanner.Scan() {
+			t := scanner.Text()
+			glog.Info("trigger exec out: ", t)
+			commandOutput = append(commandOutput, t)
+			if forward {
+				out.Write([]byte(t + "\n")) // forward it on for display
+			}
+		}
+		if err = scanner.Err(); err != nil {
+			glog.Error("There was an error with the scanner in exec capture", err)
+		}
+	}()
+
+	// and add it to the results
+	ft.Exec(t, p, wp)
+
+	glog.Info("Exec Captured: ", commandOutput)
+	return commandOutput, err
 }

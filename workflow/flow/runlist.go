@@ -1,9 +1,10 @@
 package flow
 
 import (
-	"third_party/github.com/golang/glog"
+	"github.com/golang/glog"
 )
 
+// TODO - not used yet - but this would be the historical set of lauch results for a given flow
 type Run struct {
 	Id     string
 	Result *FlowLaunchResult

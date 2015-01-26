@@ -11,7 +11,7 @@ import (
 
 func Test_Exec(t *testing.T) {
 
-	fl := f.MakeWorkflow("tflow")
+	fl := f.MakeWorkflow()
 	p := f.MakeParams()
 	p.Props[f.KEY_WORKSPACE] = "."
 	fl.Params = p
@@ -21,10 +21,10 @@ func Test_Exec(t *testing.T) {
 	// tsk := MakeExecTask("pwd", "-L")
 
 	// tsk := MakeExecTask("ls", "")
-	tsk := MakeExecTask("./loop.sh", "")
+	tsk := MakeExecTask("./loop.sh", "", "")
 
 	tn := fl.MakeTaskNode("test", tsk)
-	tn.Flow = fl
+
 	r, w := io.Pipe()
 
 	go func() {
