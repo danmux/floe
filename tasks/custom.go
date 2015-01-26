@@ -4,7 +4,7 @@ import (
 	f "floe/workflow/flow"
 	"io"
 
-	"third_party/github.com/golang/glog"
+	"github.com/golang/glog"
 )
 
 type CustomTask struct {
