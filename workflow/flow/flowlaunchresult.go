@@ -98,11 +98,17 @@ func (f *FlowLaunchResult) AddStatusOrResult(statusParams *Params) {
 
 	if complete {
 		stat.Complete = stat.Complete + 1
-		if status > 0 {
+
+		if status == 1 {
 			stat.Failed = stat.Failed + 1
 		}
 
 		stat.PercentComplete = (stat.Complete * 100) / f.TotalThreads
+
+		// if we are in a loop
+		if stat.Complete > f.TotalThreads {
+			stat.PercentComplete /= stat.Complete
+		}
 
 		res.EndParam = statusParams
 		glog.Info("setting the endparams <<<<<<<<<<<<")
