@@ -4,15 +4,17 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/golang/glog"
 	"io"
 	"strings"
+
+	"github.com/golang/glog"
 )
 
 const (
 	SUCCESS = iota
 	FAIL
 	WORKING
+	LOOP
 )
 
 const (
@@ -215,6 +217,9 @@ func (tn *TaskNode) Exec(inPar *Params) {
 
 		// if this node has a result channel fire it - if this is the end node this will end the flow
 		if tn.C != nil {
+			if len(tn.C) > 0 {
+				<-tn.C
+			}
 			tn.C <- curPar
 		}
 
