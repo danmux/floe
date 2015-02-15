@@ -27,6 +27,13 @@ type Task interface {
 	// exec fills in and returns the params
 	Exec(t *TaskNode, p *Params, out *io.PipeWriter)
 	Type() string
+	Config() TaskConfig // json representation of the config for the node
+}
+
+// TaskConfig holds any usefull public information about a specific task
+// at the moment this is just used for display
+type TaskConfig struct {
+	Command string
 }
 
 // the interface for all nodes in a flow
@@ -43,6 +50,7 @@ type TriggeredTaskNode interface {
 	SetStream(*io.PipeWriter)
 	SetWorkFlow(*Workflow)
 	SetMergeTrigger()
+	Config() TaskConfig
 }
 
 // task tree structure
@@ -92,6 +100,10 @@ func (tn *TaskNode) Type() string {
 
 func (tn *TaskNode) SetStream(cs *io.PipeWriter) {
 	tn.CommandStream = cs
+}
+
+func (tn *TaskNode) Config() TaskConfig {
+	return tn.do.Config()
 }
 
 func (n *TaskNode) Edges() []Edge {
@@ -249,9 +261,10 @@ func MakeID(name string) string {
 
 // struct for reporting e.g. for json-ifying
 type Node struct {
-	Id   string
-	Name string
-	Type string
+	Id     string
+	Name   string
+	Type   string
+	Config TaskConfig
 }
 
 // struct for reporting e.g. for json-ifying

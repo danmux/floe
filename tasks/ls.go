@@ -9,7 +9,8 @@ import (
 )
 
 type LsTask struct {
-	path string
+	path   string
+	config f.TaskConfig
 }
 
 func (ft *LsTask) Type() string {
@@ -51,4 +52,8 @@ func (ft *LsTask) Exec(t *f.TaskNode, p *f.Params, out *io.PipeWriter) {
 	p.Status = f.SUCCESS
 
 	return
+}
+
+func (ft *LsTask) Config() f.TaskConfig {
+	return ft.config
 }

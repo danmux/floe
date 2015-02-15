@@ -2,13 +2,13 @@ package tasks
 
 import (
 	f "floe/workflow/flow"
-	"io"
-
 	"github.com/golang/glog"
+	"io"
 )
 
 type CustomTask struct {
 	customFunc CustomExecFunc
+	config     f.TaskConfig
 }
 
 type CustomExecFunc func(t *f.TaskNode, p *f.Params, out *io.PipeWriter)
@@ -30,4 +30,8 @@ func (ft *CustomTask) Exec(t *f.TaskNode, p *f.Params, out *io.PipeWriter) {
 	ft.customFunc(t, p, out)
 
 	return
+}
+
+func (ft *CustomTask) Config() f.TaskConfig {
+	return ft.config
 }

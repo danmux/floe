@@ -16,6 +16,11 @@ type ExecInstruction struct {
 	Delay   time.Duration
 }
 
+type ConfigRequest struct {
+	FlowId string
+	NodeId string
+}
+
 // api/exec
 func execHandler(w http.ResponseWriter, req *http.Request) {
 	JsonHeaders(w, req)
@@ -34,6 +39,30 @@ func execHandler(w http.ResponseWriter, req *http.Request) {
 		v.Delay = v.Delay * time.Second
 
 		_, err = exec_async(v.Id, v.Delay)
+
+		if err != nil {
+			respondWithJson(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		respondWithJson(w, http.StatusOK, nil)
+
+	} else {
+		respondWithJson(w, http.StatusMethodNotAllowed, "method not allowed")
+	}
+}
+
+func taskNodeConfigHandler(w http.ResponseWriter, req *http.Request) {
+	JsonHeaders(w, req)
+
+	if req.Method == "POST" {
+		v := ConfigRequest{}
+
+		err := decodeBody(req, &v)
+		if err != nil {
+			respondWithJson(w, http.StatusNotAcceptable, err.Error())
+			return
+		}
 
 		if err != nil {
 			respondWithJson(w, http.StatusInternalServerError, err.Error())
@@ -125,6 +154,7 @@ func runWeb(host string) {
 
 	mux.HandleFunc(rootFolder+"/api/exec", execHandler)
 	mux.HandleFunc(rootFolder+"/api/status/current", curStatHandler)
+	mux.HandleFunc(rootFolder+"/api/status/tasknode", taskNodeConfigHandler)
 	mux.HandleFunc(rootFolder+"/api/stop", stopHandler)
 
 	mux.HandleFunc(rootFolder+"/api/flow", func(w http.ResponseWriter, req *http.Request) {

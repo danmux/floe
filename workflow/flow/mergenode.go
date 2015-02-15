@@ -50,6 +50,12 @@ func (tn *MergeNode) Type() string {
 	return "merge"
 }
 
+func (tn *MergeNode) Config() TaskConfig {
+	return TaskConfig{
+		Command: "wait for all inputs",
+	}
+}
+
 func (tn *MergeNode) SetStream(cs *io.PipeWriter) {}
 
 func (tn *MergeNode) Edges() []Edge {

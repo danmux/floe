@@ -8,7 +8,8 @@ import (
 )
 
 type DelayTrigger struct {
-	delay time.Duration
+	delay  time.Duration
+	config f.TaskConfig
 }
 
 func (ft *DelayTrigger) Type() string {
@@ -32,4 +33,8 @@ func (ft *DelayTrigger) Exec(t *f.TaskNode, p *f.Params, out *io.PipeWriter) {
 	p.Response = "node done"
 	p.Status = f.SUCCESS
 	return
+}
+
+func (ft *DelayTrigger) Config() f.TaskConfig {
+	return ft.config
 }

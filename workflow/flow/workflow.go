@@ -127,7 +127,14 @@ func (f Workflow) GetStructure(order int) FlowStruct {
 
 	for _, n := range f.TaskNodes {
 		glog.Info(n)
-		fs.Nodes = append(fs.Nodes, Node{Id: MakeID(n.Name()), Name: n.Name(), Type: n.Type()})
+
+		node := Node{
+			Id:     MakeID(n.Name()),
+			Name:   n.Name(),
+			Type:   n.Type(),
+			Config: n.Config(),
+		}
+		fs.Nodes = append(fs.Nodes, node)
 
 		edges := n.Edges()
 		glog.Info(edges)

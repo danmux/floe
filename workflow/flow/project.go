@@ -103,6 +103,7 @@ func (p *Project) MakeTriggerLauncher(name string, flowFunc GetFlowFunc) *FlowLa
 		flowFunc: flowFunc,
 		Threads:  1,
 	}
+	launcher.sampleFlow = launcher.MakeFlow(0)
 	p.AddFlow(launcher)
 
 	return launcher

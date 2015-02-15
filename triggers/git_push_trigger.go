@@ -5,6 +5,7 @@ import (
 	"floe/log"
 	"floe/tasks"
 	f "floe/workflow/flow"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"strings"
@@ -21,6 +22,7 @@ type TriggerOnGitPush struct {
 	repoUrl  string
 	branch   string
 	interval time.Duration // how often to check
+	config   f.TaskConfig
 }
 
 func (ft *TriggerOnGitPush) Type() string {
@@ -40,6 +42,9 @@ func MakeGitPushTrigger(repoUrl, branch string, interval time.Duration) *Trigger
 		repoUrl:  repoUrl,
 		branch:   branch,
 		interval: interval * time.Second,
+		config: f.TaskConfig{
+			Command: fmt.Sprintf("check: %v:%v every: %v", repoUrl, branch, interval*time.Second),
+		},
 	}
 }
 
@@ -109,6 +114,10 @@ func (ft *TriggerOnGitPush) ExecOnce(t *f.TaskNode, p *f.Params, out *io.PipeWri
 		}
 	}
 	return false
+}
+
+func (ft *TriggerOnGitPush) Config() f.TaskConfig {
+	return ft.config
 }
 
 func gotDifferentHash(oldH *GitHashes, newH *GitHashes, checkBranch string) (branch, hash string, matched bool) {

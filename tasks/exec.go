@@ -11,9 +11,10 @@ import (
 )
 
 type ExecTask struct {
-	cmd  string
-	args string
-	path string // path relative to the workspace
+	cmd    string
+	args   string
+	path   string // path relative to the workspace
+	config f.TaskConfig
 }
 
 func (ft ExecTask) Type() string {
@@ -116,6 +117,10 @@ func (ft ExecTask) Exec(t *f.TaskNode, p *f.Params, out *io.PipeWriter) {
 
 	glog.Info("executing command complete")
 	return
+}
+
+func (ft ExecTask) Config() f.TaskConfig {
+	return ft.config
 }
 
 // execute the command but capture the output in string array

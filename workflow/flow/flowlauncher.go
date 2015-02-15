@@ -56,7 +56,7 @@ type FlowLauncher struct {
 	Order         int
 	flowFunc      GetFlowFunc
 	Threads       int
-	Flows         []*Workflow // each thread creates a full workflow in memory - so the implementor of tasks does not have to wory about thread conflicts
+	Flows         []*Workflow // each active thread creates a full workflow in memory - so the implementor of tasks does not have to wory about thread conflicts
 	Props         *Props
 	CStat         chan *Params
 	iEnd          chan *Params // internal end chanel for auto stepper
@@ -65,6 +65,7 @@ type FlowLauncher struct {
 	Error         string
 	initial       *FlowLauncher
 	trigger       *FlowLauncher
+	sampleFlow    *Workflow // a single instantiated flow so we can see what the flow is
 	// TODO - historical stats / logs
 }
 
@@ -73,7 +74,7 @@ type FlowLauncher struct {
 // all flow launchers can be triggered by
 func MakeFlowLauncher(launchable LaunchableFlow, threads int, initial *FlowLauncher, trigger *FlowLauncher) *FlowLauncher {
 
-	return &FlowLauncher{
+	fl := &FlowLauncher{
 		Props:    launchable.GetProps(),
 		Name:     launchable.Name(),
 		Id:       launchable.Id(),
@@ -82,6 +83,15 @@ func MakeFlowLauncher(launchable LaunchableFlow, threads int, initial *FlowLaunc
 		initial:  initial,
 		trigger:  trigger,
 	}
+
+	fmt.Println("ssmpel flow......................................")
+	fl.sampleFlow = fl.MakeFlow(0)
+
+	if fl.sampleFlow == nil {
+		fmt.Println("ssmpel flow fucked......................................")
+	}
+
+	return fl
 }
 
 // the launchers trigger is the end tasknodes trigger
@@ -220,7 +230,7 @@ func (fl *FlowLauncher) MakeFlow(threadId int) *Workflow {
 func (fl *FlowLauncher) Prep(isTrigger bool) bool {
 
 	// check we have a good workflow
-	flow := fl.MakeFlow(0)
+	flow := fl.sampleFlow
 
 	// the final set of params set at the end of the flow - last finishing thread wins
 	fl.endParams = MakeParams()
@@ -418,6 +428,10 @@ func (fl *FlowLauncher) Start(delay time.Duration, endChan chan *Params) {
 }
 
 func (fl *FlowLauncher) StartTrigger(delay time.Duration, endChan chan *Params) {
+
+	if fl.sampleFlow == nil {
+		panic("fuck")
+	}
 	fl.TrashLastResults()
 	go fl.ExecTrigger()
 
@@ -442,6 +456,5 @@ func (fl *FlowLauncher) ExterminateExterminate() {
 // return the flow structure - for interfaces
 func (fl FlowLauncher) GetStructure() FlowStruct {
 	// make a flow just so we can render it in json
-	f := fl.MakeFlow(0)
-	return f.GetStructure(fl.Order)
+	return fl.sampleFlow.GetStructure(fl.Order)
 }

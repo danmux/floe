@@ -2,13 +2,15 @@ package tasks
 
 import (
 	f "floe/workflow/flow"
+	"fmt"
 	"github.com/golang/glog"
 	"io"
 	"time"
 )
 
 type DelayTask struct {
-	delay time.Duration
+	delay  time.Duration
+	config f.TaskConfig
 }
 
 func (ft *DelayTask) Type() string {
@@ -18,6 +20,9 @@ func (ft *DelayTask) Type() string {
 func MakeDelayTask(delay time.Duration) *DelayTask {
 	return &DelayTask{
 		delay: delay,
+		config: f.TaskConfig{
+			Command: fmt.Sprintf("delay: %v", delay),
+		},
 	}
 }
 
@@ -32,4 +37,8 @@ func (ft *DelayTask) Exec(t *f.TaskNode, p *f.Params, out *io.PipeWriter) {
 	p.Response = "node done"
 	p.Status = f.SUCCESS
 	return
+}
+
+func (ft *DelayTask) Config() f.TaskConfig {
+	return ft.config
 }
