@@ -20,6 +20,9 @@ func (ft *LsTask) Type() string {
 func MakeLsTask(path string) *LsTask {
 	return &LsTask{
 		path: path,
+		config: f.TaskConfig{
+			Command: fmt.Sprintf("ls: %v", path),
+		},
 	}
 }
 

@@ -1,12 +1,12 @@
 package tasks
 
 import (
-	f "floe/workflow/flow"
-	"io"
-	"os/exec"
-	// "strings"
 	"bufio"
 	"floe/log"
+	f "floe/workflow/flow"
+	"fmt"
+	"io"
+	"os/exec"
 	"syscall"
 )
 
@@ -26,6 +26,9 @@ func MakeExecTask(cmd, args, path string) ExecTask {
 		cmd:  cmd,
 		args: args,
 		path: path,
+		config: f.TaskConfig{
+			Command: fmt.Sprintf("exec: %v %v in %v", cmd, args, path),
+		},
 	}
 }
 

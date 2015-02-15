@@ -13,6 +13,7 @@ const (
 	SUCCESS = iota
 	FAIL
 	WORKING
+	LOOP
 )
 
 const (
@@ -227,6 +228,10 @@ func (tn *TaskNode) Exec(inPar *Params) {
 
 		// if this node has a result channel fire it - if this is the end node this will end the flow
 		if tn.C != nil {
+			// if chanel backed up clear it
+			if len(tn.C) > 0 {
+				<-tn.C
+			}
 			tn.C <- curPar
 		}
 

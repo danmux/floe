@@ -2,6 +2,7 @@ package tasks
 
 import (
 	f "floe/workflow/flow"
+	"fmt"
 	"github.com/golang/glog"
 	"io"
 )
@@ -20,6 +21,9 @@ func (ft *CustomTask) Type() string {
 func MakeCustomTask(customFunc CustomExecFunc) *CustomTask {
 	return &CustomTask{
 		customFunc: customFunc,
+		config: f.TaskConfig{
+			Command: fmt.Sprintf("custom task"),
+		},
 	}
 }
 
