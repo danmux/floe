@@ -158,7 +158,7 @@ func (p *Project) addLauncher(f *Launcher) {
 
 // Overview is the brief overview of the floe
 type Overview struct {
-	ID     string
+	ID     string `json:"Id"`
 	Name   string
 	Order  int
 	Status string
@@ -167,7 +167,7 @@ type Overview struct {
 // ProjectOverview is just a list of Overviews for each floe in the project so we can render the project as json
 type ProjectOverview struct {
 	Name  string
-	ID    string
+	ID    string `json:"Id"`
 	Floes []Overview
 }
 
@@ -180,19 +180,12 @@ func (p Project) RenderableProject() ProjectOverview {
 	}
 
 	for _, fl := range p.launchers {
-		status := "unknown"
-		if fl.lastRunResult != nil {
-			status = "fail"
-			if fl.lastRunResult.Error == "" {
-				status = "pass"
-			}
-		}
 		s := fl.getStructure()
 		ps.Floes = append(ps.Floes, Overview{
 			ID:     s.ID,
 			Name:   s.Name,
 			Order:  s.Order,
-			Status: status,
+			Status: fl.getMostRecentRunStatus(),
 		})
 	}
 
@@ -220,19 +213,11 @@ func (p Project) RenderableFloe(floeID string) SummaryStruct {
 
 	s := f.getStructure()
 
-	status := "unknown"
-	if f.lastRunResult != nil {
-		status = "fail"
-		if f.lastRunResult.Error == "" {
-			status = "pass"
-		}
-	}
-
 	ps.Floe = Overview{
 		ID:     s.ID,
 		Name:   s.Name,
 		Order:  s.Order,
-		Status: status,
+		Status: f.getMostRecentRunStatus(),
 	}
 
 	return ps

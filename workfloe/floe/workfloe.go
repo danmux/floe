@@ -137,7 +137,7 @@ func (w *Workfloe) registerNode(tn Node) {
 
 // Structure a flow structure is a structural relationship of nodes and edges that can be rendered in json
 type Structure struct {
-	ID    string
+	ID    string `json:"Id"`
 	Name  string
 	Order int
 	Nodes []nodeDesc
@@ -146,7 +146,7 @@ type Structure struct {
 
 // NodeDesc is a struct for reporting e.g. for json marshalling
 type nodeDesc struct {
-	ID     string
+	ID     string `json:"Id"`
 	Name   string
 	Type   string
 	Config task.TaskConfig

@@ -498,3 +498,19 @@ func (fl *Launcher) getStructure() Structure {
 	s.Name = fl.name
 	return s
 }
+
+func (fl *Launcher) getMostRecentRunStatus() string {
+	status := "unknown"
+	if fl.lastRunResult != nil {
+		status = "fail"
+		if fl.lastRunResult.Error == "" {
+			status = "pass"
+		}
+	} else if len(fl.runList.Summaries) > 0 {
+		status = "fail"
+		if fl.runList.Summaries[len(fl.runList.Summaries)-1].Error == "" {
+			status = "pass"
+		}
+	}
+	return status
+}

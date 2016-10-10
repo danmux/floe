@@ -1,0 +1,25 @@
+{
+	"comment": "",
+	"ignore": "test",
+	"package": [
+		{
+			"checksumSHA1": "OP2KtJ40t4eqzgEEg+on0x6P6U4=",
+			"path": "github.com/buildkite/terminal",
+			"revision": "32c897172292630282de10c1da3fa879f0a953e7",
+			"revisionTime": "2015-10-06T11:12:22Z"
+		},
+		{
+			"checksumSHA1": "Vr9almiISlLArA1reJvyNj7GUq0=",
+			"path": "github.com/gorilla/websocket",
+			"revision": "3986be78bf859e01f01af631ad76da5b269d270c",
+			"revisionTime": "2015-12-16T05:10:58Z"
+		},
+		{
+			"checksumSHA1": "Df4CLhnrtRsb+hGknsi2P+w6zRQ=",
+			"path": "github.com/julienschmidt/httprouter",
+			"revision": "f30ab90cccbd5171771d26b6557d3c2f49e047a6",
+			"revisionTime": "2015-12-04T07:14:43Z"
+		}
+	],
+	"rootPath": "github.com/floeit/floe"
+}
