@@ -17,10 +17,10 @@ type execInstruction struct {
 
 // get all floes from all the agents
 func allFloeHandler(w http.ResponseWriter, req *http.Request, ctx *context) (int, string, renderable) {
-	return rOK, "", thisAgent.project.RenderableProject() // TODO - get them from all the agents
+	return rOK, "", thisAgent.project.RenderableProject()
 }
 
-//
+// return the summary and run summaries for a specific floe
 func floeHandler(w http.ResponseWriter, req *http.Request, ctx *context) (int, string, renderable) {
 	// confirm floe id given in params
 	flID := ctx.ps.ByName("flid")
@@ -28,7 +28,7 @@ func floeHandler(w http.ResponseWriter, req *http.Request, ctx *context) (int, s
 		return rNotFound, "floe id not specified", nil
 	}
 
-	// TODO - query all other agents
+	// TODO - query all other agents - and add agent to the RenderableFloe
 	return rOK, "", thisAgent.project.RenderableFloe(flID)
 }
 

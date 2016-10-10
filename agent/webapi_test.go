@@ -65,6 +65,9 @@ func TestWebLaunch(t *testing.T) {
 
 	flid := floes.Floes[0].ID
 
+	p, _ := json.MarshalIndent(floes, "", "  ")
+	println(string(p))
+
 	if flid != "test-build" {
 		t.Fatal("bad floe ID", flid)
 	}
@@ -76,7 +79,7 @@ func TestWebLaunch(t *testing.T) {
 		t.Error("getting floe failed")
 	}
 
-	p, _ := json.MarshalIndent(resp, "", "  ")
+	p, _ = json.MarshalIndent(resp, "", "  ")
 	println(string(p))
 
 	// TODO runs = nil
@@ -100,8 +103,8 @@ func setupWeb(t *testing.T) {
 	a.SetToken(adminToken)
 	go a.LaunchWeb(addr)
 
-	println("exec")
-	a.Exec("test-build", 200*time.Millisecond)
+	// call exec directly on the agent we just launched to make sure we have some history
+	// a.Exec("test-build", 200*time.Millisecond)
 
 	// addr2 := "127.0.0.1:3014"
 
