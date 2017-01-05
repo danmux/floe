@@ -1,6 +1,7 @@
 package event
 
 import (
+	"log"
 	"sync"
 
 	"github.com/floeit/floe/config"
@@ -61,6 +62,14 @@ func (q *Queue) Register(o Observer) {
 
 // Publish sends an event to all the observers
 func (q *Queue) Publish(e Event) {
+	var flowID string
+	var runID int64
+	if e.RunRef != nil {
+		flowID = e.RunRef.FlowRef.ID
+		runID = e.RunRef.ID
+	}
+	log.Printf("<%s> (%d) event %s", flowID, runID, e.Tag)
+
 	// grab the next event ID
 	var nextID int64
 	q.Lock()

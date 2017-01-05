@@ -1,6 +1,9 @@
 package nodetype
 
-import "fmt"
+import (
+	"fmt"
+	"log"
+)
 
 // git push subs node
 type gitPush struct{}
@@ -30,6 +33,6 @@ func (g gitMerge) Execute(in Opts) (int, Opts, error) {
 		return 255, nil, fmt.Errorf("problem getting to_hash string option")
 	}
 
-	println("COMMAND > git merge command thing", from, to)
+	log.Println("GIT merge command thing", from, to)
 	return 0, nil, nil
 }

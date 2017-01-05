@@ -39,11 +39,26 @@ flows:
           opts:
             cmd: "make build"        # the command to execute 
 
-        - name: test                
+        - name: test1
           listen: task.build.good    
           type: exec                 # execute a command
           opts:
             cmd: "make test"         # the command to execute 
+
+        - name: test2
+          listen: task.build.good    
+          type: exec                 # execute a command
+          opts:
+            cmd: "make test 2"       # the command to execute 
+
+        - name: complete
+          listen: merge.merge-tests.all
+          type: end                 # getting here means the flow was a success
+        
+      merges:
+        - name: merge-tests
+          type: all                 # need all wait events to fire 
+          wait: [task.test1.good, task.test2.good]
       
 `)
 
@@ -90,14 +105,16 @@ func TestHubEventQueue(t *testing.T) {
 	q.Register(to)
 
 	// add an external event
-	q.Publish(event.Event{
+	pe := event.Event{
 		Tag: "git-push",
 		Opts: nt.Opts{
 			"url":       "blah.blah",
 			"from_hash": "from123456",
 			"to_hash":   "to7890",
 		},
-	})
+	}
+	q.Publish(pe)
+	q.Publish(pe)
 
 	// wait for our observer to receive 2 events
 	e := <-to.ch
@@ -112,7 +129,7 @@ func TestHubEventQueue(t *testing.T) {
 		t.Error("got bad event", e.Tag)
 	}
 
-	time.Sleep(time.Second)
+	time.Sleep(10 * time.Second)
 
 	// and confirm the store has an active list
 	ac, _ := s.Load(activeKey)

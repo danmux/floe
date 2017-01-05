@@ -37,6 +37,8 @@ type Node interface {
 	Class() NodeClass
 	Execute(nt.Opts) (int, nt.Opts, error)
 	IsStatusGood(int) bool
+	TypeOfNode() string
+	Waits() int
 }
 
 // NodeClass the type def for the types a Node can be
@@ -137,6 +139,14 @@ func (t *task) Class() NodeClass {
 	return t.class
 }
 
+func (t *task) TypeOfNode() string {
+	return t.Type
+}
+
+func (t *task) Waits() int {
+	return len(t.Wait)
+}
+
 func (t *task) matched(eType string, opts *nt.Opts) bool {
 	if opts != nil {
 		if t.Type != eType {
@@ -153,7 +163,7 @@ func (t *task) matched(eType string, opts *nt.Opts) bool {
 	if t.Listen != "" && t.Listen == eType {
 		return true
 	}
-	// or if any tags in the the Wait list match
+	// or if any tags in the the Wait list match (merge nodes only)
 	for _, tag := range t.Wait {
 		if tag == eType {
 			return true

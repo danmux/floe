@@ -1,10 +1,8 @@
 package hub
 
 import (
-	"log"
-
 	"fmt"
-
+	"log"
 	"strconv"
 
 	"github.com/floeit/floe/config"
@@ -20,7 +18,7 @@ type Hub struct {
 	queue  *event.Queue   // the event q to route all events
 	// runs contains list of runs ongoing or the archive
 	// this is the only ongoing changing state the hub manages
-	runs RunStore
+	runs *RunStore
 }
 
 // NewHub creates a new hub with the given config
@@ -40,38 +38,72 @@ func NewHub(host string, c *config.Config, s store.Store, q *event.Queue) *Hub {
 // Notify is called whenever an event is sent to the hub. It
 // makes the hub an Observer
 func (h *Hub) Notify(e event.Event) {
-	var err error
 	if e.RunRef == nil {
 		// this is a an event from an external listener - thereby creating active flows
-		err = h.activateFromSubs(e)
+		err := h.activateFromSubs(e)
+		if err != nil {
+			log.Println(err)
+		}
 		return
 	}
 	// otherwise it is a flow specific event then dispatch it to any active flows
-	println("got internal event", e.Tag)
-	err = h.dispatchActive(e)
-	if err != nil {
-		log.Println(err)
+	h.dispatchActive(e)
+}
+
+func (h *Hub) dispatchActive(e event.Event) {
+	// for all active flows find ones that match
+	_, r := h.runs.findActiveRun(e.RunRef.ID)
+	// no matching active run
+	if r == nil {
+		return
+	}
+	ns := h.config.FindNodeInFlow(r.Ref.FlowRef, e.Tag)
+	for _, n := range ns {
+		switch n.Class() {
+		case config.NcTask:
+			if n.TypeOfNode() == "end" { // special task type end the run
+				h.endRun(r, e)
+				return
+			}
+			h.executeNode(&r.Ref, n, e)
+		case config.NcMerge:
+			h.mergeEvent(r, n, e)
+		}
 	}
 }
 
-func (h *Hub) dispatchActive(e event.Event) error {
-	// for all active flows find ones that match
-	for _, r := range h.runs.Active {
-		fmt.Println("finding nodes in active flow", r.Ref.FlowRef)
-		ns := h.config.FindNodeInFlow(r.Ref.FlowRef, e.Tag)
-		for _, n := range ns {
-			fmt.Println("got node to exec", n.NodeRef().ID)
-			h.executeNode(&r.Ref, n, e)
+func (h *Hub) endRun(run *Run, e event.Event) {
+	log.Printf("<%s> (%d) DONE  %s", run.Ref.FlowRef.ID, run.Ref.ID, e.Tag)
+	h.runs.end(run)
+}
+
+func (h *Hub) mergeEvent(run *Run, node config.Node, e event.Event) {
+	log.Printf("<%s> (%d) merge %s", run.Ref.FlowRef.ID, run.Ref.ID, e.Tag)
+
+	waitsDone, opts := h.runs.updateWithMergeEvent(run, node.NodeRef().ID, e.Tag, e.Opts)
+	// save the activeRun
+	h.runs.Active.Save(activeKey, h.runs.store)
+	// is the merge satisfied
+	if (node.TypeOfNode() == "any" && waitsDone > 0) ||
+		(node.TypeOfNode() == "all" && waitsDone == node.Waits()) {
+
+		e := event.Event{
+			RunRef:     &run.Ref,
+			SourceNode: node.NodeRef(),
+			Tag:        getTag(node, "all"), // when merges fire they emit the all event
+			Opts:       opts,
 		}
+		h.queue.Publish(e)
 	}
-	return nil
 }
 
 func (h *Hub) executeNode(runRef *event.RunRef, node config.Node, e event.Event) {
+	log.Printf("<%s> (%d) exec  %s", runRef.FlowRef.ID, runRef.ID, e.Tag)
+
 	go func() {
 		status, opts, err := node.Execute(e.Opts)
 		if err != nil {
-			log.Println("ERROR", err)
+			log.Printf("<%s> (%d) error %v", runRef.FlowRef.ID, runRef.ID, err)
 			return
 		}
 		// based on the int dispatch resultant events
@@ -79,7 +111,7 @@ func (h *Hub) executeNode(runRef *event.RunRef, node config.Node, e event.Event)
 		e := event.Event{
 			RunRef:     runRef,
 			SourceNode: node.NodeRef(),
-			Tag:        getTag(node, "all"), // all subs emit good events
+			Tag:        getTag(node, "all"),
 			Opts:       opts,
 		}
 		h.queue.Publish(e)
@@ -105,13 +137,13 @@ func (h *Hub) activateFromSubs(e event.Event) error {
 	// map the node config to events
 	for f, ns := range fns {
 		// add the active flow
-		id, err := h.runs.AddActiveFlow(f)
+		id, err := h.runs.addActiveFlow(f, h.hostID)
 		if err != nil {
 			return err
 		}
+		log.Printf("<%s> (%d) subs  %s", f.ID, id, e.Tag)
 		// and then emit the subs node events
 		for _, n := range ns {
-			// spew.Dump(n)
 			h.queue.Publish(event.Event{
 				RunRef: &event.RunRef{
 					FlowRef: n.FlowRef(),
