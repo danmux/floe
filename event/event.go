@@ -1,23 +1,39 @@
 package event
 
 import (
-	"log"
+	"fmt"
 	"sync"
 
 	"github.com/floeit/floe/config"
 	nt "github.com/floeit/floe/config/nodetype"
+	"github.com/floeit/floe/log"
 )
+
+// HostedIDRef is any ID unique to the host
+type HostedIDRef struct {
+	HostID string
+	ID     int64
+}
+
+func (h HostedIDRef) String() string {
+	return fmt.Sprintf("%s-%d", h.HostID, h.ID)
+}
+
+// Equals compares receiver with param rh
+func (h HostedIDRef) Equals(rh HostedIDRef) bool {
+	return h.HostID == rh.HostID && h.ID == rh.ID
+}
 
 // RunRef uniquely identifies a particular run across the whole cluster
 type RunRef struct {
 	// FlowRef identifies the flow
 	FlowRef config.FlowRef
 
-	// HostID identifies the host that this run is in
-	HostID string // which host in the cluster
+	// Ref identifies the host and id that this run was initiated by
+	Run HostedIDRef
 
-	// ID is the run ID unique in the context of the Flow and Host
-	ID int64
+	// ExecHost is the host that is executing this event
+	ExecHost string
 }
 
 // Observer defines the interface for observers.
@@ -62,13 +78,13 @@ func (q *Queue) Register(o Observer) {
 
 // Publish sends an event to all the observers
 func (q *Queue) Publish(e Event) {
-	var flowID string
-	var runID int64
+	var flowRef config.FlowRef
+	var runID HostedIDRef
 	if e.RunRef != nil {
-		flowID = e.RunRef.FlowRef.ID
-		runID = e.RunRef.ID
+		flowRef = e.RunRef.FlowRef
+		runID = e.RunRef.Run
 	}
-	log.Printf("<%s> (%d) event %s", flowID, runID, e.Tag)
+	log.Debugf("<%s> (%s) event %s", flowRef, runID, e.Tag)
 
 	// grab the next event ID
 	var nextID int64

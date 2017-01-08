@@ -35,7 +35,7 @@ type Node interface {
 	FlowRef() FlowRef
 	NodeRef() NodeRef
 	Class() NodeClass
-	Execute(nt.Opts) (int, nt.Opts, error)
+	Execute(nt.Workspace, nt.Opts) (int, nt.Opts, error)
 	IsStatusGood(int) bool
 	TypeOfNode() string
 	Waits() int
@@ -100,13 +100,13 @@ type task struct {
 	Opts       nt.Opts // static config options
 }
 
-func (t *task) Execute(opts nt.Opts) (int, nt.Opts, error) {
+func (t *task) Execute(ws nt.Workspace, opts nt.Opts) (int, nt.Opts, error) {
 	n := nt.GetNodeType(t.Type)
 	if n == nil {
 		return 255, nil, fmt.Errorf("no node type found: %s", t.Type)
 	}
 	inOpts := nt.MergeOpts(t.Opts, opts)
-	return n.Execute(inOpts)
+	return n.Execute(ws, inOpts)
 }
 
 func (t *task) IsStatusGood(status int) bool {
@@ -204,10 +204,18 @@ type FlowRef struct {
 	Ver int
 }
 
+func (f FlowRef) String() string {
+	return fmt.Sprintf("%s-%d", f.ID, f.Ver)
+}
+
+// Flow is a serialisable Flow Config
 type Flow struct {
-	Name string // human friendly name
-	ID   string // url friendly ID - computed from the name if not given
-	Ver  int    // flow version
+	Name         string   // human friendly name
+	ID           string   // url friendly ID - computed from the name if not given
+	Ver          int      // flow version
+	ReuseSpace   bool     `yaml:"reuse-space"`   // if true then will use the single workspace and will mutex with other instances of this Flow
+	ResourceTags []string `yaml:"resource-tags"` // tags to group resources this flow needs
+	HostTags     []string `yaml:"host-tags"`     // tags that must match the tags on the host
 
 	// the Various node types
 	Subs   []*task
@@ -282,21 +290,50 @@ type Config struct {
 	Flows []*Flow
 }
 
-// FindFlowsBySubs finds all flows where its subs match the given params, also
-// returns the matching nodes
-func (c *Config) FindFlowsBySubs(eType string, opts nt.Opts) map[FlowRef][]Node {
-	res := map[FlowRef][]Node{}
+// FoundFlow is a struct returned from FindFlowsBySubs
+// and can be used to decide on the best host to use
+type FoundFlow struct {
+	Ref          FlowRef
+	ReuseSpace   bool
+	ResourceTags []string
+	HostTags     []string
+
+	Nodes []Node
+}
+
+// FindFlowsBySubs finds all flows where its subs match the given params
+func (c *Config) FindFlowsBySubs(eType string, opts nt.Opts) map[FlowRef]FoundFlow {
+	res := map[FlowRef]FoundFlow{}
 	for _, f := range c.Flows {
 		ns := f.match(NcSub, eType, &opts)
+		// found some matching nodes for this flow
 		if len(ns) > 0 {
-			nodes := []Node{}
-			for _, n := range ns {
-				nodes = append(nodes, Node(n))
+			// make sure this flow is in the results
+			fr := ns[0].FlowRef()
+			ff, ok := res[fr]
+			if !ok {
+				ff = FoundFlow{
+					Ref:          fr,
+					ReuseSpace:   f.ReuseSpace,
+					ResourceTags: f.ResourceTags,
+					HostTags:     f.HostTags,
+				}
 			}
-			res[ns[0].FlowRef()] = nodes
+			ff.Nodes = []Node{}
+			for _, n := range ns {
+				ff.Nodes = append(ff.Nodes, Node(n))
+			}
+			res[fr] = ff
 		}
 	}
 	return res
+}
+
+// FindFlow finds the specific flow where its subs match the given params
+func (c *Config) FindFlow(f FlowRef, eType string, opts nt.Opts) (FoundFlow, bool) {
+	found := c.FindFlowsBySubs(eType, opts)
+	flow, ok := found[f]
+	return flow, ok
 }
 
 // FindNodeInFlow returns the nodes matching the tag in this flow matching the id and version

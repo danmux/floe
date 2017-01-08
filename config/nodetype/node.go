@@ -39,10 +39,14 @@ func MergeOpts(l, r Opts) Opts {
 	return o
 }
 
+type Workspace struct {
+	BasePath string
+}
+
 // NodeType is the interface for an option comparing node
 type NodeType interface {
 	Match(Opts, Opts) bool
-	Execute(in Opts) (int, Opts, error)
+	Execute(ws Workspace, in Opts) (int, Opts, error)
 }
 
 // GetNodeType returns the node from the given the type and opts

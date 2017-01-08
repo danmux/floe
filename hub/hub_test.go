@@ -1,15 +1,84 @@
 package hub
 
 import (
+	"os/user"
 	"testing"
 
-	"time"
+	"sync"
+
+	"strings"
 
 	"github.com/floeit/floe/config"
 	nt "github.com/floeit/floe/config/nodetype"
 	"github.com/floeit/floe/event"
 	"github.com/floeit/floe/store"
 )
+
+type task struct {
+	exec func(ws nt.Workspace)
+}
+
+func (t *task) Execute(ws nt.Workspace, opts nt.Opts) (int, nt.Opts, error) {
+	if t.exec != nil {
+		t.exec(ws)
+	}
+	return 0, nil, nil
+}
+
+func (t *task) IsStatusGood(status int) bool {
+	return true
+}
+
+func (t *task) FlowRef() config.FlowRef {
+	return config.FlowRef{}
+}
+
+func (t *task) NodeRef() config.NodeRef {
+	return config.NodeRef{}
+}
+
+func (t *task) Class() config.NodeClass {
+	return config.NcTask
+}
+
+func (t *task) TypeOfNode() string {
+	return "foo"
+}
+
+func (t *task) Waits() int {
+	return 0
+}
+
+func TestExecuteNode(t *testing.T) {
+	h := Hub{
+		basePath: "/foo/bar",
+		queue:    &event.Queue{},
+	}
+	runRef := &event.RunRef{
+		FlowRef: config.FlowRef{
+			ID: "testflow",
+		},
+		Run: event.HostedIDRef{
+			HostID: "h1",
+			ID:     5,
+		},
+	}
+	didExec := false
+	exec := func(ws nt.Workspace) {
+		didExec = true
+		if ws.BasePath != "/foo/bar/testflow/ws/h1-5" {
+			t.Errorf("basepath is wrong <%s>", ws.BasePath)
+		}
+	}
+	node := &task{
+		exec: exec,
+	}
+	e := event.Event{}
+	h.executeNode(runRef, node, e)
+	if !didExec {
+		t.Error("did not execute executor")
+	}
+}
 
 var in = []byte(`
 config:
@@ -65,7 +134,7 @@ flows:
 func TestHub(t *testing.T) {
 	c, _ := config.ParseYAML(in)
 	s := store.NewMemStore()
-	hub := NewHub("myhost", c, s, &event.Queue{})
+	hub := New("h1", "~/floe", c, s, &event.Queue{})
 
 	// add an external event
 	hub.Notify(event.Event{
@@ -76,14 +145,15 @@ func TestHub(t *testing.T) {
 	})
 
 	// and confirm the store has an active list
-	ac, _ := s.Load(activeKey)
-	actives := ac.(Runs)
-	if len(actives) != 1 {
+	pd, _ := s.Load(pendingKey)
+	pending := pd.(Pending)
+	if len(pending.Todos) != 1 {
 		t.Error("wrong number of active runs")
 	}
 }
 
 type testObs struct {
+	sync.Mutex
 	ch chan event.Event
 }
 
@@ -91,12 +161,12 @@ func (o testObs) Notify(e event.Event) {
 	o.ch <- e
 }
 
-func TestHubEventQueue(t *testing.T) {
+func TestEventQueue(t *testing.T) {
 	c, _ := config.ParseYAML(in)
 	s := store.NewMemStore()
 	q := &event.Queue{}
 
-	NewHub("myhost", c, s, q)
+	New("h1", "%tmp/flow", c, s, q)
 
 	// register a test observer
 	to := testObs{
@@ -114,7 +184,6 @@ func TestHubEventQueue(t *testing.T) {
 		},
 	}
 	q.Publish(pe)
-	q.Publish(pe)
 
 	// wait for our observer to receive 2 events
 	e := <-to.ch
@@ -129,12 +198,66 @@ func TestHubEventQueue(t *testing.T) {
 		t.Error("got bad event", e.Tag)
 	}
 
-	time.Sleep(10 * time.Second)
-
 	// and confirm the store has an active list
 	ac, _ := s.Load(activeKey)
 	actives := ac.(Runs)
 	if len(actives) != 1 {
 		t.Error("wrong number of active runs")
+	}
+
+	// wait for end to close the chanel
+	for e := range to.ch {
+		if e.Tag == "sys.end.all" {
+			break
+		}
+	}
+
+	// and confirm the store has an active list
+	ac, _ = s.Load(activeKey)
+	actives = ac.(Runs)
+	if len(actives) != 0 {
+		t.Error("wrong number of active runs")
+	}
+	// and one archive
+	ac, _ = s.Load(archiveKey)
+	archives := ac.(Runs)
+	if len(archives) != 1 {
+		t.Error("wrong number of archives runs")
+	}
+}
+
+func TestExpandPath(t *testing.T) {
+	usr, _ := user.Current()
+	hd := usr.HomeDir
+
+	fix := []struct {
+		in  string
+		out string
+		e   bool
+	}{
+		{in: "~/", out: "", e: true},      // too short
+		{in: "~", out: "", e: true},       // too short
+		{in: "~/test", out: hd + "/test"}, // sub ~
+		{in: "/test/~", out: "/test/~"},   // dont ~
+		{in: "test/foo", out: "test/foo"},
+		{in: "/test/foo", out: "/test/foo"},
+	}
+	for i, f := range fix {
+		ep, err := expandPath(f.in)
+		if (err == nil && f.e) || (err != nil && !f.e) {
+			t.Errorf("test %d expected error mismatch", i)
+		}
+		if ep != f.out {
+			t.Errorf("test %d failed, wanted: %s got: %s", i, f.out, ep)
+		}
+	}
+
+	ep, _ := expandPath("%tmp/test/bar")
+	fpos := strings.Index(ep, "/floe")
+	if fpos < 5 {
+		t.Error("tmp expansion failed", ep)
+	}
+	if strings.Index(ep, "/test/bar") < fpos {
+		t.Error("tmp expansion prefix... isnt ", ep)
 	}
 }

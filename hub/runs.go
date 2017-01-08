@@ -11,19 +11,27 @@ import (
 )
 
 const (
+	pendingKey = "pending-list"
 	activeKey  = "active-list"
 	archiveKey = "archive-list"
 )
+
+// Todo is a triggered flow that is waiting for a slave
+type Todo struct {
+	Ref             event.RunRef
+	InitiatingEvent event.Event
+}
 
 type merge struct {
 	Waits map[string]bool // per node id - each wait event received
 	Opts  nt.Opts         // merged opts from all listens
 }
 
-// Run describes a specific invocation of a flow
+// Run is a specific invocation of a flow
 type Run struct {
 	sync.RWMutex
 	Ref       event.RunRef
+	ExecHost  string // the id of the host who's actually executing this run
 	StartTime time.Time
 	EndTime   time.Time
 	Ended     bool
@@ -57,6 +65,16 @@ func (r *Run) end() {
 	r.Ended = true
 }
 
+type Pending struct {
+	Counter int64
+	Todos   []*Todo
+}
+
+// Save saves the pending list
+func (r Pending) Save(key string, s store.Store) error {
+	return s.Save(key, r)
+}
+
 // Runs is a list of Run
 type Runs []*Run
 
@@ -68,8 +86,12 @@ func (r Runs) Save(key string, s store.Store) error {
 // RunStore stores runs
 type RunStore struct {
 	sync.RWMutex
+
 	// store to persist lists
 	store store.Store
+
+	// the list of flows waiting for a host
+	Pending Pending
 
 	// Active runs that we currently think are in progress
 	Active Runs
@@ -84,12 +106,12 @@ func newRunStore(store store.Store) *RunStore {
 	}
 }
 
-// AddActiveFlow adds the active configs to the active list saves it, and returns the run id
-func (r *RunStore) findActiveRun(id int64) (int, *Run) {
+// activate adds the active configs to the active list saves it, and returns the run id
+func (r *RunStore) findActiveRun(ref event.HostedIDRef) (int, *Run) {
 	r.RLock()
 	defer r.RUnlock()
 	for i, run := range r.Active {
-		if run.Ref.ID == id {
+		if run.Ref.Run.Equals(ref) {
 			return i, run
 		}
 	}
@@ -107,7 +129,7 @@ func (r *RunStore) updateWithMergeEvent(run *Run, nodeID, tag string, opts nt.Op
 func (r *RunStore) end(run *Run) {
 	run.end()
 
-	i, _ := r.findActiveRun(run.Ref.ID)
+	i, _ := r.findActiveRun(run.Ref.Run)
 
 	r.Lock()
 	defer r.Unlock()
@@ -122,41 +144,39 @@ func (r *RunStore) end(run *Run) {
 	r.Archive.Save(archiveKey, r.store)
 }
 
-// AddActiveFlow adds the active configs to the active list saves it, and returns the run id
-func (r *RunStore) addActiveFlow(flow config.FlowRef, hostID string) (int64, error) {
+// addToPending adds the active configs to pending list, and returns the run id
+func (r *RunStore) addToPending(flow config.FlowRef, hostID string, e event.Event) (event.HostedIDRef, error) {
 	r.Lock()
 	defer r.Unlock()
-	id := r.nextID()
-	r.Active = append(r.Active, &Run{
+	r.Pending.Counter++
+	run := event.HostedIDRef{
+		HostID: hostID,
+		ID:     r.Pending.Counter,
+	}
+	r.Pending.Todos = append(r.Pending.Todos, &Todo{
 		Ref: event.RunRef{
 			FlowRef: flow,
-			HostID:  hostID,
-			ID:      id,
+			Run:     run,
 		},
+		InitiatingEvent: e,
+	})
+
+	return run, r.Pending.Save(pendingKey, r.store)
+}
+
+// activate adds the active configs to the active list saves it, and returns the run id
+func (r *RunStore) activate(todo *Todo, hostID string) error {
+	r.Lock()
+	defer r.Unlock()
+
+	// update the runref with this executing host
+	todo.Ref.ExecHost = hostID
+
+	r.Active = append(r.Active, &Run{
+		Ref:        todo.Ref,
 		StartTime:  time.Now(),
 		MergeNodes: map[string]merge{},
 	})
 
-	return id, r.Active.Save(activeKey, r.store)
-}
-
-// in scope of AddActiveFlow lock
-func (r *RunStore) nextID() int64 {
-	var max int64
-	// if we have actives in play then these must have the max id
-	if len(r.Active) > 0 {
-		for _, r := range r.Active {
-			if r.Ref.ID > max {
-				max = r.Ref.ID
-			}
-		}
-		return max + 1
-	}
-	// otherwise the archives have the max id
-	for _, r := range r.Archive {
-		if r.Ref.ID > max {
-			max = r.Ref.ID
-		}
-	}
-	return max + 1
+	return r.Active.Save(activeKey, r.store)
 }

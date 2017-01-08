@@ -12,7 +12,7 @@ func (g gitPush) Match(ol, or Opts) bool {
 	return ol.cmpString("url", or)
 }
 
-func (g gitPush) Execute(in Opts) (int, Opts, error) {
+func (g gitPush) Execute(ws Workspace, in Opts) (int, Opts, error) {
 	return 0, nil, nil
 }
 
@@ -23,7 +23,7 @@ func (g gitMerge) Match(ol, or Opts) bool {
 	return true
 }
 
-func (g gitMerge) Execute(in Opts) (int, Opts, error) {
+func (g gitMerge) Execute(ws Workspace, in Opts) (int, Opts, error) {
 	from, ok := in.string("from_hash")
 	if !ok {
 		return 255, nil, fmt.Errorf("problem getting from_hash string option")

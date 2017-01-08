@@ -94,6 +94,9 @@ config:
 flows:
     - id: build-project              # the name of this flow
       ver: 1
+      reuse-space: true               # reuse the workspace (false) - if true /single used 
+      resource-tags: [couchbase, nic] # resource labels that any other flows cant share
+      host-tags: [linux, go, couch]   # all these tags must match the tags on any host for it to be able to run there
 
       subs:                          # external events to subscribe token
         - name: push                 # name of this subscription
@@ -134,8 +137,7 @@ flows:
           listen: sub.git-push.good
           type: git-checkout
           good: [0]
-          ignore-fail: false
-      
+          ignore-fail: false    
 `)
 
 func TestYaml(t *testing.T) {
@@ -144,15 +146,27 @@ func TestYaml(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	fl := c.Flows[0]
+	if !fl.ReuseSpace {
+		t.Error("ReuseSpace should be true")
+	}
+	if len(fl.ResourceTags) != 2 {
+		t.Error("wrong number of resource tags")
+	}
+	if len(fl.HostTags) != 3 {
+		t.Error("wrong number of resource tags")
+	}
+
 	fns := c.FindFlowsBySubs("git-push", nt.Opts{"url": "blah.blah"})
 	if len(fns) != 1 {
 		t.Fatal("did not find the flow based on this sub", len(fns))
 	}
 
-	var ns []Node
-	for _, ns = range fns {
+	var ff FoundFlow
+	for _, ff = range fns {
 		break
 	}
+	ns := ff.Nodes
 	if len(ns) != 1 {
 		t.Fatal("did not find the node based on this sub", len(ns))
 	}

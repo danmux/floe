@@ -1,0 +1,51 @@
+config:
+    hosts:
+        - name-or.ip.of.other.host 
+
+flows:
+    - id: build-project              # the name of this flow
+      ver: 1
+      reuse-space: true               # reuse the workspace (false) - if true /single used 
+      resource-tags: [couchbase, nic] # resource labels that any other flows cant share
+      host-tags: [linux, go, couch]   # all these tags must match the tags on any host for it to be able to run there
+
+      subs:                          # external events to subscribe token
+        - name: push                 # name of this subscription
+          type: git-push             # the type of this trigger
+          opts:
+            url: blah.blah           # which url to monitor
+            
+      tasks: 
+        - name: checkout             # the name of this node 
+          listen: sub.git-push.good  # the event tag that triggers this node
+          type: git-merge            # the task type 
+          good: [0]                  # define what the good statuses are, default [0]
+          ignore-fail: false         # if true only emit good
+        
+        - name: build                
+          listen: task.checkout.good    
+          type: exec
+          opts:
+            cmd: "make build"        # the command to execute 
+
+        - id: test                
+          listen: task.build.good    
+          type: exec                 # execute a command
+          opts:
+            cmd: "make test"         # the command to execute 
+    
+    - id: build-merge
+      ver: 1
+      
+      subs:
+        - name: push
+          type: git-merge
+          opts:
+            url: blah.blah
+            
+      tasks: 
+        - name: checkout
+          listen: sub.git-push.good
+          type: git-checkout
+          good: [0]
+          ignore-fail: false
