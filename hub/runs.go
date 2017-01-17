@@ -1,6 +1,7 @@
 package hub
 
 import (
+	"errors"
 	"sync"
 	"time"
 
@@ -30,12 +31,13 @@ type merge struct {
 // Run is a specific invocation of a flow
 type Run struct {
 	sync.RWMutex
-	Ref       event.RunRef
-	ExecHost  string // the id of the host who's actually executing this run
-	StartTime time.Time
-	EndTime   time.Time
-	Ended     bool
-
+	Ref        event.RunRef
+	ExecHost   string // the id of the host who's actually executing this run
+	StartTime  time.Time
+	EndTime    time.Time
+	Ended      bool
+	Status     string
+	Good       bool
 	MergeNodes map[string]merge
 }
 
@@ -58,15 +60,18 @@ func (r *Run) updateWithMergeEvent(nodeID, tag string, opts nt.Opts) (int, nt.Op
 	return len(m.Waits), nt.MergeOpts(m.Opts, nil) // merge copies the opts
 }
 
-func (r *Run) end() {
+func (r *Run) end(status string, good bool) {
 	r.Lock()
 	defer r.Unlock()
 	r.EndTime = time.Now()
 	r.Ended = true
+	r.Status = status
+	r.Good = good
 }
 
+// Pending is the thing that holds the list of flows waiting to be dispatched
 type Pending struct {
-	Counter int64
+	Counter int64 // The ID counter - TODO load in from the store on startup
 	Todos   []*Todo
 }
 
@@ -126,8 +131,8 @@ func (r *RunStore) updateWithMergeEvent(run *Run, nodeID, tag string, opts nt.Op
 	return i, o
 }
 
-func (r *RunStore) end(run *Run) {
-	run.end()
+func (r *RunStore) end(run *Run, status string, good bool) {
+	run.end(status, good)
 
 	i, _ := r.findActiveRun(run.Ref.Run)
 
@@ -179,4 +184,24 @@ func (r *RunStore) activate(todo *Todo, hostID string) error {
 	})
 
 	return r.Active.Save(activeKey, r.store)
+}
+
+func (r *RunStore) allTodos() []*Todo {
+	r.Lock()
+	defer r.Unlock()
+	t := make([]*Todo, len(r.Pending.Todos), len(r.Pending.Todos))
+	copy(t, r.Pending.Todos)
+	return t
+}
+
+func (r *RunStore) removeTodo(i int, todo *Todo) error {
+	r.Lock()
+	defer r.Unlock()
+	if r.Pending.Todos[i] != todo {
+		return errors.New("todo list mutation during dispatch")
+	}
+	copy(r.Pending.Todos[i:], r.Pending.Todos[i+1:])
+	r.Pending.Todos[len(r.Pending.Todos)-1] = nil
+	r.Pending.Todos = r.Pending.Todos[:len(r.Pending.Todos)-1]
+	return nil
 }

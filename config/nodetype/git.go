@@ -16,6 +16,8 @@ func (g gitPush) Execute(ws Workspace, in Opts) (int, Opts, error) {
 	return 0, nil, nil
 }
 
+func (g gitPush) CastOpts(in *Opts) {}
+
 // gitMerge is an executable node that merges in a
 type gitMerge struct{}
 
@@ -36,3 +38,5 @@ func (g gitMerge) Execute(ws Workspace, in Opts) (int, Opts, error) {
 	log.Println("GIT merge command thing", from, to)
 	return 0, nil, nil
 }
+
+func (g gitMerge) CastOpts(in *Opts) {}

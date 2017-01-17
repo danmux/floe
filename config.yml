@@ -14,10 +14,28 @@ flows:
           type: git-push             # the type of this trigger
           opts:
             url: blah.blah           # which url to monitor
+      
+        - name: start
+          type: data
+          opts:
+            form:
+              title: Start
+              fields:
+                - id: from_hash
+                  prompt: From Branch (or hash)
+                  type: string
+                - id: to_hash
+                  prompt: To Branch (or hash)
+                  type: string
+      
+      merges:
+        - name: subs
+          type: any
+          wait: [sub.push.good, sub.start.good]
             
       tasks: 
         - name: checkout             # the name of this node 
-          listen: sub.git-push.good  # the event tag that triggers this node
+          listen: merge.subs.all     # the event tag that triggers this node
           type: git-merge            # the task type 
           good: [0]                  # define what the good statuses are, default [0]
           ignore-fail: false         # if true only emit good

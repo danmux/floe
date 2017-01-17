@@ -25,8 +25,8 @@ func (t *task) Execute(ws nt.Workspace, opts nt.Opts) (int, nt.Opts, error) {
 	return 0, nil, nil
 }
 
-func (t *task) IsStatusGood(status int) bool {
-	return true
+func (t *task) Status(status int) (string, bool) {
+	return "good", true
 }
 
 func (t *task) FlowRef() config.FlowRef {
@@ -67,7 +67,7 @@ func TestExecuteNode(t *testing.T) {
 	exec := func(ws nt.Workspace) {
 		didExec = true
 		if ws.BasePath != "/foo/bar/testflow/ws/h1-5" {
-			t.Errorf("basepath is wrong <%s>", ws.BasePath)
+			t.Errorf("base path is wrong <%s>", ws.BasePath)
 		}
 	}
 	node := &task{
@@ -121,7 +121,7 @@ flows:
             cmd: "make test 2"       # the command to execute 
 
         - name: complete
-          listen: merge.merge-tests.all
+          listen: merge.merge-tests.good
           type: end                 # getting here means the flow was a success
         
       merges:

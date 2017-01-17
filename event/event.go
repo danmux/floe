@@ -16,6 +16,9 @@ type HostedIDRef struct {
 }
 
 func (h HostedIDRef) String() string {
+	if h.ID == 0 {
+		return "na"
+	}
 	return fmt.Sprintf("%s-%d", h.HostID, h.ID)
 }
 
@@ -29,11 +32,22 @@ type RunRef struct {
 	// FlowRef identifies the flow
 	FlowRef config.FlowRef
 
-	// Ref identifies the host and id that this run was initiated by
+	// Run identifies the host and id that this run was initiated by
+	// this is therefore a unique reference across the cluster
+	// it may not refer to the node that is executing the Run (see ExecHost)
 	Run HostedIDRef
 
-	// ExecHost is the host that is executing this event
+	// ExecHost is the host that is actually executing this event
+	// use in conjunction with Run to find the active and archived run
 	ExecHost string
+}
+
+// Inactive returns true it has a zero Run, false if none zero
+func (r *RunRef) Inactive() bool {
+	if r.Run.ID == 0 && r.Run.HostID == "" {
+		return true
+	}
+	return false
 }
 
 // Observer defines the interface for observers.
@@ -54,6 +68,9 @@ type Event struct {
 	// it will match Type for sub events, and Listen for others.
 	Tag string
 
+	// Good specifically when this is classed as a good event
+	Good bool
+
 	// Unique and ordered event ID within a Run. An ID greater than another
 	// ID must have happened after it within the context of the RunRef.
 	// A flow initiating trigger will have ID 1.
@@ -63,6 +80,17 @@ type Event struct {
 	Opts nt.Opts
 }
 
+// SetGood sets this event as a good event
+func (e *Event) SetGood() {
+	e.Good = true
+	e.Tag = getTag(e.SourceNode, "good")
+}
+
+func getTag(node config.NodeRef, subTag string) string {
+	return fmt.Sprintf("%s.%s.%s", node.Class, node.ID, subTag)
+}
+
+// Queue is not strictly a queue, it just distributes all events to the observers
 type Queue struct {
 	sync.RWMutex
 
@@ -86,14 +114,14 @@ func (q *Queue) Publish(e Event) {
 	}
 	log.Debugf("<%s> (%s) event %s", flowRef, runID, e.Tag)
 
-	// grab the next event ID
-	var nextID int64
 	q.Lock()
+	// grab the next event ID
 	q.idCounter++
-	nextID = q.idCounter
+	e.ID = q.idCounter
+	if e.Opts == nil {
+		e.Opts = nt.Opts{}
+	}
 	q.Unlock()
-
-	e.ID = nextID
 
 	// and notify all observers - in background goroutines
 	for _, o := range q.observers {

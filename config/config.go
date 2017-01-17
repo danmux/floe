@@ -3,6 +3,7 @@ package config
 import (
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"gopkg.in/yaml.v2"
@@ -31,12 +32,14 @@ type nid interface {
 	id() string
 }
 
+// Node is the interface through which the task is accessed
+// TODO so far looks like we only have a common task structure so this may not be needed
 type Node interface {
 	FlowRef() FlowRef
 	NodeRef() NodeRef
 	Class() NodeClass
 	Execute(nt.Workspace, nt.Opts) (int, nt.Opts, error)
-	IsStatusGood(int) bool
+	Status(status int) (string, bool)
 	TypeOfNode() string
 	Waits() int
 }
@@ -95,8 +98,9 @@ type task struct {
 	Listen     string
 	Wait       []string // if used as a merge node this is an array of event tags to wait for
 	Type       string
-	Good       []int
-	IgnoreFail bool
+	Good       []int   // the array of exit status codes considered a success
+	IgnoreFail bool    `yaml:"ignore-fail"` // only ever send the good event cant be used in conjunction with UseStatus
+	UseStatus  bool    `yaml:"use-status"`  // use status if we don't send good or bad but the actual status code as an event
 	Opts       nt.Opts // static config options
 }
 
@@ -109,22 +113,35 @@ func (t *task) Execute(ws nt.Workspace, opts nt.Opts) (int, nt.Opts, error) {
 	return n.Execute(ws, inOpts)
 }
 
-func (t *task) IsStatusGood(status int) bool {
-	// always return good if ignorefail
+// Status will return the string to use on an event tag and a boolean to
+// indicate if the status is considered good
+func (t *task) Status(status int) (string, bool) {
+	// always good if ignore fail
 	if t.IgnoreFail {
-		return true
+		return "good", true
 	}
-	// nothing specified assume 0 = good
+	// is this code considered a success
+	good := false
+	// no specific good statuses so consider 0 success, all others fail
 	if len(t.Good) == 0 {
-		return status == 0
-	}
-	// otherwise true if in specific list
-	for _, s := range t.Good {
-		if s == status {
-			return true
+		good = status == 0
+	} else {
+		for _, s := range t.Good {
+			if s == status {
+				good = true
+				break
+			}
 		}
 	}
-	return false
+	// use specific exit statuses
+	if t.UseStatus {
+		return strconv.Itoa(status), good
+	}
+	// or binary result
+	if good {
+		return "good", true
+	}
+	return "bad", false
 }
 
 func (t *task) FlowRef() FlowRef {
@@ -147,25 +164,30 @@ func (t *task) Waits() int {
 	return len(t.Wait)
 }
 
-func (t *task) matched(eType string, opts *nt.Opts) bool {
-	if opts != nil {
-		if t.Type != eType {
-			return false
-		}
-		n := nt.GetNodeType(eType)
-		if n == nil {
-			return false
-		}
-		// compare config options with the event options
-		return n.Match(t.Opts, *opts)
+func (t *task) matchedSub(eType string, opts *nt.Opts) bool {
+	// subs matches must always have opts
+	if opts == nil {
+		return false
 	}
-	// otherwise for all other tasks match on the Listen
-	if t.Listen != "" && t.Listen == eType {
+	if t.Type != eType {
+		return false
+	}
+	n := nt.GetNodeType(eType)
+	if n == nil {
+		return false
+	}
+	// compare config options with the event options
+	return n.Match(t.Opts, *opts)
+}
+
+func (t *task) matched(tag string) bool {
+	// match on the Listen
+	if t.Listen != "" && t.Listen == tag {
 		return true
 	}
 	// or if any tags in the the Wait list match (merge nodes only)
-	for _, tag := range t.Wait {
-		if tag == eType {
+	for _, wt := range t.Wait {
+		if wt == tag {
 			return true
 		}
 	}
@@ -195,6 +217,14 @@ func (t *task) zero(class NodeClass, flow FlowRef) error {
 	}
 	t.flowRef = flow
 	t.class = class
+
+	n := nt.GetNodeType(t.Type)
+	if n == nil {
+		return nil
+	}
+
+	n.CastOpts(&t.Opts)
+
 	return nil
 }
 
@@ -224,11 +254,21 @@ type Flow struct {
 	Merges []*task
 }
 
-func (f *Flow) match(class NodeClass, eType string, opts *nt.Opts) []*task {
+func (f *Flow) matchSubs(eType string, opts *nt.Opts) []*task {
+	res := []*task{}
+	for _, s := range f.Subs {
+		if s.matchedSub(eType, opts) {
+			res = append(res, s)
+		}
+	}
+	return res
+}
+
+func (f *Flow) matchTag(class NodeClass, tag string) []*task {
 	res := []*task{}
 	nl := f.classToList(class)
 	for _, s := range nl {
-		if s.matched(eType, opts) {
+		if s.matched(tag) {
 			res = append(res, s)
 		}
 	}
@@ -302,10 +342,17 @@ type FoundFlow struct {
 }
 
 // FindFlowsBySubs finds all flows where its subs match the given params
-func (c *Config) FindFlowsBySubs(eType string, opts nt.Opts) map[FlowRef]FoundFlow {
+func (c *Config) FindFlowsBySubs(eType string, flow *FlowRef, opts nt.Opts) map[FlowRef]FoundFlow {
 	res := map[FlowRef]FoundFlow{}
 	for _, f := range c.Flows {
-		ns := f.match(NcSub, eType, &opts)
+		// if a flow is specified it has to match
+		if flow != nil {
+			if f.ID != flow.ID || f.Ver != flow.Ver {
+				continue
+			}
+		}
+		// match on other stuff
+		ns := f.matchSubs(eType, &opts)
 		// found some matching nodes for this flow
 		if len(ns) > 0 {
 			// make sure this flow is in the results
@@ -331,7 +378,7 @@ func (c *Config) FindFlowsBySubs(eType string, opts nt.Opts) map[FlowRef]FoundFl
 
 // FindFlow finds the specific flow where its subs match the given params
 func (c *Config) FindFlow(f FlowRef, eType string, opts nt.Opts) (FoundFlow, bool) {
-	found := c.FindFlowsBySubs(eType, opts)
+	found := c.FindFlowsBySubs(eType, nil, opts)
 	flow, ok := found[f]
 	return flow, ok
 }
@@ -343,12 +390,12 @@ func (c *Config) FindNodeInFlow(fRef FlowRef, tag string) []Node {
 		if f.ID == fRef.ID && f.Ver == fRef.Ver {
 			nodes := []Node{}
 			// normal tasks
-			ns := f.match(NcTask, tag, nil)
+			ns := f.matchTag(NcTask, tag)
 			for _, n := range ns {
 				nodes = append(nodes, Node(n))
 			}
 			// merge nodes
-			ns = f.match(NcMerge, tag, nil)
+			ns = f.matchTag(NcMerge, tag)
 			for _, n := range ns {
 				nodes = append(nodes, Node(n))
 			}

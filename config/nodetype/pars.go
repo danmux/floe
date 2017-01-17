@@ -1,7 +1,22 @@
 package nodetype
 
+import "encoding/json"
+
 // Opts are the options on the node type that will be compared to those on the event
 type Opts map[string]interface{}
+
+func (u *Opts) MarshalJSON() ([]byte, error) {
+	f := map[string]string{}
+	for k, v := range *u {
+		s, ok := v.(string)
+		if ok {
+			f[k] = s
+		} else {
+			f[k] = "-"
+		}
+	}
+	return json.Marshal(&f)
+}
 
 func (o Opts) string(key string) (string, bool) {
 	si, ok := o[key]
@@ -41,23 +56,4 @@ func MergeOpts(l, r Opts) Opts {
 
 type Workspace struct {
 	BasePath string
-}
-
-// NodeType is the interface for an option comparing node
-type NodeType interface {
-	Match(Opts, Opts) bool
-	Execute(ws Workspace, in Opts) (int, Opts, error)
-}
-
-// GetNodeType returns the node from the given the type and opts
-func GetNodeType(nType string) NodeType {
-	switch nType {
-	case "git-push":
-		return gitPush{}
-	case "git-merge":
-		return gitMerge{}
-	case "exec":
-		return exec{}
-	}
-	return nil
 }

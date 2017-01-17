@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/floeit/floe/config"
+	nt "github.com/floeit/floe/config/nodetype"
 	"github.com/floeit/floe/store"
 	"github.com/floeit/old/log"
 )
@@ -61,30 +63,57 @@ func TestWebLaunch(t *testing.T) {
 		Payload: flows,
 	}
 
-	if ok := webGet(t, tok, "/flows", resp, []int{200}); !ok { // authed
+	if !webGet(t, tok, "/flows", resp, []int{200}) { // authed
 		t.Error("getting flows failed")
 	}
+	if len(flows.Flows) != 2 {
+		t.Fatal("shoulda got 2 flow, got:", len(flows.Flows))
+	}
+
+	// TODO get the form description
+
+	// start a flow from a form
+	pl := struct {
+		Ref     config.FlowRef
+		Answers nt.Opts
+	}{
+		Ref: config.FlowRef{
+			ID:  "build-project",
+			Ver: 1,
+		},
+		Answers: nt.Opts{
+			"from_hash": "foooble",
+			"to_hash":   "asdfghj",
+		},
+	}
+	if !webPost(t, tok, "/subs/data", pl, nil, []int{200}) {
+		t.Error("data trigger failed")
+	}
+
+	time.Sleep(time.Second * 2)
+
+	// TODO - get list of jobs
+
+	// wait for jobs to finish
 
 	return // TODO
 
-	flid := flows.Floes[0].ID
+	//flid := flows.Floes[0].ID
 
-	p, _ := json.MarshalIndent(flows, "", "  ")
-	println(string(p))
+	// p, _ := json.MarshalIndent(flows, "", "  ")
 
-	if flid != "test-build" {
-		t.Fatal("bad floe ID", flid)
-	}
+	// if flid != "test-build" {
+	// 	t.Fatal("bad floe ID", flid)
+	// }
 
-	time.Sleep(time.Second * 3)
+	// time.Sleep(time.Second * 3)
 
-	resp = &genResp{}
-	if ok := webGet(t, tok, "/flows/"+flid, resp, []int{200}); !ok {
-		t.Error("getting floe failed")
-	}
+	// resp = &genResp{}
+	// if ok := webGet(t, tok, "/flows/"+flid, resp, []int{200}); !ok {
+	// 	t.Error("getting floe failed")
+	// }
 
-	p, _ = json.MarshalIndent(resp, "", "  ")
-	println(string(p))
+	// p, _ = json.MarshalIndent(resp, "", "  ")
 }
 
 func setupWeb(t *testing.T) {
@@ -105,13 +134,32 @@ flows:
           type: git-push             # the type of this trigger
           opts:
             url: blah.blah           # which url to monitor
+
+        - name: start
+          type: data
+          opts:
+            form:
+              title: Start
+              fields:
+                - id: from_hash
+                  prompt: From Branch (or hash)
+                  type: string
+                - id: to_hash
+                  prompt: To Branch (or hash)
+                  type: string
+      
+      merges:
+        - name: subs
+          type: any
+          wait: [sub.push.good, sub.start.good]
             
       tasks: 
         - name: checkout             # the name of this node 
-          listen: sub.git-push.good  # the event tag that triggers this node
+          listen: merge.subs.good    # the event tag that triggers this node
           type: git-merge            # the task type 
           good: [0]                  # define what the good statuses are, default [0]
           ignore-fail: false         # if true only emit good
+          use-status: true
         
         - name: build                
           listen: task.checkout.good    
@@ -124,7 +172,11 @@ flows:
           type: exec                 # execute a command
           opts:
             cmd: "make test"         # the command to execute 
-    
+
+        - name: complete
+          listen: task.test.good
+          type: end                 # getting here means the flow was a success
+
     - id: build-merge
       ver: 1
       
@@ -148,11 +200,29 @@ flows:
 	base = "http://" + addr + basePath
 
 	s := store.NewMemStore()
-	go start("hi1", "%tmp/floe", addr, adminToken, in, s)
-	good := waitAPIReady(t)
-	if !good {
-		t.Fatal("failed to wait or server to come up")
+	sch := make(chan bool)
+	go func() {
+		err := start("hi1", "%tmp/floe", addr, adminToken, in, s)
+		if err != nil {
+			t.Error(err)
+			sch <- false
+		}
+	}()
+
+	ready := make(chan bool)
+	go func() {
+		ready <- waitAPIReady(t)
+	}()
+
+	// wait for api decision or start fail
+	select {
+	case <-sch:
+	case res := <-ready:
+		if !res {
+			t.Fatal("failed to wait or server to come up")
+		}
 	}
+
 }
 
 func setup(t *testing.T) {
@@ -173,7 +243,7 @@ type summaryStruct struct {
 }
 
 type flowsResp struct {
-	Floes []summaryStruct
+	Flows []summaryStruct
 }
 
 func webLogin(t *testing.T) string {
@@ -302,6 +372,8 @@ func webReq(t *testing.T, method, tok, spath string, rq, rp interface{}, expecte
 	}
 
 	// t.Log(string(body))
+
+	// t.Log("sc", resp.StatusCode)
 
 	codeGood := false
 	for _, c := range expected {

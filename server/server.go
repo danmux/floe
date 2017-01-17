@@ -21,6 +21,8 @@ func LaunchWeb(host string, hub *hub.Hub) {
 	r.NotFound = notFoundHandler{}
 	r.PanicHandler = panicHandler
 
+	println(len(hub.Config().Flows))
+
 	h := handler{hub: hub}
 	// --- authentication ---
 	r.POST(rp+"/login", h.mw(loginHandler, false))
@@ -32,6 +34,8 @@ func LaunchWeb(host string, hub *hub.Hub) {
 	// --- CORS ---
 	r.OPTIONS(rp+"/*all", h.mw(nil, false)) // catch all options
 
+	// --- subscription endpoints ---
+	h.setupSubs(rp+"/subs/", r, hub)
 	/*
 		r.GET(rp+"/flows/:flid", h.mw(floeHandler, true))
 		r.POST(rp+"/flows/:flid/exec", h.mw(execHandler, true))

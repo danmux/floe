@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
-	"strconv"
 	"strings"
 
 	"time"
@@ -18,6 +17,8 @@ import (
 	"github.com/floeit/floe/log"
 	"github.com/floeit/floe/store"
 )
+
+const flowEndTag = "sys.end.all"
 
 // Hub links events to the config rules
 type Hub struct {
@@ -44,7 +45,7 @@ func New(host, basePath string, c *config.Config, s store.Store, q *event.Queue)
 	// hub subscribes to its own queue
 	h.queue.Register(h)
 	// start checking the pending queue
-	go h.servicePending()
+	go h.serviceLists()
 
 	return h
 }
@@ -54,7 +55,14 @@ func (h *Hub) Config() config.Config {
 	return *h.config
 }
 
-func (h *Hub) servicePending() {
+// Queue returns the hubs queue
+func (h *Hub) Queue() *event.Queue {
+	return h.queue
+}
+
+// serviceLists attempts to dispatch pending flows and times outs
+// any active flows that are past their deadline
+func (h *Hub) serviceLists() {
 	for range time.Tick(time.Second) {
 		err := h.dispatchPending()
 		if err != nil {
@@ -66,8 +74,8 @@ func (h *Hub) servicePending() {
 // Notify is called whenever an event is sent to the hub. It
 // makes the hub an Observer
 func (h *Hub) Notify(e event.Event) {
-	if e.RunRef == nil {
-		// this is a an event from an external listener, thereby initiating a new flows
+	if e.RunRef == nil || (e.RunRef != nil && e.RunRef.Inactive()) {
+		// this is a an event from an external listener, thereby initiating new flows
 		err := h.pendFlowFromSubEvent(e)
 		if err != nil {
 			log.Error(err)
@@ -78,8 +86,9 @@ func (h *Hub) Notify(e event.Event) {
 	h.dispatchActive(e)
 }
 
+// dispatchPending loops through all pending todos assessing whether they can be run then distributes them.
 func (h *Hub) dispatchPending() error {
-	for _, p := range h.runs.Pending.Todos {
+	for i, p := range h.runs.allTodos() {
 		flow, ok := h.config.FindFlow(p.Ref.FlowRef, p.InitiatingEvent.Tag, p.InitiatingEvent.Opts)
 		if !ok {
 			return fmt.Errorf("pending not found %s, %s", p.Ref.FlowRef, p.InitiatingEvent.Tag)
@@ -92,12 +101,16 @@ func (h *Hub) dispatchPending() error {
 
 		// if we are the preferred host and there are no resource conflicts we are good to go
 		// add the active flow
-		h.executePending(p, flow)
+		err := h.executePending(p, flow)
+		if err == nil {
+			// remove from our todo list
+			h.runs.removeTodo(i, p)
+		}
 	}
 	return nil
 }
 
-// activateFromSubs will find any flows that match the event and activate them
+// executePending executes a todo on this host
 func (h *Hub) executePending(todo *Todo, flow config.FoundFlow) error {
 	log.Debugf("<%s> (%s) start %s", todo.Ref.FlowRef, todo.Ref.Run, todo.InitiatingEvent.Tag)
 
@@ -113,7 +126,8 @@ func (h *Hub) executePending(todo *Todo, flow config.FoundFlow) error {
 		return err
 	}
 
-	// and then emit the subs node events
+	// and then emit any subs node events that were tripped when this flow was made pending
+	// (more than one trigger at a time is going to be pretty rare)
 	for _, n := range flow.Nodes {
 		h.queue.Publish(event.Event{
 			RunRef:     &todo.Ref,
@@ -128,7 +142,15 @@ func (h *Hub) executePending(todo *Todo, flow config.FoundFlow) error {
 
 // queueFlowFromSubEvent will find any flows that match the event and add them to the pending list
 func (h *Hub) pendFlowFromSubEvent(e event.Event) error {
-	found := h.config.FindFlowsBySubs(e.Tag, e.Opts)
+	var specificFlow *config.FlowRef
+	if e.RunRef != nil {
+		specificFlow = &e.RunRef.FlowRef
+	}
+	found := h.config.FindFlowsBySubs(e.Tag, specificFlow, e.Opts)
+	if len(found) == 0 {
+		log.Warning("no matching flow for", e.Tag, e.RunRef)
+		return nil
+	}
 
 	// map the node config to events
 	for f := range found {
@@ -136,25 +158,35 @@ func (h *Hub) pendFlowFromSubEvent(e event.Event) error {
 		if err != nil {
 			return err
 		}
-		log.Debugf("<%s> (%s) subs  %s", f, id, e.Tag)
+		log.Debugf("<%s> (%s) subs %s", f, id, e.Tag)
 	}
 
 	return nil
 }
 
 func (h *Hub) dispatchActive(e event.Event) {
+	// ignore the flow end event
+	if e.Tag == flowEndTag {
+		return
+	}
 	// for all active flows find ones that match
 	_, r := h.runs.findActiveRun(e.RunRef.Run)
-	// no matching active run
+	// no matching active run - why do we have more events for an ended run
 	if r == nil {
+		log.Errorf("<%s> (%s) norun %s", e.RunRef.FlowRef, e.RunRef.Run, e.Tag)
 		return
 	}
 	ns := h.config.FindNodeInFlow(r.Ref.FlowRef, e.Tag)
+	// no nodes matched this event so
+	if len(ns) == 0 {
+		log.Debugf("<%s> (%s) nonode %s", e.RunRef.FlowRef, e.RunRef.Run, e.Tag)
+		h.endRun(r, e.SourceNode, e.Opts, "incomplete", e.Good)
+	}
 	for _, n := range ns {
 		switch n.Class() {
 		case config.NcTask:
 			if n.TypeOfNode() == "end" { // special task type end the run
-				h.endRun(r, n.NodeRef(), e.Opts)
+				h.endRun(r, n.NodeRef(), e.Opts, "complete", e.Good)
 				return
 			}
 			// asynchronous execute
@@ -165,14 +197,14 @@ func (h *Hub) dispatchActive(e event.Event) {
 	}
 }
 
-func (h *Hub) endRun(run *Run, source config.NodeRef, opts nt.Opts) {
-	log.Debugf("<%s> (%s) DONE", run.Ref.FlowRef, run.Ref.Run)
-	h.runs.end(run)
-	// publish specific end run event
+func (h *Hub) endRun(run *Run, source config.NodeRef, opts nt.Opts, status string, good bool) {
+	log.Debugf("<%s> (%s) DONE (%s, %v)", run.Ref.FlowRef, run.Ref.Run, status, good)
+	h.runs.end(run, status, good)
+	// publish specific end run event - so other observers know specifically that this flow finished
 	e := event.Event{
 		RunRef:     &run.Ref,
 		SourceNode: source,
-		Tag:        "sys.end.all",
+		Tag:        flowEndTag,
 		Opts:       opts,
 	}
 	h.queue.Publish(e)
@@ -185,13 +217,13 @@ func (h *Hub) mergeEvent(run *Run, node config.Node, e event.Event) {
 	// save the activeRun
 	h.runs.Active.Save(activeKey, h.runs.store)
 	// is the merge satisfied
-	if (node.TypeOfNode() == "any" && waitsDone > 0) ||
+	if (node.TypeOfNode() == "any" && waitsDone == 1) || // only fire an any merge once
 		(node.TypeOfNode() == "all" && waitsDone == node.Waits()) {
 
 		e := event.Event{
 			RunRef:     &run.Ref,
 			SourceNode: node.NodeRef(),
-			Tag:        getTag(node, "all"), // when merges fire they emit the all event
+			Tag:        getTag(node, "good"), // when merges fire they emit the good event
 			Opts:       opts,
 		}
 		h.queue.Publish(e)
@@ -214,23 +246,16 @@ func (h *Hub) executeNode(runRef *event.RunRef, node config.Node, e event.Event)
 	ne := event.Event{
 		RunRef:     runRef,
 		SourceNode: node.NodeRef(),
-		Tag:        getTag(node, "all"),
 		Opts:       opts,
 	}
+
+	// work out which tag this event has
+	tagbit, good := node.Status(status)
+	ne.Tag = getTag(node, tagbit)
+	ne.Good = good
+
+	// and publish it
 	h.queue.Publish(ne)
-
-	// dispatch good or bad event
-	if node.IsStatusGood(status) {
-		ne.Tag = getTag(node, "good")
-	} else {
-		ne.Tag = getTag(node, "bad")
-	}
-	h.queue.Publish(ne)
-
-	// dispatch the status specific event
-	e.Tag = getTag(node, strconv.Itoa(status))
-	h.queue.Publish(e)
-
 }
 
 func expandPath(w string) (string, error) {

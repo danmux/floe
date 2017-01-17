@@ -26,7 +26,7 @@ const (
 var (
 	logger *log.Logger
 	logbuf bytes.Buffer
-	level  int = 6
+	level  int = 7
 	mu     sync.Mutex
 )
 

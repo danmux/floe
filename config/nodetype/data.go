@@ -5,14 +5,14 @@ import (
 	"log"
 )
 
-// exec node executes an external task
-type exec struct{}
+// data
+type data struct{}
 
-func (e exec) Match(ol, or Opts) bool {
+func (d data) Match(qs, as Opts) bool {
 	return true
 }
 
-func (e exec) Execute(ws Workspace, in Opts) (int, Opts, error) {
+func (d data) Execute(ws Workspace, in Opts) (int, Opts, error) {
 	cmd, ok := in["cmd"]
 	if !ok {
 		return 255, nil, fmt.Errorf("missing cmd option")
@@ -23,4 +23,4 @@ func (e exec) Execute(ws Workspace, in Opts) (int, Opts, error) {
 	return 0, Opts{}, nil
 }
 
-func (e exec) CastOpts(in *Opts) {}
+func (d data) CastOpts(in *Opts) {}

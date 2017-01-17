@@ -13,6 +13,7 @@ import (
 
 	"github.com/floeit/floe/hub"
 	"github.com/floeit/floe/log"
+	"github.com/floeit/floe/subscribers"
 )
 
 const (
@@ -151,6 +152,11 @@ func (h handler) mw(f contextFunc, auth bool) func(rw http.ResponseWriter, r *ht
 		}
 
 		code, msg, res := f(rw, r, ctx)
+		// code 0 means the function responded itself
+		if code == 0 {
+			return
+		}
+
 		if msg == "" && code == rOK {
 			msg = "OK"
 		}
@@ -158,7 +164,35 @@ func (h handler) mw(f contextFunc, auth bool) func(rw http.ResponseWriter, r *ht
 			Message: msg,
 			Payload: res,
 		}
+
 		jsonResp(rw, code, reply)
+	}
+}
+
+// setupSubs goes through all the subscriber types to set up the associated routes
+func (h handler) setupSubs(path string, r *httprouter.Router, hub *hub.Hub) {
+	for k, t := range subscribers.Subs {
+		authenticated := false
+		// data from a form in the app
+		if k == "data" {
+			authenticated = true
+		}
+		// TODO consider parameterised paths
+		g := t.GetHandler(hub.Queue())
+		if g != nil {
+			r.GET(path+k, h.mw(adaptSub(hub, g), authenticated))
+		}
+		p := t.PostHandler(hub.Queue())
+		if p != nil {
+			r.POST(path+k, h.mw(adaptSub(hub, p), authenticated))
+		}
+	}
+}
+
+func adaptSub(hub *hub.Hub, handle httprouter.Handle) contextFunc {
+	return func(w http.ResponseWriter, req *http.Request, ctx *context) (int, string, renderable) {
+		handle(w, req, *ctx.ps)
+		return 0, "", nil // each subscriber handler is responsible for the response
 	}
 }
 
@@ -187,5 +221,4 @@ func panicHandler(rw http.ResponseWriter, r *http.Request, v interface{}) {
 	fmt.Fprintf(os.Stderr, string(stack))
 	// this sends it to the client....
 	// fmt.Fprintf(rw, f, err, )
-
 }

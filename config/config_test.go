@@ -103,7 +103,17 @@ flows:
           type: git-push             # the type of this trigger
           opts:
             url: blah.blah           # which url to monitor
-            
+
+        - name: start
+          type: data
+          opts:
+            form:
+              title: Start
+              fields:
+                - id: branch
+                  prompt: Branch
+                  type: string
+      
       tasks: 
         - name: checkout             # the name of this node 
           listen: sub.git-push.good  # the event tag that triggers this node
@@ -157,7 +167,7 @@ func TestYaml(t *testing.T) {
 		t.Error("wrong number of resource tags")
 	}
 
-	fns := c.FindFlowsBySubs("git-push", nt.Opts{"url": "blah.blah"})
+	fns := c.FindFlowsBySubs("git-push", nil, nt.Opts{"url": "blah.blah"})
 	if len(fns) != 1 {
 		t.Fatal("did not find the flow based on this sub", len(fns))
 	}
