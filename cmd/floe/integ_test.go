@@ -152,6 +152,10 @@ flows:
         - name: subs
           type: any
           wait: [sub.push.good, sub.start.good]
+
+        - name: wait tests
+          type: all
+          wait: [task.test.good, task.test2.good]
             
       tasks: 
         - name: checkout             # the name of this node 
@@ -159,7 +163,6 @@ flows:
           type: git-merge            # the task type 
           good: [0]                  # define what the good statuses are, default [0]
           ignore-fail: false         # if true only emit good
-          use-status: true
         
         - name: build                
           listen: task.checkout.good    
@@ -167,14 +170,20 @@ flows:
           opts:
             cmd: "make build"        # the command to execute 
 
-        - id: test                
+        - id: test                   # forks with test2           
           listen: task.build.good    
           type: exec                 # execute a command
           opts:
             cmd: "make test"         # the command to execute 
 
+        - id: test2                  # forks with test
+          listen: task.build.good    
+          type: exec                 
+          opts:
+            cmd: "make test 2"         
+
         - name: complete
-          listen: task.test.good
+          listen: merge.wait-tests.good
           type: end                 # getting here means the flow was a success
 
     - id: build-merge

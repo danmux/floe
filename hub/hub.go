@@ -1,13 +1,7 @@
 package hub
 
 import (
-	"errors"
 	"fmt"
-	"io/ioutil"
-	"os"
-	"os/user"
-	"path/filepath"
-	"strings"
 
 	"time"
 
@@ -60,17 +54,6 @@ func (h *Hub) Queue() *event.Queue {
 	return h.queue
 }
 
-// serviceLists attempts to dispatch pending flows and times outs
-// any active flows that are past their deadline
-func (h *Hub) serviceLists() {
-	for range time.Tick(time.Second) {
-		err := h.dispatchPending()
-		if err != nil {
-			log.Error(err)
-		}
-	}
-}
-
 // Notify is called whenever an event is sent to the hub. It
 // makes the hub an Observer
 func (h *Hub) Notify(e event.Event) {
@@ -84,6 +67,17 @@ func (h *Hub) Notify(e event.Event) {
 	}
 	// otherwise it is a flow specific event then dispatch it to any active flows
 	h.dispatchActive(e)
+}
+
+// serviceLists attempts to dispatch pending flows and times outs
+// any active flows that are past their deadline
+func (h *Hub) serviceLists() {
+	for range time.Tick(time.Second) {
+		err := h.dispatchPending()
+		if err != nil {
+			log.Error(err)
+		}
+	}
 }
 
 // dispatchPending loops through all pending todos assessing whether they can be run then distributes them.
@@ -179,8 +173,14 @@ func (h *Hub) dispatchActive(e event.Event) {
 	ns := h.config.FindNodeInFlow(r.Ref.FlowRef, e.Tag)
 	// no nodes matched this event so
 	if len(ns) == 0 {
-		log.Debugf("<%s> (%s) nonode %s", e.RunRef.FlowRef, e.RunRef.Run, e.Tag)
-		h.endRun(r, e.SourceNode, e.Opts, "incomplete", e.Good)
+		// all good statuses should make it to a next node, so log the warning
+		if e.Good {
+			log.Errorf("<%s> (%s) no node for good event %s", e.RunRef.FlowRef, e.RunRef.Run, e.Tag)
+			h.endRun(r, e.SourceNode, e.Opts, "incomplete", true)
+		} else {
+			log.Debugf("<%s> (%s) no node for bad event %s (ending flow)", e.RunRef.FlowRef, e.RunRef.Run, e.Tag)
+			h.endRun(r, e.SourceNode, e.Opts, "complete", false)
+		}
 	}
 	for _, n := range ns {
 		switch n.Class() {
@@ -208,26 +208,6 @@ func (h *Hub) endRun(run *Run, source config.NodeRef, opts nt.Opts, status strin
 		Opts:       opts,
 	}
 	h.queue.Publish(e)
-}
-
-func (h *Hub) mergeEvent(run *Run, node config.Node, e event.Event) {
-	log.Debugf("<%s> (%s) merge %s", run.Ref.FlowRef, run.Ref.Run, e.Tag)
-
-	waitsDone, opts := h.runs.updateWithMergeEvent(run, node.NodeRef().ID, e.Tag, e.Opts)
-	// save the activeRun
-	h.runs.Active.Save(activeKey, h.runs.store)
-	// is the merge satisfied
-	if (node.TypeOfNode() == "any" && waitsDone == 1) || // only fire an any merge once
-		(node.TypeOfNode() == "all" && waitsDone == node.Waits()) {
-
-		e := event.Event{
-			RunRef:     &run.Ref,
-			SourceNode: node.NodeRef(),
-			Tag:        getTag(node, "good"), // when merges fire they emit the good event
-			Opts:       opts,
-		}
-		h.queue.Publish(e)
-	}
 }
 
 func (h *Hub) executeNode(runRef *event.RunRef, node config.Node, e event.Event) {
@@ -258,72 +238,25 @@ func (h *Hub) executeNode(runRef *event.RunRef, node config.Node, e event.Event)
 	h.queue.Publish(ne)
 }
 
-func expandPath(w string) (string, error) {
-	// cant use root or v small paths
-	if len(w) < 2 {
-		return "", errors.New("path too short")
-	}
+func (h *Hub) mergeEvent(run *Run, node config.Node, e event.Event) {
+	log.Debugf("<%s> (%s) merge %s", run.Ref.FlowRef, run.Ref.Run, e.Tag)
 
-	b := strings.Split(w, "/")
-	r := ""
-	if b[0] == "" {
-		r = string(filepath.Separator)
-	}
+	waitsDone, opts := h.runs.updateWithMergeEvent(run, node.NodeRef().ID, e.Tag, e.Opts)
+	// save the activeRun
+	h.runs.Active.Save(activeKey, h.runs.store)
+	// is the merge satisfied
+	if (node.TypeOfNode() == "any" && waitsDone == 1) || // only fire an any merge once
+		(node.TypeOfNode() == "all" && waitsDone == node.Waits()) {
 
-	usr, _ := user.Current()
-	hd := usr.HomeDir
-
-	// Check in case of paths like "/something/~/something/"
-	if b[0] == "~" {
-		if b[1] == "" { // disallow "~/"
-			return "", errors.New("root of user folder not allowed")
+		e := event.Event{
+			RunRef:     &run.Ref,
+			SourceNode: node.NodeRef(),
+			Tag:        getTag(node, "good"), // when merges fire they emit the good event
+			Good:       true,
+			Opts:       opts,
 		}
-		b[0] = hd
+		h.queue.Publish(e)
 	}
-	// replace %tmp with a temp folder
-	if b[0] == "%tmp" {
-		tmp, err := ioutil.TempDir("", "floe")
-		if err != nil {
-			return "", err
-		}
-		b[0] = tmp
-	}
-
-	return r + filepath.Join(b...), nil
-}
-
-// enforceWS make sure there is a matching file system location and returns the workspace object
-// shared will use the 'single' workspace
-func (h Hub) enforceWS(runRef event.RunRef, single bool) (*nt.Workspace, error) {
-	ws, err := h.getWS(runRef, single)
-	if err != nil {
-		return nil, err
-	}
-	err = os.RemoveAll(ws.BasePath)
-	if err != nil {
-		return nil, err
-	}
-	err = os.MkdirAll(ws.BasePath, 0755)
-	return ws, err
-}
-
-// getWS returns the appropriate Workspace struct for this flow
-func (h Hub) getWS(runRef event.RunRef, single bool) (*nt.Workspace, error) {
-	ebp, err := expandPath(h.basePath)
-	if err != nil {
-		return nil, err
-	}
-
-	path := filepath.Join(ebp, runRef.FlowRef.ID)
-	if single {
-		path = filepath.Join(path, "ws", "single")
-	} else {
-		path = filepath.Join(path, "ws", runRef.Run.String())
-	}
-	// setup the workspace config
-	return &nt.Workspace{
-		BasePath: path,
-	}, nil
 }
 
 func getTag(node config.Node, subTag string) string {
