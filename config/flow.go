@@ -18,11 +18,12 @@ func (f FlowRef) String() string {
 
 // Flow is a serialisable Flow Config
 type Flow struct {
-	Name       string   // human friendly name
-	ID         string   // url friendly ID - computed from the name if not given
-	Ver        int      // flow version
-	ReuseSpace bool     `yaml:"reuse-space"` // if true then will use the single workspace and will mutex with other instances of this Flow
-	HostTags   []string `yaml:"host-tags"`   // tags that must match the tags on the host
+	Name         string   // human friendly name
+	ID           string   // url friendly ID - computed from the name if not given
+	Ver          int      // flow version
+	ReuseSpace   bool     `yaml:"reuse-space"`   // if true then will use the single workspace and will mutex with other instances of this Flow
+	HostTags     []string `yaml:"host-tags"`     // tags that must match the tags on the host
+	ResourceTags []string `yaml:"resource-tags"` // tags that if any flow is running with any matching tags then don't launch
 
 	// the Various node types
 	Subs   []*task

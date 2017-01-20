@@ -161,7 +161,10 @@ func TestYaml(t *testing.T) {
 		t.Error("ReuseSpace should be true")
 	}
 	if len(fl.HostTags) != 3 {
-		t.Error("wrong number of resource tags")
+		t.Error("wrong number of host tags", len(fl.HostTags))
+	}
+	if len(fl.ResourceTags) != 2 {
+		t.Error("wrong number of resource tags", len(fl.ResourceTags))
 	}
 
 	fns := c.FindFlowsBySubs("git-push", nil, nt.Opts{"url": "blah.blah"})

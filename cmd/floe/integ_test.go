@@ -67,7 +67,7 @@ func TestWebLaunch(t *testing.T) {
 		t.Error("getting flows failed")
 	}
 	if len(flows.Flows) != 2 {
-		t.Fatal("shoulda got 2 flow, got:", len(flows.Flows))
+		t.Fatal("should have got 2 flow, got:", len(flows.Flows))
 	}
 
 	// TODO get the form description
