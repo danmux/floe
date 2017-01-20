@@ -160,9 +160,6 @@ func TestYaml(t *testing.T) {
 	if !fl.ReuseSpace {
 		t.Error("ReuseSpace should be true")
 	}
-	if len(fl.ResourceTags) != 2 {
-		t.Error("wrong number of resource tags")
-	}
 	if len(fl.HostTags) != 3 {
 		t.Error("wrong number of resource tags")
 	}
@@ -192,7 +189,11 @@ func TestYaml(t *testing.T) {
 		ID:  "build-project",
 		Ver: 1,
 	}
-	ns = c.FindNodeInFlow(fr, "sub.git-push.good")
+	fsf, ok := c.FindNodeInFlow(fr, "sub.git-push.good")
+	if !ok {
+		t.Fatal("could not find flow")
+	}
+	ns = fsf.Nodes
 	if ns[0].NodeRef().Class != NcTask {
 		t.Error("got wrong node class")
 	}

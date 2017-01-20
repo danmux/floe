@@ -1,6 +1,8 @@
-config:
+common:
+    base-url: "/build/api" 
     hosts:
-        - name-or.ip.of.other.host 
+        - http://127.0.0.1:8080
+        - http://127.0.0.1:8090
 
 flows:
     - id: build-project              # the name of this flow

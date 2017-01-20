@@ -74,7 +74,7 @@ func TestExecuteNode(t *testing.T) {
 		exec: exec,
 	}
 	e := event.Event{}
-	h.executeNode(runRef, node, e)
+	h.executeNode(runRef, node, e, false)
 	if !didExec {
 		t.Error("did not execute executor")
 	}
@@ -134,7 +134,7 @@ flows:
 func TestHub(t *testing.T) {
 	c, _ := config.ParseYAML(in)
 	s := store.NewMemStore()
-	hub := New("h1", "~/floe", c, s, &event.Queue{})
+	hub := New("h1", "master", "~/floe", "admintok", c, s, &event.Queue{})
 
 	// add an external event
 	hub.Notify(event.Event{
@@ -166,7 +166,7 @@ func TestEventQueue(t *testing.T) {
 	s := store.NewMemStore()
 	q := &event.Queue{}
 
-	New("h1", "%tmp/flow", c, s, q)
+	New("h1", "master", "%tmp/flow", "admin-tok", c, s, q)
 
 	// register a test observer
 	to := testObs{

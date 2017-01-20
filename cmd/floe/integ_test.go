@@ -211,7 +211,7 @@ flows:
 	s := store.NewMemStore()
 	sch := make(chan bool)
 	go func() {
-		err := start("hi1", "%tmp/floe", addr, adminToken, in, s)
+		err := start("hi1", "master", "%tmp/floe", addr, adminToken, in, s)
 		if err != nil {
 			t.Error(err)
 			sch <- false

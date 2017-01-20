@@ -23,9 +23,10 @@ type Todo struct {
 	InitiatingEvent event.Event
 }
 
+// a merge record is kept per node id
 type merge struct {
-	Waits map[string]bool // per node id - each wait event received
-	Opts  nt.Opts         // merged opts from all listens
+	Waits map[string]bool // each wait event received
+	Opts  nt.Opts         // merged opts from all events
 }
 
 // Run is a specific invocation of a flow
@@ -38,7 +39,7 @@ type Run struct {
 	Ended      bool
 	Status     string
 	Good       bool
-	MergeNodes map[string]merge
+	MergeNodes map[string]merge // the states of the merge nodes by node id
 }
 
 // updateWithMergeEvent ads the tag to the nodeID and returns current length of tags

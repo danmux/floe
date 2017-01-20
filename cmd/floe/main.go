@@ -2,9 +2,7 @@ package main
 
 import (
 	"flag"
-
 	"io/ioutil"
-
 	"os"
 
 	"github.com/floeit/floe/config"
@@ -20,7 +18,8 @@ func main() {
 	in := flag.String("in", "config.yml", "the host config yaml")
 	host := flag.String("host", "h1", "a short host name to use in id creation and routing")
 	bind := flag.String("bind", ":8080", "what to bind the server to")
-	admin := flag.String("admin", "", "admin token")
+	adminToken := flag.String("admin", "", "admin token")
+	tags := flag.String("tags", "master", "host tags")
 
 	flag.Parse()
 
@@ -33,17 +32,17 @@ func main() {
 	// TODO - implement real store
 	s := store.NewMemStore()
 
-	log.Info(start(*host, *root, *bind, *admin, cfg, s))
+	log.Info(start(*host, *tags, *root, *bind, *adminToken, cfg, s))
 }
 
-func start(host, root, bind, admin string, conf []byte, store store.Store) error {
+func start(host, tags, root, bind, adminToken string, conf []byte, store store.Store) error {
 	c, err := config.ParseYAML(conf)
 	if err != nil {
 		return err
 	}
 	q := &event.Queue{}
-	hub := hub.New(host, root, c, store, q)
-	server.AdminToken = admin
-	server.LaunchWeb(bind, hub)
+	hub := hub.New(host, tags, root, adminToken, c, store, q)
+	server.AdminToken = adminToken
+	server.LaunchWeb(bind, c.Common.BaseURL, hub)
 	return nil
 }

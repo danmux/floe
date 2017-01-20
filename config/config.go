@@ -1,332 +1,24 @@
 package config
 
 import (
-	"errors"
 	"fmt"
-	"strconv"
-	"strings"
 
 	"gopkg.in/yaml.v2"
 
 	nt "github.com/floeit/floe/config/nodetype"
 )
 
-// idFromName makes a file and URL/HTML friendly ID from the name.
-func idFromName(name string) string {
-	s := strings.Split(strings.ToLower(strings.TrimSpace(name)), " ")
-	ns := strings.Join(s, "-")
-	s = strings.Split(ns, ".")
-	return strings.Join(s, "-")
-}
-
-func nameFromID(id string) string {
-	s := strings.Split(strings.ToLower(strings.TrimSpace(id)), "-")
-	return strings.Join(s, " ")
-}
-
-// Node is the thing that an event triggers some behavior in
-type nid interface {
-	setID(string)
-	setName(string)
-	name() string
-	id() string
-}
-
-// Node is the interface through which the task is accessed
-// TODO so far looks like we only have a common task structure so this may not be needed
-type Node interface {
-	FlowRef() FlowRef
-	NodeRef() NodeRef
-	Class() NodeClass
-	Execute(nt.Workspace, nt.Opts) (int, nt.Opts, error)
-	Status(status int) (string, bool)
-	TypeOfNode() string
-	Waits() int
-}
-
-// NodeClass the type def for the types a Node can be
-type NodeClass string
-
-// NodeClass values
-const (
-	NcTask  NodeClass = "task"
-	NcMerge NodeClass = "merge"
-	NcSub   NodeClass = "sub"
-	NcPub   NodeClass = "pub"
-)
-
-// NodeRef uniquely identifies a Node across time (versions)
-type NodeRef struct {
-	Class NodeClass
-	ID    string
-}
-
-// trim trailing spaces and dots and hyphens
-func trimNIDs(s string) string {
-	return strings.Trim(s, " .-")
-}
-
-func zeroNID(n nid) error {
-	name := trimNIDs(n.name())
-	id := trimNIDs(n.id())
-
-	if name == "" && id == "" {
-		return errors.New("task id and name can not both be empty")
-	}
-	if id == "" {
-		id = idFromName(name)
-	}
-	if strings.IndexAny(id, " .") >= 0 {
-		return errors.New("a specified id can not contain spaces or full stops")
-	}
-	if name == "" {
-		name = nameFromID(id)
-	}
-
-	n.setID(id)
-	n.setName(name)
-	return nil
-}
-
-type task struct {
-	// what flow is this node attached to
-	flowRef    FlowRef
-	class      NodeClass
-	Ref        NodeRef
-	ID         string
-	Name       string
-	Listen     string
-	Wait       []string // if used as a merge node this is an array of event tags to wait for
-	Type       string
-	Good       []int   // the array of exit status codes considered a success
-	IgnoreFail bool    `yaml:"ignore-fail"` // only ever send the good event cant be used in conjunction with UseStatus
-	UseStatus  bool    `yaml:"use-status"`  // use status if we don't send good or bad but the actual status code as an event
-	Opts       nt.Opts // static config options
-}
-
-func (t *task) Execute(ws nt.Workspace, opts nt.Opts) (int, nt.Opts, error) {
-	n := nt.GetNodeType(t.Type)
-	if n == nil {
-		return 255, nil, fmt.Errorf("no node type found: %s", t.Type)
-	}
-	inOpts := nt.MergeOpts(t.Opts, opts)
-	return n.Execute(ws, inOpts)
-}
-
-// Status will return the string to use on an event tag and a boolean to
-// indicate if the status is considered good
-func (t *task) Status(status int) (string, bool) {
-	// always good if ignore fail
-	if t.IgnoreFail {
-		return "good", true
-	}
-	// is this code considered a success
-	good := false
-	// no specific good statuses so consider 0 success, all others fail
-	if len(t.Good) == 0 {
-		good = status == 0
-	} else {
-		for _, s := range t.Good {
-			if s == status {
-				good = true
-				break
-			}
-		}
-	}
-	// use specific exit statuses
-	if t.UseStatus {
-		return strconv.Itoa(status), good
-	}
-	// or binary result
-	if good {
-		return "good", true
-	}
-	return "bad", false
-}
-
-func (t *task) FlowRef() FlowRef {
-	return t.flowRef
-}
-
-func (t *task) NodeRef() NodeRef {
-	return t.Ref
-}
-
-func (t *task) Class() NodeClass {
-	return t.class
-}
-
-func (t *task) TypeOfNode() string {
-	return t.Type
-}
-
-func (t *task) Waits() int {
-	return len(t.Wait)
-}
-
-func (t *task) matchedSub(eType string, opts *nt.Opts) bool {
-	// subs matches must always have opts
-	if opts == nil {
-		return false
-	}
-	if t.Type != eType {
-		return false
-	}
-	n := nt.GetNodeType(eType)
-	if n == nil {
-		return false
-	}
-	// compare config options with the event options
-	return n.Match(t.Opts, *opts)
-}
-
-func (t *task) matched(tag string) bool {
-	// match on the Listen
-	if t.Listen != "" && t.Listen == tag {
-		return true
-	}
-	// or if any tags in the the Wait list match (merge nodes only)
-	for _, wt := range t.Wait {
-		if wt == tag {
-			return true
-		}
-	}
-	return false
-}
-
-func (t *task) setName(n string) {
-	t.Name = n
-}
-func (t *task) setID(i string) {
-	t.ID = i
-}
-func (t *task) name() string {
-	return t.Name
-}
-func (t *task) id() string {
-	return t.ID
-}
-
-func (t *task) zero(class NodeClass, flow FlowRef) error {
-	if err := zeroNID(t); err != nil {
-		return err
-	}
-	t.Ref = NodeRef{
-		Class: class,
-		ID:    t.ID,
-	}
-	t.flowRef = flow
-	t.class = class
-
-	n := nt.GetNodeType(t.Type)
-	if n == nil {
-		return nil
-	}
-
-	n.CastOpts(&t.Opts)
-
-	return nil
-}
-
-// FlowRef uniquely identifies a flow
-type FlowRef struct {
-	ID  string
-	Ver int
-}
-
-func (f FlowRef) String() string {
-	return fmt.Sprintf("%s-%d", f.ID, f.Ver)
-}
-
-// Flow is a serialisable Flow Config
-type Flow struct {
-	Name         string   // human friendly name
-	ID           string   // url friendly ID - computed from the name if not given
-	Ver          int      // flow version
-	ReuseSpace   bool     `yaml:"reuse-space"`   // if true then will use the single workspace and will mutex with other instances of this Flow
-	ResourceTags []string `yaml:"resource-tags"` // tags to group resources this flow needs
-	HostTags     []string `yaml:"host-tags"`     // tags that must match the tags on the host
-
-	// the Various node types
-	Subs   []*task
-	Tasks  []*task
-	Pubs   []*task
-	Merges []*task
-}
-
-func (f *Flow) matchSubs(eType string, opts *nt.Opts) []*task {
-	res := []*task{}
-	for _, s := range f.Subs {
-		if s.matchedSub(eType, opts) {
-			res = append(res, s)
-		}
-	}
-	return res
-}
-
-func (f *Flow) matchTag(class NodeClass, tag string) []*task {
-	res := []*task{}
-	nl := f.classToList(class)
-	for _, s := range nl {
-		if s.matched(tag) {
-			res = append(res, s)
-		}
-	}
-	return res
-}
-
-func (f *Flow) setName(n string) {
-	f.Name = n
-}
-func (f *Flow) setID(i string) {
-	f.ID = i
-}
-func (f *Flow) name() string {
-	return f.Name
-}
-func (f *Flow) id() string {
-	return f.ID
-}
-
-func (f *Flow) zero() error {
-	if err := zeroNID(f); err != nil {
-		return err
-	}
-
-	fr := FlowRef{
-		ID:  f.ID,
-		Ver: f.Ver,
-	}
-
-	for _, class := range []NodeClass{NcMerge, NcPub, NcSub, NcTask} {
-		nl := f.classToList(class)
-		for i, t := range nl {
-			if err := t.zero(class, fr); err != nil {
-				return fmt.Errorf("%s %d - %v", class, i, err)
-			}
-		}
-	}
-
-	return nil
-}
-
-func (f *Flow) classToList(class NodeClass) []*task {
-	nl := []*task{}
-	switch class {
-	case NcMerge:
-		nl = f.Merges
-	case NcPub:
-		nl = f.Pubs
-	case NcSub:
-		nl = f.Subs
-	case NcTask:
-		nl = f.Tasks
-	}
-	return nl
+type commonConfig struct {
+	// all other floe Hosts
+	Hosts []string
+	// the api base url
+	BaseURL string `yaml:"base-url"`
 }
 
 // Config is the set of nodes and rules
 type Config struct {
+	Common commonConfig
+	// the list of flow configurations
 	Flows []*Flow
 }
 
@@ -360,10 +52,9 @@ func (c *Config) FindFlowsBySubs(eType string, flow *FlowRef, opts nt.Opts) map[
 			ff, ok := res[fr]
 			if !ok {
 				ff = FoundFlow{
-					Ref:          fr,
-					ReuseSpace:   f.ReuseSpace,
-					ResourceTags: f.ResourceTags,
-					HostTags:     f.HostTags,
+					Ref:        fr,
+					ReuseSpace: f.ReuseSpace,
+					HostTags:   f.HostTags,
 				}
 			}
 			ff.Nodes = []Node{}
@@ -384,25 +75,31 @@ func (c *Config) FindFlow(f FlowRef, eType string, opts nt.Opts) (FoundFlow, boo
 }
 
 // FindNodeInFlow returns the nodes matching the tag in this flow matching the id and version
-func (c *Config) FindNodeInFlow(fRef FlowRef, tag string) []Node {
+func (c *Config) FindNodeInFlow(fRef FlowRef, tag string) (FoundFlow, bool) {
+	ff := FoundFlow{}
 	for _, f := range c.Flows {
 		// first did the flow match
 		if f.ID == fRef.ID && f.Ver == fRef.Ver {
-			nodes := []Node{}
+			ff = FoundFlow{
+				Ref:        fRef,
+				ReuseSpace: f.ReuseSpace,
+				HostTags:   f.HostTags,
+				Nodes:      []Node{},
+			}
 			// normal tasks
 			ns := f.matchTag(NcTask, tag)
 			for _, n := range ns {
-				nodes = append(nodes, Node(n))
+				ff.Nodes = append(ff.Nodes, Node(n))
 			}
 			// merge nodes
 			ns = f.matchTag(NcMerge, tag)
 			for _, n := range ns {
-				nodes = append(nodes, Node(n))
+				ff.Nodes = append(ff.Nodes, Node(n))
 			}
-			return nodes
+			return ff, true
 		}
 	}
-	return nil
+	return ff, false
 }
 
 // zero sets up all the default values
