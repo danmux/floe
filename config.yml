@@ -37,7 +37,7 @@ flows:
             
       tasks: 
         - name: checkout             # the name of this node 
-          listen: merge.subs.all     # the event tag that triggers this node
+          listen: merge.subs.good    # the event tag that triggers this node
           type: git-merge            # the task type 
           good: [0]                  # define what the good statuses are, default [0]
           ignore-fail: false         # if true only emit good

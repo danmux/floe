@@ -24,15 +24,16 @@ func LaunchWeb(host, rp string, hub *hub.Hub) {
 
 	h := handler{hub: hub}
 
-	// --- general ---
-	r.GET(rp+"/config", h.mw(confHandler, true))
-
 	// --- authentication ---
 	r.POST(rp+"/login", h.mw(loginHandler, false))
 	r.POST(rp+"/logout", h.mw(logoutHandler, true))
 
 	// --- api ---
-	r.GET(rp+"/flows", h.mw(hndAllFlows, true))
+	r.GET(rp+"/config", h.mw(confHandler, true)) // return host config and what it knows about other hosts
+	r.GET(rp+"/flows", h.mw(hndAllFlows, true))  // list all the flows configs
+
+	// --- p2p api ---
+	r.POST(rp+"/flows/exec", h.mw(hndExecFlow, true)) // internal api to pass a pending todo to activate it on this host
 
 	// --- subscription endpoints ---
 	h.setupSubs(rp+"/subs/", r, hub)

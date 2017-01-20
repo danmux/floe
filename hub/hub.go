@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/floeit/floe/client"
 	"github.com/floeit/floe/config"
 	nt "github.com/floeit/floe/config/nodetype"
@@ -112,55 +113,42 @@ func (h *Hub) Notify(e event.Event) {
 	h.dispatchActive(e)
 }
 
-// serviceLists attempts to dispatch pending flows and times outs
-// any active flows that are past their deadline
-func (h *Hub) serviceLists() {
-	for range time.Tick(time.Second) {
-		err := h.dispatchPending()
-		if err != nil {
-			log.Error(err)
-		}
-	}
-}
-
-// dispatchPending loops through all pending todos assessing whether they can be run then distributes them.
-func (h *Hub) dispatchPending() error {
-	for i, p := range h.runs.allTodos() {
-		flow, ok := h.config.FindFlow(p.Ref.FlowRef, p.InitiatingEvent.Tag, p.InitiatingEvent.Opts)
-		if !ok {
-			return fmt.Errorf("pending not found %s, %s", p.Ref.FlowRef, p.InitiatingEvent.Tag)
-		}
-
-		// TODO - decide on best host
-
-		// TODO if it is this host then decide if it can be executed immediately or should be queued
-		// based on resource conflicts
-
-		// if we are the preferred host and there are no resource conflicts we are good to go
-		// add the active flow
-		err := h.executePending(p, flow)
-		if err == nil {
-			// remove from our todo list
-			h.runs.removeTodo(i, p)
-		}
-	}
-	return nil
-}
-
-// executePending executes a todo on this host
-func (h *Hub) executePending(todo *Todo, flow config.FoundFlow) error {
+// ExecutePending executes a todo on this host - if this host has no conflicts
+func (h *Hub) ExecutePending(todo *Todo) (bool, error) {
 	log.Debugf("<%s> (%s) start %s", todo.Ref.FlowRef, todo.Ref.Run, todo.InitiatingEvent.Tag)
+	flow, ok := h.config.FindFlow(todo.Ref.FlowRef, todo.InitiatingEvent.Tag, todo.InitiatingEvent.Opts)
+	if !ok {
+		return false, fmt.Errorf("pending not found %s, %s", todo.Ref.FlowRef, todo.InitiatingEvent.Tag)
+	}
+
+	spew.Dump(flow)
+
+	// confirm no currently executing flows have a resource flag conflicts
+	for _, aRef := range h.runs.activeFlows() {
+		println(" - - - - - active", aRef.String())
+		fl := h.config.Flow(aRef)
+		if fl == nil {
+			log.Error("active flow does not have a matching config", aRef)
+			continue
+		}
+		fmt.Printf("%#v --- %#v\n", fl.ResourceTags, flow.ResourceTags)
+		if anyTags(fl.ResourceTags, flow.ResourceTags) {
+			return false, nil
+		}
+	}
+
+	println("no conflic - running")
 
 	// setup the workspace config
 	_, err := h.enforceWS(todo.Ref, flow.ReuseSpace)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	// add the active flow
 	err = h.runs.activate(todo, h.hostID)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	// and then emit any subs node events that were tripped when this flow was made pending
@@ -174,6 +162,45 @@ func (h *Hub) executePending(todo *Todo, flow config.FoundFlow) error {
 		})
 	}
 
+	return true, nil
+}
+
+// serviceLists attempts to dispatch pending flows and times outs
+// any active flows that are past their deadline
+func (h *Hub) serviceLists() {
+	for range time.Tick(time.Second) {
+		err := h.dispatchPending()
+		if err != nil {
+			log.Error(err)
+		}
+	}
+}
+
+// dispatchPending loops through all pending todos assessing whether they can be run then distributes them.
+func (h *Hub) dispatchPending() error {
+	for _, p := range h.runs.allTodos() {
+		flow, ok := h.config.FindFlow(p.Ref.FlowRef, p.InitiatingEvent.Tag, p.InitiatingEvent.Opts)
+		if !ok {
+			h.runs.removeTodo(p)
+			return fmt.Errorf("pending not found %s, %s", p.Ref.FlowRef, p.InitiatingEvent.Tag)
+		}
+
+		// Find candidate hosts that have a superset of the tags for the pending flow
+		candidates := []*client.FloeHost{}
+		for _, host := range h.hosts {
+			cfg := host.GetConfig()
+			if cfg.TagsMatch(flow.HostTags) {
+				candidates = append(candidates, host)
+			}
+		}
+		// attempt to send it to any of the candidates
+		for _, host := range candidates {
+			if host.AttemptExecute(p.Ref, p.InitiatingEvent) {
+				// remove from our todo list
+				h.runs.removeTodo(p)
+			}
+		}
+	}
 	return nil
 }
 
@@ -324,4 +351,15 @@ func (h *Hub) setupHosts(adminTok string) {
 		addr := hostAddr + h.config.Common.BaseURL
 		h.hosts = append(h.hosts, client.New(addr, adminTok))
 	}
+}
+
+func anyTags(set, subset []string) bool {
+	for _, t := range subset {
+		for _, ht := range set {
+			if t == ht {
+				return true
+			}
+		}
+	}
+	return false
 }

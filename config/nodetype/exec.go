@@ -3,6 +3,7 @@ package nodetype
 import (
 	"fmt"
 	"log"
+	"time"
 )
 
 // exec node executes an external task
@@ -19,6 +20,8 @@ func (e exec) Execute(ws Workspace, in Opts) (int, Opts, error) {
 	}
 
 	log.Println("COMMAND >", cmd.(string)) // TODO - it
+	time.Sleep(time.Second * 5)
+	log.Println("COMMAND >", cmd.(string), "DONE")
 
 	return 0, Opts{}, nil
 }

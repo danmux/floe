@@ -23,6 +23,7 @@ const (
 	rNotFound = http.StatusNotFound
 	rErr      = http.StatusInternalServerError
 	rCreated  = http.StatusCreated
+	rConflict = http.StatusConflict
 
 	cookieName = "floe-sesh"
 )

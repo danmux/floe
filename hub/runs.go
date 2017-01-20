@@ -170,6 +170,17 @@ func (r *RunStore) addToPending(flow config.FlowRef, hostID string, e event.Even
 	return run, r.Pending.Save(pendingKey, r.store)
 }
 
+// activeFlows returns all the flowrefs that match those currently executing
+func (r *RunStore) activeFlows() []config.FlowRef {
+	r.RLock()
+	defer r.RUnlock()
+	res := []config.FlowRef{}
+	for _, run := range r.Active {
+		res = append(res, run.Ref.FlowRef)
+	}
+	return res
+}
+
 // activate adds the active configs to the active list saves it, and returns the run id
 func (r *RunStore) activate(todo *Todo, hostID string) error {
 	r.Lock()
@@ -195,14 +206,16 @@ func (r *RunStore) allTodos() []*Todo {
 	return t
 }
 
-func (r *RunStore) removeTodo(i int, todo *Todo) error {
+func (r *RunStore) removeTodo(todo *Todo) error {
 	r.Lock()
 	defer r.Unlock()
-	if r.Pending.Todos[i] != todo {
-		return errors.New("todo list mutation during dispatch")
+	for i, td := range r.Pending.Todos {
+		if td == todo {
+			copy(r.Pending.Todos[i:], r.Pending.Todos[i+1:])
+			r.Pending.Todos[len(r.Pending.Todos)-1] = nil
+			r.Pending.Todos = r.Pending.Todos[:len(r.Pending.Todos)-1]
+			return nil
+		}
 	}
-	copy(r.Pending.Todos[i:], r.Pending.Todos[i+1:])
-	r.Pending.Todos[len(r.Pending.Todos)-1] = nil
-	r.Pending.Todos = r.Pending.Todos[:len(r.Pending.Todos)-1]
-	return nil
+	return errors.New("todo not found")
 }

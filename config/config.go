@@ -52,9 +52,10 @@ func (c *Config) FindFlowsBySubs(eType string, flow *FlowRef, opts nt.Opts) map[
 			ff, ok := res[fr]
 			if !ok {
 				ff = FoundFlow{
-					Ref:        fr,
-					ReuseSpace: f.ReuseSpace,
-					HostTags:   f.HostTags,
+					Ref:          fr,
+					ReuseSpace:   f.ReuseSpace,
+					ResourceTags: f.ResourceTags,
+					HostTags:     f.HostTags,
 				}
 			}
 			ff.Nodes = []Node{}
@@ -74,32 +75,42 @@ func (c *Config) FindFlow(f FlowRef, eType string, opts nt.Opts) (FoundFlow, boo
 	return flow, ok
 }
 
+// Flow returns the flow config matching the id and version
+func (c *Config) Flow(fRef FlowRef) *Flow {
+	for _, f := range c.Flows {
+		if f.ID == fRef.ID && f.Ver == fRef.Ver {
+			return f
+		}
+	}
+	return nil
+}
+
 // FindNodeInFlow returns the nodes matching the tag in this flow matching the id and version
 func (c *Config) FindNodeInFlow(fRef FlowRef, tag string) (FoundFlow, bool) {
 	ff := FoundFlow{}
-	for _, f := range c.Flows {
-		// first did the flow match
-		if f.ID == fRef.ID && f.Ver == fRef.Ver {
-			ff = FoundFlow{
-				Ref:        fRef,
-				ReuseSpace: f.ReuseSpace,
-				HostTags:   f.HostTags,
-				Nodes:      []Node{},
-			}
-			// normal tasks
-			ns := f.matchTag(NcTask, tag)
-			for _, n := range ns {
-				ff.Nodes = append(ff.Nodes, Node(n))
-			}
-			// merge nodes
-			ns = f.matchTag(NcMerge, tag)
-			for _, n := range ns {
-				ff.Nodes = append(ff.Nodes, Node(n))
-			}
-			return ff, true
-		}
+	f := c.Flow(fRef)
+	if f == nil {
+		return ff, false
 	}
-	return ff, false
+	// we found the matching flow so can find any matching nodes
+	ff = FoundFlow{
+		Ref:          fRef,
+		ReuseSpace:   f.ReuseSpace,
+		ResourceTags: f.ResourceTags,
+		HostTags:     f.HostTags,
+		Nodes:        []Node{},
+	}
+	// normal tasks
+	ns := f.matchTag(NcTask, tag)
+	for _, n := range ns {
+		ff.Nodes = append(ff.Nodes, Node(n))
+	}
+	// merge nodes
+	ns = f.matchTag(NcMerge, tag)
+	for _, n := range ns {
+		ff.Nodes = append(ff.Nodes, Node(n))
+	}
+	return ff, true
 }
 
 // zero sets up all the default values

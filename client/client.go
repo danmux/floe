@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/floeit/floe/event"
 	"github.com/floeit/floe/log"
 )
 
@@ -19,6 +20,23 @@ type HostConfig struct {
 	Tags    []string
 }
 
+// TagsMatch returns true is all tags are present in the receivers tags
+func (h HostConfig) TagsMatch(tags []string) bool {
+	for _, t := range tags {
+		found := false
+		for _, ht := range h.Tags {
+			if t == ht {
+				found = true
+				continue
+			}
+		}
+		if !found {
+			return false
+		}
+	}
+	return true
+}
+
 // FloeHost provides methods to access a host api
 type FloeHost struct {
 	sync.RWMutex
@@ -27,12 +45,6 @@ type FloeHost struct {
 	config HostConfig
 
 	token string
-}
-
-func (f *FloeHost) GetConfig() HostConfig {
-	f.RLock()
-	defer f.RUnlock()
-	return f.config
 }
 
 // New returns a new FloeHost
@@ -46,6 +58,42 @@ func New(base, token string) *FloeHost {
 	// start the ping heartbeat
 	go fh.pinger()
 	return fh
+}
+
+// GetConfig returns the config
+func (f *FloeHost) GetConfig() HostConfig {
+	f.RLock()
+	defer f.RUnlock()
+	return f.config
+}
+
+// AttemptExecute tries to execute the flow matching the flowref and instigating event
+func (f *FloeHost) AttemptExecute(ref event.RunRef, ie event.Event) bool {
+	w := wrap{}
+
+	todo := struct {
+		Ref             event.RunRef
+		InitiatingEvent event.Event
+	}{
+		Ref:             ref,
+		InitiatingEvent: ie,
+	}
+
+	code, err := f.post("/flows/exec", todo, &w)
+	if err != nil {
+		log.Error(err)
+		return false
+	}
+	switch code {
+	case http.StatusOK:
+		return true
+	case http.StatusConflict:
+		log.Infof("host %s busy: %s", f.GetConfig().HostID, w.Message)
+	default:
+		log.Errorf("got response: %d from %s, with: %s", code, f.GetConfig().HostID, w.Message)
+	}
+
+	return false
 }
 
 type wrap struct {
