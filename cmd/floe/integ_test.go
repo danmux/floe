@@ -33,8 +33,6 @@ func TestWebUnauth(t *testing.T) {
 		t.Errorf("should have got `%s` but got: `%s`", ms, resp.Message)
 	}
 
-	return
-
 	// auth should fail with an invalid session
 	ms = "invalid session"
 	webGet(t, "unauth-tok", "/flows", resp, []int{401})
@@ -54,7 +52,7 @@ func TestWebUnauth(t *testing.T) {
 	}
 }
 
-func TestWebLaunch(t *testing.T) {
+func XTestWebLaunch(t *testing.T) {
 	setup(t)
 
 	tok := webLogin(t)
@@ -96,7 +94,7 @@ func TestWebLaunch(t *testing.T) {
 
 	// wait for jobs to finish
 
-	return // TODO
+	// TODO
 
 	//flid := flows.Floes[0].ID
 

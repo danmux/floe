@@ -88,7 +88,7 @@ func (f *FloeHost) AttemptExecute(ref event.RunRef, ie event.Event) bool {
 	case http.StatusOK:
 		return true
 	case http.StatusConflict:
-		log.Infof("host %s busy: %s", f.GetConfig().HostID, w.Message)
+		log.Debugf("host %s busy: %s", f.GetConfig().HostID, w.Message)
 	default:
 		log.Errorf("got response: %d from %s, with: %s", code, f.GetConfig().HostID, w.Message)
 	}

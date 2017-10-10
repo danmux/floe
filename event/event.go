@@ -9,7 +9,7 @@ import (
 	"github.com/floeit/floe/log"
 )
 
-// HostedIDRef is any ID unique to the host
+// HostedIDRef is any ID unique within the scope of the host that created it.
 type HostedIDRef struct {
 	HostID string
 	ID     int64
@@ -27,27 +27,35 @@ func (h HostedIDRef) Equals(rh HostedIDRef) bool {
 	return h.HostID == rh.HostID && h.ID == rh.ID
 }
 
-// RunRef uniquely identifies a particular run across the whole cluster
+// RunRef uniquely identifies and routes a particular run across the whole cluster
 type RunRef struct {
-	// FlowRef identifies the flow
+	// FlowRef identifies the flow that this reference relates to
 	FlowRef config.FlowRef
 
-	// Run identifies the host and id that this run was initiated by
-	// this is therefore a unique reference across the cluster
-	// it may not refer to the node that is executing the Run (see ExecHost)
+	// Run identifies the host and id that this run was initiated by.
+	// This is a cluster unique reference, which may not refer to the node that is
+	// executing the Run (that will be defined by ExecHost)
 	Run HostedIDRef
 
-	// ExecHost is the host that is actually executing this event
+	// ExecHost is the host that is actually executing, or executed this event,
 	// use in conjunction with Run to find the active and archived run
 	ExecHost string
 }
 
-// Inactive returns true it has a zero Run, false if none zero
-func (r *RunRef) Inactive() bool {
-	if r.Run.ID == 0 && r.Run.HostID == "" {
-		return true
+func (r RunRef) String() string {
+	return fmt.Sprintf("runref_%s_%s", r.FlowRef, r.Run)
+}
+
+// Adopted means that this RunRef has been added to a pending list and been assigned a
+// unique run ID
+func (r *RunRef) Adopted() bool {
+	if r == nil {
+		return false
 	}
-	return false
+	if r.Run.ID == 0 {
+		return false
+	}
+	return true
 }
 
 // Observer defines the interface for observers.
@@ -106,13 +114,13 @@ func (q *Queue) Register(o Observer) {
 
 // Publish sends an event to all the observers
 func (q *Queue) Publish(e Event) {
-	var flowRef config.FlowRef
-	var runID HostedIDRef
-	if e.RunRef != nil {
-		flowRef = e.RunRef.FlowRef
-		runID = e.RunRef.Run
+
+	// for helpfulness indicate if this event was issued by an already adopted flow
+	isTrig := " (trigger)"
+	if e.RunRef.Adopted() {
+		isTrig = ""
 	}
-	log.Debugf("<%s> (%s) event %s", flowRef, runID, e.Tag)
+	log.Debugf("<%s> - publish %s%s", e.RunRef, e.Tag, isTrig)
 
 	q.Lock()
 	// grab the next event ID

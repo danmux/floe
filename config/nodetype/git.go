@@ -5,20 +5,7 @@ import (
 	"log"
 )
 
-// git push subs node
-type gitPush struct{}
-
-func (g gitPush) Match(ol, or Opts) bool {
-	return ol.cmpString("url", or)
-}
-
-func (g gitPush) Execute(ws Workspace, in Opts) (int, Opts, error) {
-	return 0, nil, nil
-}
-
-func (g gitPush) CastOpts(in *Opts) {}
-
-// gitMerge is an executable node that merges in a
+// gitMerge is an executable node that executes a git merge
 type gitMerge struct{}
 
 func (g gitMerge) Match(ol, or Opts) bool {

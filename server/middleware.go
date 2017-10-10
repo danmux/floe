@@ -13,7 +13,6 @@ import (
 
 	"github.com/floeit/floe/hub"
 	"github.com/floeit/floe/log"
-	"github.com/floeit/floe/subscribers"
 )
 
 const (
@@ -170,22 +169,20 @@ func (h handler) mw(f contextFunc, auth bool) func(rw http.ResponseWriter, r *ht
 	}
 }
 
-// setupSubs goes through all the subscriber types to set up the associated routes
-func (h handler) setupSubs(path string, r *httprouter.Router, hub *hub.Hub) {
-	for k, t := range subscribers.Subs {
-		authenticated := false
-		// data from a form in the app
-		if k == "data" {
-			authenticated = true
-		}
+// setupTriggers goes through all the known trigger types to set up the associated routes
+func (h handler) setupTriggers(basePath string, r *httprouter.Router, hub *hub.Hub) {
+	for subPath, t := range triggers {
+
+		authenticated := t.RequiresAuth()
+
 		// TODO consider parameterised paths
 		g := t.GetHandler(hub.Queue())
 		if g != nil {
-			r.GET(path+k, h.mw(adaptSub(hub, g), authenticated))
+			r.GET(basePath+subPath, h.mw(adaptSub(hub, g), authenticated))
 		}
 		p := t.PostHandler(hub.Queue())
 		if p != nil {
-			r.POST(path+k, h.mw(adaptSub(hub, p), authenticated))
+			r.POST(basePath+subPath, h.mw(adaptSub(hub, p), authenticated))
 		}
 	}
 }

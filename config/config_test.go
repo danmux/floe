@@ -98,9 +98,9 @@ flows:
       resource-tags: [couchbase, nic] # resource labels that any other flows cant share
       host-tags: [linux, go, couch]   # all these tags must match the tags on any host for it to be able to run there
 
-      subs:                          # external events to subscribe token
-        - name: push                 # name of this subscription
-          type: git-push             # the type of this trigger
+      triggers:                      # external events to subscribe token
+        - name: input                # name of this subscription
+          type: data                 # the type of this trigger
           opts:
             url: blah.blah           # which url to monitor
 
@@ -167,7 +167,7 @@ func TestYaml(t *testing.T) {
 		t.Error("wrong number of resource tags", len(fl.ResourceTags))
 	}
 
-	fns := c.FindFlowsBySubs("git-push", nil, nt.Opts{"url": "blah.blah"})
+	fns := c.FindFlowsBySubs("data", nil, nt.Opts{"url": "blah.blah"})
 	if len(fns) != 1 {
 		t.Fatal("did not find the flow based on this sub", len(fns))
 	}
@@ -177,8 +177,8 @@ func TestYaml(t *testing.T) {
 		break
 	}
 	ns := ff.Nodes
-	if len(ns) != 1 {
-		t.Fatal("did not find the node based on this sub", len(ns))
+	if len(ns) != 2 {
+		t.Fatal("did not find the nodes based on this sub", len(ns))
 	}
 	if ns[0].FlowRef().ID != "build-project" {
 		t.Error("flow ID not correct", ns[0].FlowRef().ID)

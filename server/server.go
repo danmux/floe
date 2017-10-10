@@ -7,6 +7,7 @@ import (
 
 	"github.com/floeit/floe/hub"
 	"github.com/floeit/floe/log"
+	"github.com/floeit/floe/trigger"
 )
 
 const rootPath = "/build/api"
@@ -35,8 +36,8 @@ func LaunchWeb(host, rp string, hub *hub.Hub) {
 	// --- p2p api ---
 	r.POST(rp+"/flows/exec", h.mw(hndExecFlow, true)) // internal api to pass a pending todo to activate it on this host
 
-	// --- subscription endpoints ---
-	h.setupSubs(rp+"/subs/", r, hub)
+	// --- trigger endpoints ---
+	h.setupTriggers(rp+"/trigger/", r, hub)
 
 	// --- CORS ---
 	r.OPTIONS(rp+"/*all", h.mw(nil, false)) // catch all options
@@ -63,4 +64,11 @@ func LaunchWeb(host, rp string, hub *hub.Hub) {
 
 	log.Info("agent server starting on:", host)
 	log.Fatal(http.ListenAndServe(host, r))
+}
+
+// triggers is the map of all trigger types that can be triggered via the trigger endpoints.
+// This map will be used to attach these triggers types to the http server.
+// The key here will be used as the sub path to route to this trigger.
+var triggers = map[string]trigger.Trigger{
+	"data": trigger.Data{},
 }

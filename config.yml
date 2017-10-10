@@ -11,7 +11,7 @@ flows:
       resource-tags: [couchbase, nic] # resource labels that any other flows cant share
       host-tags: [linux, go, couch]   # all these tags must match the tags on any host for it to be able to run there
 
-      subs:                          # external events to subscribe token
+      triggers:                      # external events to subscribe to
         - name: push                 # name of this subscription
           type: git-push             # the type of this trigger
           opts:

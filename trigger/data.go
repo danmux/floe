@@ -1,4 +1,4 @@
-package subscribers
+package trigger
 
 import (
 	"encoding/json"
@@ -13,19 +13,24 @@ import (
 )
 
 // data
-type data struct{}
+type Data struct{}
 
-func (d data) PostHandler(queue *event.Queue) httprouter.Handle {
+func (d Data) RequiresAuth() bool {
+	return true
+}
+
+func (d Data) PostHandler(queue *event.Queue) httprouter.Handle {
 	return func(w http.ResponseWriter, req *http.Request, par httprouter.Params) {
 		o := struct {
 			Ref     config.FlowRef
 			Answers nt.Opts
 		}{}
+
 		if !decodeJSONBody(w, req, &o) {
 			return
 		}
 
-		// add an subs event - including a specific targeted Run
+		// add a data event - including a specific targeted Run if given
 		queue.Publish(event.Event{
 			RunRef: &event.RunRef{
 				FlowRef: o.Ref,
@@ -38,7 +43,7 @@ func (d data) PostHandler(queue *event.Queue) httprouter.Handle {
 	}
 }
 
-func (d data) GetHandler(queue *event.Queue) httprouter.Handle {
+func (d Data) GetHandler(queue *event.Queue) httprouter.Handle {
 	return func(w http.ResponseWriter, req *http.Request, par httprouter.Params) {
 		jsonResp(w, http.StatusOK, "OK", nil)
 	}

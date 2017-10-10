@@ -8,13 +8,6 @@ import (
 	nt "github.com/floeit/floe/config/nodetype"
 )
 
-type commonConfig struct {
-	// all other floe Hosts
-	Hosts []string
-	// the api base url
-	BaseURL string `yaml:"base-url"`
-}
-
 // Config is the set of nodes and rules
 type Config struct {
 	Common commonConfig
@@ -22,8 +15,15 @@ type Config struct {
 	Flows []*Flow
 }
 
-// FoundFlow is a struct returned from FindFlowsBySubs
-// and can be used to decide on the best host to use
+type commonConfig struct {
+	// all other floe Hosts
+	Hosts []string
+	// the api base url
+	BaseURL string `yaml:"base-url"`
+}
+
+// FoundFlow is a struct containing a cut down set of properties of a Flow.
+// It can be used to decide on the best host to use to run this Flow.
 type FoundFlow struct {
 	Ref          FlowRef
 	ReuseSpace   bool
@@ -44,7 +44,7 @@ func (c *Config) FindFlowsBySubs(eType string, flow *FlowRef, opts nt.Opts) map[
 			}
 		}
 		// match on other stuff
-		ns := f.matchSubs(eType, &opts)
+		ns := f.matchTriggers(eType, &opts)
 		// found some matching nodes for this flow
 		if len(ns) > 0 {
 			// make sure this flow is in the results
@@ -60,7 +60,7 @@ func (c *Config) FindFlowsBySubs(eType string, flow *FlowRef, opts nt.Opts) map[
 			}
 			ff.Nodes = []Node{}
 			for _, n := range ns {
-				ff.Nodes = append(ff.Nodes, Node(n))
+				ff.Nodes = append(ff.Nodes, n)
 			}
 			res[fr] = ff
 		}

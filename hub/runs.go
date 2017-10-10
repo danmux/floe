@@ -1,7 +1,6 @@
 package hub
 
 import (
-	"errors"
 	"sync"
 	"time"
 
@@ -23,6 +22,10 @@ type Todo struct {
 	InitiatingEvent event.Event
 }
 
+func (t Todo) String() string {
+	return t.Ref.String()
+}
+
 // a merge record is kept per node id
 type merge struct {
 	Waits map[string]bool // each wait event received
@@ -42,7 +45,7 @@ type Run struct {
 	MergeNodes map[string]merge // the states of the merge nodes by node id
 }
 
-// updateWithMergeEvent ads the tag to the nodeID and returns current length of tags
+// updateWithMergeEvent adds the tag to the nodeID and returns current length of tags
 // and a copy of the merge options
 func (r *Run) updateWithMergeEvent(nodeID, tag string, opts nt.Opts) (int, nt.Opts) {
 	r.Lock()
@@ -151,7 +154,7 @@ func (r *RunStore) end(run *Run, status string, good bool) {
 }
 
 // addToPending adds the active configs to pending list, and returns the run id
-func (r *RunStore) addToPending(flow config.FlowRef, hostID string, e event.Event) (event.HostedIDRef, error) {
+func (r *RunStore) addToPending(flow config.FlowRef, hostID string, e event.Event) (event.RunRef, error) {
 	r.Lock()
 	defer r.Unlock()
 	r.Pending.Counter++
@@ -159,15 +162,16 @@ func (r *RunStore) addToPending(flow config.FlowRef, hostID string, e event.Even
 		HostID: hostID,
 		ID:     r.Pending.Counter,
 	}
-	r.Pending.Todos = append(r.Pending.Todos, &Todo{
+	t := &Todo{
 		Ref: event.RunRef{
 			FlowRef: flow,
 			Run:     run,
 		},
 		InitiatingEvent: e,
-	})
+	}
+	r.Pending.Todos = append(r.Pending.Todos, t)
 
-	return run, r.Pending.Save(pendingKey, r.store)
+	return t.Ref, r.Pending.Save(pendingKey, r.store)
 }
 
 // activeFlows returns all the flowrefs that match those currently executing
@@ -201,21 +205,25 @@ func (r *RunStore) activate(todo *Todo, hostID string) error {
 func (r *RunStore) allTodos() []*Todo {
 	r.Lock()
 	defer r.Unlock()
-	t := make([]*Todo, len(r.Pending.Todos), len(r.Pending.Todos))
+	t := make([]*Todo, len(r.Pending.Todos))
 	copy(t, r.Pending.Todos)
 	return t
 }
 
-func (r *RunStore) removeTodo(todo *Todo) error {
+func (r *RunStore) removeTodo(todo *Todo) {
 	r.Lock()
 	defer r.Unlock()
 	for i, td := range r.Pending.Todos {
 		if td == todo {
+			// slide them down
 			copy(r.Pending.Todos[i:], r.Pending.Todos[i+1:])
+			// explicitly drop the reference to the one left at the end
 			r.Pending.Todos[len(r.Pending.Todos)-1] = nil
+			// and remove it from the slice
 			r.Pending.Todos = r.Pending.Todos[:len(r.Pending.Todos)-1]
-			return nil
+			return
 		}
 	}
-	return errors.New("todo not found")
+	// If the todo is not found then there is nothing to worry about
+	// it is already removed
 }

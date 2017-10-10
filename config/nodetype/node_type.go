@@ -9,7 +9,6 @@ type NodeType interface {
 
 var nts = map[string]NodeType{
 	"data":      data{},
-	"git-push":  gitPush{},
 	"git-merge": gitMerge{},
 	"exec":      exec{},
 }

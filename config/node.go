@@ -22,7 +22,6 @@ func nameFromID(id string) string {
 	return strings.Join(s, " ")
 }
 
-// Node is the thing that an event triggers some behavior in
 // TODO cleanup - only used once
 type nid interface {
 	setID(string)
@@ -31,8 +30,8 @@ type nid interface {
 	id() string
 }
 
-// Node is the interface through which the task is accessed
-// TODO so far looks like we only have a common task structure so this may not be needed
+// Node is defined as a proxy interface to assert read only properties of the deserialised
+// config nodes, they are the thing that an event triggers some behavior in.
 type Node interface {
 	FlowRef() FlowRef
 	NodeRef() NodeRef
@@ -48,10 +47,10 @@ type NodeClass string
 
 // NodeClass values
 const (
-	NcTask  NodeClass = "task"
-	NcMerge NodeClass = "merge"
-	NcSub   NodeClass = "sub"
-	NcPub   NodeClass = "pub"
+	NcTask    NodeClass = "task"
+	NcMerge   NodeClass = "merge"
+	NcTrigger NodeClass = "trigger"
+	NcPub     NodeClass = "pub"
 )
 
 // NodeRef uniquely identifies a Node across time (versions)
@@ -75,7 +74,7 @@ func zeroNID(n nid) error {
 	if id == "" {
 		id = idFromName(name)
 	}
-	if strings.IndexAny(id, " .") >= 0 {
+	if strings.ContainsAny(id, " .") {
 		return errors.New("a specified id can not contain spaces or full stops")
 	}
 	if name == "" {
@@ -87,7 +86,8 @@ func zeroNID(n nid) error {
 	return nil
 }
 
-type task struct {
+// node is the deserialised node whose set of fields cover all types of node
+type node struct {
 	// what flow is this node attached to
 	flowRef    FlowRef
 	class      NodeClass
@@ -103,7 +103,7 @@ type task struct {
 	Opts       nt.Opts // static config options
 }
 
-func (t *task) Execute(ws nt.Workspace, opts nt.Opts) (int, nt.Opts, error) {
+func (t *node) Execute(ws nt.Workspace, opts nt.Opts) (int, nt.Opts, error) {
 	n := nt.GetNodeType(t.Type)
 	if n == nil {
 		return 255, nil, fmt.Errorf("no node type found: %s", t.Type)
@@ -114,7 +114,7 @@ func (t *task) Execute(ws nt.Workspace, opts nt.Opts) (int, nt.Opts, error) {
 
 // Status will return the string to use on an event tag and a boolean to
 // indicate if the status is considered good
-func (t *task) Status(status int) (string, bool) {
+func (t *node) Status(status int) (string, bool) {
 	// always good if ignore fail
 	if t.IgnoreFail {
 		return "good", true
@@ -143,27 +143,27 @@ func (t *task) Status(status int) (string, bool) {
 	return "bad", false
 }
 
-func (t *task) FlowRef() FlowRef {
+func (t *node) FlowRef() FlowRef {
 	return t.flowRef
 }
 
-func (t *task) NodeRef() NodeRef {
+func (t *node) NodeRef() NodeRef {
 	return t.Ref
 }
 
-func (t *task) Class() NodeClass {
+func (t *node) Class() NodeClass {
 	return t.class
 }
 
-func (t *task) TypeOfNode() string {
+func (t *node) TypeOfNode() string {
 	return t.Type
 }
 
-func (t *task) Waits() int {
+func (t *node) Waits() int {
 	return len(t.Wait)
 }
 
-func (t *task) matchedSub(eType string, opts *nt.Opts) bool {
+func (t *node) matchedSub(eType string, opts *nt.Opts) bool {
 	// subs matches must always have opts
 	if opts == nil {
 		return false
@@ -179,7 +179,7 @@ func (t *task) matchedSub(eType string, opts *nt.Opts) bool {
 	return n.Match(t.Opts, *opts)
 }
 
-func (t *task) matched(tag string) bool {
+func (t *node) matched(tag string) bool {
 	// match on the Listen
 	if t.Listen != "" && t.Listen == tag {
 		return true
@@ -193,20 +193,20 @@ func (t *task) matched(tag string) bool {
 	return false
 }
 
-func (t *task) setName(n string) {
+func (t *node) setName(n string) {
 	t.Name = n
 }
-func (t *task) setID(i string) {
+func (t *node) setID(i string) {
 	t.ID = i
 }
-func (t *task) name() string {
+func (t *node) name() string {
 	return t.Name
 }
-func (t *task) id() string {
+func (t *node) id() string {
 	return t.ID
 }
 
-func (t *task) zero(class NodeClass, flow FlowRef) error {
+func (t *node) zero(class NodeClass, flow FlowRef) error {
 	if err := zeroNID(t); err != nil {
 		return err
 	}

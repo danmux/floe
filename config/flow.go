@@ -6,35 +6,40 @@ import (
 	nt "github.com/floeit/floe/config/nodetype"
 )
 
-// FlowRef uniquely identifies a flow
+// FlowRef is a reference that uniquely identifies a flow
 type FlowRef struct {
 	ID  string
 	Ver int
 }
 
 func (f FlowRef) String() string {
+	if f.ID == "" {
+		return "na"
+	}
 	return fmt.Sprintf("%s-%d", f.ID, f.Ver)
 }
 
-// Flow is a serialisable Flow Config
+// Flow is a serialisable Flow Config, a definition of a flow. It is uniquely identified
+// by an ID and Version.
 type Flow struct {
+	ID  string // url friendly ID - computed from the name if not given
+	Ver int    // flow version, together with an ID form a global compound unique key
+
 	Name         string   // human friendly name
-	ID           string   // url friendly ID - computed from the name if not given
-	Ver          int      // flow version
 	ReuseSpace   bool     `yaml:"reuse-space"`   // if true then will use the single workspace and will mutex with other instances of this Flow
 	HostTags     []string `yaml:"host-tags"`     // tags that must match the tags on the host
 	ResourceTags []string `yaml:"resource-tags"` // tags that if any flow is running with any matching tags then don't launch
 
-	// the Various node types
-	Subs   []*task
-	Tasks  []*task
-	Pubs   []*task
-	Merges []*task
+	// The Various node types included in this flow
+	Triggers []*node
+	Tasks    []*node
+	Pubs     []*node
+	Merges   []*node
 }
 
-func (f *Flow) matchSubs(eType string, opts *nt.Opts) []*task {
-	res := []*task{}
-	for _, s := range f.Subs {
+func (f *Flow) matchTriggers(eType string, opts *nt.Opts) []*node {
+	res := []*node{}
+	for _, s := range f.Triggers {
 		if s.matchedSub(eType, opts) {
 			res = append(res, s)
 		}
@@ -42,8 +47,8 @@ func (f *Flow) matchSubs(eType string, opts *nt.Opts) []*task {
 	return res
 }
 
-func (f *Flow) matchTag(class NodeClass, tag string) []*task {
-	res := []*task{}
+func (f *Flow) matchTag(class NodeClass, tag string) []*node {
+	res := []*node{}
 	nl := f.classToList(class)
 	for _, s := range nl {
 		if s.matched(tag) {
@@ -76,7 +81,7 @@ func (f *Flow) zero() error {
 		Ver: f.Ver,
 	}
 
-	for _, class := range []NodeClass{NcMerge, NcPub, NcSub, NcTask} {
+	for _, class := range []NodeClass{NcMerge, NcPub, NcTrigger, NcTask} {
 		nl := f.classToList(class)
 		for i, t := range nl {
 			if err := t.zero(class, fr); err != nil {
@@ -88,15 +93,15 @@ func (f *Flow) zero() error {
 	return nil
 }
 
-func (f *Flow) classToList(class NodeClass) []*task {
-	nl := []*task{}
+func (f *Flow) classToList(class NodeClass) []*node {
+	nl := []*node{}
 	switch class {
 	case NcMerge:
 		nl = f.Merges
 	case NcPub:
 		nl = f.Pubs
-	case NcSub:
-		nl = f.Subs
+	case NcTrigger:
+		nl = f.Triggers
 	case NcTask:
 		nl = f.Tasks
 	}

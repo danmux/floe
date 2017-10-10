@@ -81,23 +81,22 @@ func TestExecuteNode(t *testing.T) {
 }
 
 var in = []byte(`
-config:
-    hosts:
-        - name-or.ip.of.other.host 
-
+common:
+    base-url: "/build/api" 
+    
 flows:
     - id: build-project              # the name of this flow
       ver: 1
 
-      subs:                          # external events to subscribe token
-        - name: push                 # name of this subscription
-          type: git-push             # the type of this trigger
+      triggers:                      # external events to trigger the flow
+        - name: form                 # name of this subscription
+          type: data                 # the type of this trigger
           opts:
             url: blah.blah           # which url to monitor
             
       tasks: 
         - name: checkout             # the name of this node 
-          listen: sub.push.good      # the event that triggers this node
+          listen: trigger.data.good  # the event that triggers this node
           type: git-merge            # the task type 
           good: [0]                  # define what the good statuses are, default [0]
           ignore-fail: false         # if true only emit good
@@ -134,22 +133,36 @@ flows:
 func TestHub(t *testing.T) {
 	c, _ := config.ParseYAML(in)
 	s := store.NewMemStore()
-	hub := New("h1", "master", "~/floe", "admintok", c, s, &event.Queue{})
+	q := &event.Queue{}
+
+	// make a new hub
+	New("h1", "master", "~/floe", "admintok", c, s, q)
+
+	to := testObs{
+		ch: make(chan event.Event, 2),
+	}
+	q.Register(to)
 
 	// add an external event
-	hub.Notify(event.Event{
-		Tag: "git-push",
+	q.Publish(event.Event{
+		Tag: "data", // will match the trigger type
 		Opts: nt.Opts{
 			"url": "blah.blah",
 		},
 	})
 
-	// and confirm the store has an active list
+	<-to.ch
+	<-to.ch
+
+	// and confirm the store has a run pending
 	pd, _ := s.Load(pendingKey)
 	pending := pd.(Pending)
 	if len(pending.Todos) != 1 {
 		t.Error("wrong number of active runs")
 	}
+
+	// wait for end event
+	<-to.ch
 }
 
 type testObs struct {
@@ -176,7 +189,7 @@ func TestEventQueue(t *testing.T) {
 
 	// add an external event
 	pe := event.Event{
-		Tag: "git-push",
+		Tag: "data",
 		Opts: nt.Opts{
 			"url":       "blah.blah",
 			"from_hash": "from123456",
@@ -194,7 +207,7 @@ func TestEventQueue(t *testing.T) {
 	if e.ID != 2 {
 		t.Error("got out of order event wanted 2", e.ID)
 	}
-	if e.Tag != "sub.push.good" {
+	if e.Tag != "trigger.form.good" {
 		t.Error("got bad event", e.Tag)
 	}
 
