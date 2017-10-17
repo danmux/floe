@@ -2,7 +2,7 @@ common:
     base-url: "/build/api" 
     hosts:
         - http://127.0.0.1:8080
-        - http://127.0.0.1:8090
+        # - http://127.0.0.1:8090
 
 flows:
     - id: build-project              # the name of this flow
@@ -37,22 +37,36 @@ flows:
             
       tasks: 
         - name: checkout             # the name of this node 
-          listen: merge.subs.good    # the event tag that triggers this node
           type: git-merge            # the task type 
+          listen: merge.subs.good    # the event tag that triggers this node
           good: [0]                  # define what the good statuses are, default [0]
           ignore-fail: false         # if true only emit good
         
         - name: build                
-          listen: task.checkout.good    
           type: exec
+          listen: task.checkout.good    
           opts:
             cmd: "make build"        # the command to execute 
 
-        - id: test                
-          listen: task.build.good    
+        - id: test
           type: exec                 # execute a command
+          listen: task.build.good    
           opts:
             cmd: "make test"         # the command to execute 
+
+        - name: Sign Off
+          type: data
+          listen: task.build.good    # for a data node this event has to have occured before the data node can accept data
+          opts:
+            form:
+              title: Sign off Manual Testing
+              fields:
+                - id: tests_passed
+                  prompt: Did the manual testing pass?
+                  type: bool
+                - id: to_hash
+                  prompt: To Branch (or hash)
+                  type: string
     
     - id: build-merge
       ver: 1

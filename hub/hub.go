@@ -88,8 +88,20 @@ func (h *Hub) AllHosts() map[string]client.HostConfig {
 }
 
 // Config returns the config for this hub
-func (h *Hub) Config() config.Config {
+func (h Hub) Config() config.Config {
 	return *h.config
+}
+
+func (h Hub) RunsPending() []Todo {
+	return h.runs.allTodos()
+}
+
+func (h Hub) RunsActive() Runs {
+	return h.runs.active
+}
+
+func (h Hub) RunsArchive() Runs {
+	return h.runs.archive
 }
 
 // Queue returns the hubs queue
@@ -112,8 +124,10 @@ func (h *Hub) Notify(e event.Event) {
 	h.dispatchActive(e)
 }
 
-// ExecutePending executes a todo on this host - if this host has no conflicts
-func (h *Hub) ExecutePending(todo *Todo) (bool, error) {
+// ExecutePending executes a todo on this host - if this host has no conflicts.
+// This could have ben called directly if this is the only host, or could have
+// been called via the server API as this host has been asked to accept the run.
+func (h *Hub) ExecutePending(todo Todo) (bool, error) {
 	log.Debugf("<%s> - exec - attempt to execute pending type:<%s>", todo, todo.InitiatingEvent.Tag)
 
 	flow, ok := h.config.FindFlow(todo.Ref.FlowRef, todo.InitiatingEvent.Tag, todo.InitiatingEvent.Opts)
@@ -151,15 +165,15 @@ func (h *Hub) ExecutePending(todo *Todo) (bool, error) {
 
 	log.Debugf("<%s> - exec - triggering %d nodes", todo, len(flow.Nodes))
 
-	// and then emit any subs node events that were tripped when this flow was made pending
+	// and then emit the trigger event that were tripped when this flow was made pending
 	// (more than one trigger at a time is going to be pretty rare)
 	for _, n := range flow.Nodes {
 		h.queue.Publish(event.Event{
 			RunRef:     &todo.Ref,
 			SourceNode: n.NodeRef(),
-			Tag:        getTag(n, "good"), // all subs emit good events
-			Opts:       todo.InitiatingEvent.Opts,
-			Good:       true, // TODO what criteria marks this as good
+			Tag:        "trigger.good",            // all triggers emit the same event
+			Opts:       todo.InitiatingEvent.Opts, // make sure we have the trigger event data
+			Good:       true,                      // all trigger events that start a run must be good
 		})
 	}
 
@@ -170,15 +184,15 @@ func (h *Hub) ExecutePending(todo *Todo) (bool, error) {
 // any active flows that are past their deadline
 func (h *Hub) serviceLists() {
 	for range time.Tick(time.Second) {
-		err := h.dispatchPending()
+		err := h.distributePending()
 		if err != nil {
 			log.Error(err)
 		}
 	}
 }
 
-// dispatchPending loops through all pending todos assessing whether they can be run then distributes them.
-func (h *Hub) dispatchPending() error {
+// distributePending loops through all pending todos assessing whether they can be run then distributes them.
+func (h *Hub) distributePending() error {
 
 	for _, p := range h.runs.allTodos() {
 		log.Debugf("<%s> - pending - attempt dispatch", p)
@@ -238,7 +252,7 @@ func (h *Hub) dispatchPending() error {
 }
 
 // pendFlowFromTrigger uses the subscription fired event e to put a FoundFlow
-// on the pending queue
+// on the pending queue, storing the initial event for use as the run is executed.
 func (h *Hub) pendFlowFromTrigger(e event.Event) error {
 	// is this a generic sub event like a git hook, or an event specifically targetting a known flow
 	var specificFlow *config.FlowRef
@@ -316,9 +330,15 @@ func (h *Hub) dispatchActive(e event.Event) {
 
 // executeNode invokes a task node Execute
 func (h *Hub) executeNode(runRef *event.RunRef, node config.Node, e event.Event, singleWs bool) {
-	log.Debugf("<%s> (%s) - exec %s", runRef.FlowRef, runRef.Run, e.Tag)
+	log.Debugf("<%s> - exec node - exec %s", runRef, e.Tag)
+
 	// setup the workspace config
 	ws, err := h.getWS(*runRef, singleWs)
+	if err != nil {
+		log.Debugf("<%s> - exec node - error getting workspace %v", runRef, err)
+		return
+	}
+
 	// execute the node
 	status, opts, err := node.Execute(*ws, e.Opts)
 	if err != nil {
@@ -345,7 +365,7 @@ func (h *Hub) mergeEvent(run *Run, node config.Node, e event.Event) {
 
 	waitsDone, opts := h.runs.updateWithMergeEvent(run, node.NodeRef().ID, e.Tag, e.Opts)
 	// save the activeRun
-	h.runs.Active.Save(activeKey, h.runs.store)
+	h.runs.active.Save(activeKey, h.runs.store)
 	// is the merge satisfied
 	if (node.TypeOfNode() == "any" && waitsDone == 1) || // only fire an any merge once
 		(node.TypeOfNode() == "all" && waitsDone == node.Waits()) {

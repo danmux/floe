@@ -32,10 +32,10 @@ func main() {
 	// TODO - implement real store
 	s := store.NewMemStore()
 
-	log.Info(start(*host, *tags, *root, *bind, *adminToken, cfg, s))
+	log.Debug(start(*host, *tags, *root, *bind, *adminToken, cfg, s, nil))
 }
 
-func start(host, tags, root, bind, adminToken string, conf []byte, store store.Store) error {
+func start(host, tags, root, bind, adminToken string, conf []byte, store store.Store, addr chan string) error {
 	c, err := config.ParseYAML(conf)
 	if err != nil {
 		return err
@@ -43,6 +43,7 @@ func start(host, tags, root, bind, adminToken string, conf []byte, store store.S
 	q := &event.Queue{}
 	hub := hub.New(host, tags, root, adminToken, c, store, q)
 	server.AdminToken = adminToken
-	server.LaunchWeb(bind, c.Common.BaseURL, hub)
+
+	server.LaunchWeb(bind, c.Common.BaseURL, hub, addr)
 	return nil
 }

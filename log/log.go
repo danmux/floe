@@ -134,11 +134,11 @@ func Errorf(format string, args ...interface{}) {
 // }
 
 // func Info(args ...interface{}) {
-// 	glog.InfoDepth(1, args...)
+// 	glog.DebugDepth(1, args...)
 // }
 
 // func Infof(format string, args ...interface{}) {
-// 	glog.InfoDepth(1, fmt.Sprintf(format, args...))
+// 	glog.DebugDepth(1, fmt.Sprintf(format, args...))
 // }
 
 // func Error(args ...interface{}) {

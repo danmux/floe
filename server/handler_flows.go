@@ -12,8 +12,8 @@ func hndAllFlows(rw http.ResponseWriter, r *http.Request, ctx *context) (int, st
 
 func hndExecFlow(rw http.ResponseWriter, r *http.Request, ctx *context) (int, string, renderable) {
 
-	t := &hub.Todo{}
-	if ok, code, msg := decodeBody(rw, r, t); !ok {
+	t := hub.Todo{}
+	if ok, code, msg := decodeBody(rw, r, &t); !ok {
 		return code, msg, nil
 	}
 

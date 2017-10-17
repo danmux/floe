@@ -22,6 +22,10 @@ func (h HostedIDRef) String() string {
 	return fmt.Sprintf("%s-%d", h.HostID, h.ID)
 }
 
+func (h HostedIDRef) Equal(g HostedIDRef) bool {
+	return h.HostID == g.HostID && h.ID == g.ID
+}
+
 // Equals compares receiver with param rh
 func (h HostedIDRef) Equals(rh HostedIDRef) bool {
 	return h.HostID == rh.HostID && h.ID == rh.ID
@@ -44,6 +48,10 @@ type RunRef struct {
 
 func (r RunRef) String() string {
 	return fmt.Sprintf("runref_%s_%s", r.FlowRef, r.Run)
+}
+
+func (r RunRef) Equal(s RunRef) bool {
+	return r.FlowRef.Equal(s.FlowRef) && r.Run.Equal(s.Run)
 }
 
 // Adopted means that this RunRef has been added to a pending list and been assigned a
@@ -120,7 +128,8 @@ func (q *Queue) Publish(e Event) {
 	if e.RunRef.Adopted() {
 		isTrig = ""
 	}
-	log.Debugf("<%s> - publish %s%s", e.RunRef, e.Tag, isTrig)
+
+	log.Debugf("<%s> - queue publish type:<%s>%s", e.RunRef, e.Tag, isTrig)
 
 	q.Lock()
 	// grab the next event ID

@@ -52,7 +52,7 @@ func TestWebUnauth(t *testing.T) {
 	}
 }
 
-func XTestWebLaunch(t *testing.T) {
+func TestWebLaunch(t *testing.T) {
 	setup(t)
 
 	tok := webLogin(t)
@@ -84,11 +84,10 @@ func XTestWebLaunch(t *testing.T) {
 			"to_hash":   "asdfghj",
 		},
 	}
-	if !webPost(t, tok, "/subs/data", pl, nil, []int{200}) {
+
+	if !webPost(t, tok, "/push/data", pl, nil, []int{200}) {
 		t.Error("data trigger failed")
 	}
-
-	time.Sleep(time.Second * 2)
 
 	// TODO - get list of jobs
 
@@ -127,7 +126,7 @@ flows:
       resource-tags: [couchbase, nic] # resource labels that any other flows cant share
       host-tags: [linux, go, couch]   # all these tags must match the tags on any host for it to be able to run there
 
-      subs:                          # external events to subscribe token
+      triggers:                      # external events to subscribe token
         - name: push                 # name of this subscription
           type: git-push             # the type of this trigger
           opts:
@@ -203,18 +202,22 @@ flows:
 
 	log.SetLevel(8)
 	basePath := "/build/api"
-	addr := "127.0.0.1:3013"
-	base = "http://" + addr + basePath
+	addr := "127.0.0.1:0"
 
 	s := store.NewMemStore()
-	sch := make(chan bool)
+	failed := make(chan bool)
+	addrChan := make(chan string, 1)
 	go func() {
-		err := start("hi1", "master", "%tmp/floe", addr, adminToken, in, s)
+		err := start("hi1", "master", "%tmp/floe", addr, adminToken, in, s, addrChan)
 		if err != nil {
 			t.Error(err)
-			sch <- false
+			failed <- false
 		}
 	}()
+
+	// get the actual address assigned
+	addr = <-addrChan
+	base = "http://" + addr + basePath
 
 	ready := make(chan bool)
 	go func() {
@@ -223,7 +226,7 @@ flows:
 
 	// wait for api decision or start fail
 	select {
-	case <-sch:
+	case <-failed:
 	case res := <-ready:
 		if !res {
 			t.Fatal("failed to wait or server to come up")
@@ -348,6 +351,9 @@ func webReq(t *testing.T, method, tok, spath string, rq, rp interface{}, expecte
 		}
 	}
 
+	t.Log("req:", method, path)
+	t.Log("req:", string(b))
+
 	req, err := http.NewRequest(method, path, bytes.NewBuffer(b))
 
 	if err != nil {
@@ -378,9 +384,9 @@ func webReq(t *testing.T, method, tok, spath string, rq, rp interface{}, expecte
 		return false
 	}
 
-	// t.Log(string(body))
+	t.Log(string(body))
 
-	// t.Log("sc", resp.StatusCode)
+	t.Log("sc", resp.StatusCode)
 
 	codeGood := false
 	for _, c := range expected {

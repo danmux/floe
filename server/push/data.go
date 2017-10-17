@@ -1,4 +1,4 @@
-package trigger
+package push
 
 import (
 	"encoding/json"
@@ -21,6 +21,7 @@ func (d Data) RequiresAuth() bool {
 
 func (d Data) PostHandler(queue *event.Queue) httprouter.Handle {
 	return func(w http.ResponseWriter, req *http.Request, par httprouter.Params) {
+		log.Debug("got data push request")
 		o := struct {
 			Ref     config.FlowRef
 			Answers nt.Opts
@@ -59,8 +60,8 @@ func jsonResp(w http.ResponseWriter, code int, msg string, pl interface{}) {
 	}
 	b, err := json.MarshalIndent(r, "", "  ")
 	if err != nil {
-		log.Info(err)
-		log.Infof("%#v", pl)
+		log.Debug(err)
+		log.Debugf("%#v", pl)
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(`{"Message": "marshal failed", "Payload": "` + err.Error() + `"}`))
 		return

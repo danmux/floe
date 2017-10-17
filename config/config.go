@@ -6,6 +6,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	nt "github.com/floeit/floe/config/nodetype"
+	"github.com/floeit/old/log"
 )
 
 // Config is the set of nodes and rules
@@ -39,10 +40,12 @@ func (c *Config) FindFlowsBySubs(eType string, flow *FlowRef, opts nt.Opts) map[
 	for _, f := range c.Flows {
 		// if a flow is specified it has to match
 		if flow != nil {
+			log.Debugf("config - comparing flow:<%s> to config flow:<%s-%s>", flow, f.ID, f.Ver)
 			if f.ID != flow.ID || f.Ver != flow.Ver {
 				continue
 			}
 		}
+		log.Debugf("config - found flow: <%s-%s>. %d triggers", f.ID, f.Ver, len(f.Triggers))
 		// match on other stuff
 		ns := f.matchTriggers(eType, &opts)
 		// found some matching nodes for this flow
@@ -63,6 +66,8 @@ func (c *Config) FindFlowsBySubs(eType string, flow *FlowRef, opts nt.Opts) map[
 				ff.Nodes = append(ff.Nodes, n)
 			}
 			res[fr] = ff
+		} else {
+			log.Debugf("config - flow:<%s> failed on trigger match", flow)
 		}
 	}
 	return res

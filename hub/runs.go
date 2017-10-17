@@ -26,10 +26,19 @@ func (t Todo) String() string {
 	return t.Ref.String()
 }
 
+func (t Todo) Equal(u Todo) bool {
+	return t.Ref.Equal(u.Ref)
+}
+
 // a merge record is kept per node id
 type merge struct {
 	Waits map[string]bool // each wait event received
 	Opts  nt.Opts         // merged opts from all events
+}
+
+type data struct {
+	Enabled bool    // Enabled is true if the enabling event has occured
+	Opts    nt.Opts // opts from the data event
 }
 
 // Run is a specific invocation of a flow
@@ -43,6 +52,7 @@ type Run struct {
 	Status     string
 	Good       bool
 	MergeNodes map[string]merge // the states of the merge nodes by node id
+	DataNodes  map[string]data  // the sates of any data nodes
 }
 
 // updateWithMergeEvent adds the tag to the nodeID and returns current length of tags
@@ -73,14 +83,15 @@ func (r *Run) end(status string, good bool) {
 	r.Good = good
 }
 
-// Pending is the thing that holds the list of flows waiting to be dispatched
-type Pending struct {
+// Pending is the thing that holds the list of flows waiting to be dispatched.
+// Being added to the Pending list assigned the RunRef
+type pending struct {
 	Counter int64 // The ID counter - TODO load in from the store on startup
 	Todos   []*Todo
 }
 
 // Save saves the pending list
-func (r Pending) Save(key string, s store.Store) error {
+func (r pending) Save(key string, s store.Store) error {
 	return s.Save(key, r)
 }
 
@@ -100,13 +111,13 @@ type RunStore struct {
 	store store.Store
 
 	// the list of flows waiting for a host
-	Pending Pending
+	pending pending
 
-	// Active runs that we currently think are in progress
-	Active Runs
+	// active runs that we currently think are in progress
+	active Runs
 
-	// Archive runs that are no longer active
-	Archive Runs
+	// archive runs that are no longer active
+	archive Runs
 }
 
 func newRunStore(store store.Store) *RunStore {
@@ -119,7 +130,7 @@ func newRunStore(store store.Store) *RunStore {
 func (r *RunStore) findActiveRun(ref event.HostedIDRef) (int, *Run) {
 	r.RLock()
 	defer r.RUnlock()
-	for i, run := range r.Active {
+	for i, run := range r.active {
 		if run.Ref.Run.Equals(ref) {
 			return i, run
 		}
@@ -131,7 +142,7 @@ func (r *RunStore) updateWithMergeEvent(run *Run, nodeID, tag string, opts nt.Op
 	i, o := run.updateWithMergeEvent(nodeID, tag, opts)
 	r.Lock()
 	defer r.Unlock()
-	r.Active.Save(activeKey, r.store)
+	r.active.Save(activeKey, r.store)
 	return i, o
 }
 
@@ -144,23 +155,23 @@ func (r *RunStore) end(run *Run, status string, good bool) {
 	defer r.Unlock()
 
 	// remove from active array dropping reference from underlying array
-	copy(r.Active[i:], r.Active[i+1:])
-	r.Active[len(r.Active)-1] = nil
-	r.Active = r.Active[:len(r.Active)-1]
+	copy(r.active[i:], r.active[i+1:])
+	r.active[len(r.active)-1] = nil
+	r.active = r.active[:len(r.active)-1]
 
-	r.Archive = append(r.Archive, run)
-	r.Active.Save(activeKey, r.store)
-	r.Archive.Save(archiveKey, r.store)
+	r.archive = append(r.archive, run)
+	r.active.Save(activeKey, r.store)
+	r.archive.Save(archiveKey, r.store)
 }
 
 // addToPending adds the active configs to pending list, and returns the run id
 func (r *RunStore) addToPending(flow config.FlowRef, hostID string, e event.Event) (event.RunRef, error) {
 	r.Lock()
 	defer r.Unlock()
-	r.Pending.Counter++
+	r.pending.Counter++
 	run := event.HostedIDRef{
 		HostID: hostID,
-		ID:     r.Pending.Counter,
+		ID:     r.pending.Counter,
 	}
 	t := &Todo{
 		Ref: event.RunRef{
@@ -169,9 +180,9 @@ func (r *RunStore) addToPending(flow config.FlowRef, hostID string, e event.Even
 		},
 		InitiatingEvent: e,
 	}
-	r.Pending.Todos = append(r.Pending.Todos, t)
+	r.pending.Todos = append(r.pending.Todos, t)
 
-	return t.Ref, r.Pending.Save(pendingKey, r.store)
+	return t.Ref, r.pending.Save(pendingKey, r.store)
 }
 
 // activeFlows returns all the flowrefs that match those currently executing
@@ -179,48 +190,50 @@ func (r *RunStore) activeFlows() []config.FlowRef {
 	r.RLock()
 	defer r.RUnlock()
 	res := []config.FlowRef{}
-	for _, run := range r.Active {
+	for _, run := range r.active {
 		res = append(res, run.Ref.FlowRef)
 	}
 	return res
 }
 
 // activate adds the active configs to the active list saves it, and returns the run id
-func (r *RunStore) activate(todo *Todo, hostID string) error {
+func (r *RunStore) activate(todo Todo, hostID string) error {
 	r.Lock()
 	defer r.Unlock()
 
 	// update the runref with this executing host
 	todo.Ref.ExecHost = hostID
 
-	r.Active = append(r.Active, &Run{
+	r.active = append(r.active, &Run{
 		Ref:        todo.Ref,
 		StartTime:  time.Now(),
 		MergeNodes: map[string]merge{},
 	})
 
-	return r.Active.Save(activeKey, r.store)
+	return r.active.Save(activeKey, r.store)
 }
 
-func (r *RunStore) allTodos() []*Todo {
+func (r *RunStore) allTodos() []Todo {
 	r.Lock()
 	defer r.Unlock()
-	t := make([]*Todo, len(r.Pending.Todos))
-	copy(t, r.Pending.Todos)
+	t := make([]Todo, len(r.pending.Todos))
+	for i, todo := range r.pending.Todos {
+		t[i] = *todo
+	}
 	return t
 }
 
-func (r *RunStore) removeTodo(todo *Todo) {
+func (r *RunStore) removeTodo(todo Todo) {
 	r.Lock()
 	defer r.Unlock()
-	for i, td := range r.Pending.Todos {
-		if td == todo {
+	for i, td := range r.pending.Todos {
+		if td.Equal(todo) {
 			// slide them down
-			copy(r.Pending.Todos[i:], r.Pending.Todos[i+1:])
+			copy(r.pending.Todos[i:], r.pending.Todos[i+1:])
 			// explicitly drop the reference to the one left at the end
-			r.Pending.Todos[len(r.Pending.Todos)-1] = nil
+			r.pending.Todos[len(r.pending.Todos)-1] = nil
 			// and remove it from the slice
-			r.Pending.Todos = r.Pending.Todos[:len(r.Pending.Todos)-1]
+			r.pending.Todos = r.pending.Todos[:len(r.pending.Todos)-1]
 			return
 		}
 	}

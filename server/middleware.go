@@ -46,8 +46,8 @@ func decodeBody(rw http.ResponseWriter, r *http.Request, v interface{}) (bool, i
 func jsonResp(w http.ResponseWriter, code int, r interface{}) {
 	b, err := json.MarshalIndent(r, "", "  ")
 	if err != nil {
-		log.Info(err)
-		log.Infof("%#v", r)
+		log.Debug(err)
+		log.Debugf("%#v", r)
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(`{"Status": "Fail", "Payload": "` + err.Error() + `"}`))
 		return
@@ -84,9 +84,9 @@ func (h handler) mw(f contextFunc, auth bool) func(rw http.ResponseWriter, r *ht
 	return func(rw http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 		var code int
 		start := time.Now()
-		log.Infof("req: %s %s", r.Method, r.URL.String())
+		log.Debugf("req: %s %s", r.Method, r.URL.String())
 		defer func() {
-			log.Infof("rsp: %v %s %d %s", time.Since(start), r.Method, code, r.URL.String())
+			log.Debugf("rsp: %v %s %d %s", time.Since(start), r.Method, code, r.URL.String())
 		}()
 
 		cors(rw, r)
@@ -104,7 +104,7 @@ func (h handler) mw(f contextFunc, auth bool) func(rw http.ResponseWriter, r *ht
 		if auth {
 			tok := r.Header.Get("X-Floe-Auth")
 			if tok == "" {
-				log.Info("checking cookie")
+				log.Debug("checking cookie")
 				c, err := r.Cookie(cookieName)
 				if err != nil {
 					log.Warning("cookie problem", err)
@@ -119,11 +119,11 @@ func (h handler) mw(f contextFunc, auth bool) func(rw http.ResponseWriter, r *ht
 				return
 			}
 
-			log.Info("checking token ", tok, AdminToken)
+			log.Debug("checking token ", tok, AdminToken)
 
 			// default to this agent for testing admin token
 			if tok == AdminToken {
-				log.Info("found admin token", tok)
+				log.Debug("found admin token", tok)
 				sesh = &session{
 					token:      tok,
 					lastActive: time.Now(),
@@ -170,8 +170,8 @@ func (h handler) mw(f contextFunc, auth bool) func(rw http.ResponseWriter, r *ht
 }
 
 // setupTriggers goes through all the known trigger types to set up the associated routes
-func (h handler) setupTriggers(basePath string, r *httprouter.Router, hub *hub.Hub) {
-	for subPath, t := range triggers {
+func (h handler) setupPushes(basePath string, r *httprouter.Router, hub *hub.Hub) {
+	for subPath, t := range pushes {
 
 		authenticated := t.RequiresAuth()
 

@@ -19,6 +19,10 @@ func (f FlowRef) String() string {
 	return fmt.Sprintf("%s-%d", f.ID, f.Ver)
 }
 
+func (f FlowRef) Equal(g FlowRef) bool {
+	return f.ID == g.ID && f.Ver == g.Ver
+}
+
 // Flow is a serialisable Flow Config, a definition of a flow. It is uniquely identified
 // by an ID and Version.
 type Flow struct {
@@ -40,7 +44,7 @@ type Flow struct {
 func (f *Flow) matchTriggers(eType string, opts *nt.Opts) []*node {
 	res := []*node{}
 	for _, s := range f.Triggers {
-		if s.matchedSub(eType, opts) {
+		if s.matchedTriggers(eType, opts) {
 			res = append(res, s)
 		}
 	}

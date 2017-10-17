@@ -163,7 +163,7 @@ func (t *node) Waits() int {
 	return len(t.Wait)
 }
 
-func (t *node) matchedSub(eType string, opts *nt.Opts) bool {
+func (t *node) matchedTriggers(eType string, opts *nt.Opts) bool {
 	// subs matches must always have opts
 	if opts == nil {
 		return false

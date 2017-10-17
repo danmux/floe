@@ -156,7 +156,7 @@ func TestHub(t *testing.T) {
 
 	// and confirm the store has a run pending
 	pd, _ := s.Load(pendingKey)
-	pending := pd.(Pending)
+	pending := pd.(pending)
 	if len(pending.Todos) != 1 {
 		t.Error("wrong number of active runs")
 	}
@@ -207,7 +207,7 @@ func TestEventQueue(t *testing.T) {
 	if e.ID != 2 {
 		t.Error("got out of order event wanted 2", e.ID)
 	}
-	if e.Tag != "trigger.form.good" {
+	if e.Tag != "trigger.good" {
 		t.Error("got bad event", e.Tag)
 	}
 

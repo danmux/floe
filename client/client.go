@@ -1,3 +1,6 @@
+// package client provides helper functions to communicate with flow servers.
+// Each server uses this client to talk to each other, and the client can be used for.
+// integration testing, or building other go based interfaces.
 package client
 
 import (
@@ -55,7 +58,7 @@ func New(base, token string) *FloeHost {
 		},
 		token: token,
 	}
-	// start the ping heartbeat
+	// start the ping heartbeat to the target floe host
 	go fh.pinger()
 	return fh
 }
