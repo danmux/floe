@@ -1,6 +1,6 @@
 "use strict";
 
-export function store(initial) {
+export function store(initial, restReq) {
     this.changed = true;
     this.data = initial;
     this.invalid = true;
@@ -11,12 +11,17 @@ export function store(initial) {
         this.changed = true;
     }
 
-    // Get returns the data at the given key 
-    this.Get = function() {
-        if (!this.changed) {
+    // Get returns the data at the given key. If the data is unchanged then return null, 
+    // unless force is true, then return the data in any case.
+    this.Get = function(force) {
+        if (!this.changed && !force) {
             return null;
         }
         this.changed = false;
         return this.data;
+    }
+
+    this.IsEmpty = function(){
+        return this.data == null;
     }
 }

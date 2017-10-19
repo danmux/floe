@@ -4,20 +4,19 @@ import {Panel} from '../panel/panel.js';
 
 // the controller for the Dashboard
 export function Dash() {
+
+    var dataReq = {
+        URL: '/flows',
+    }
     
     // panel is view - or part of it
-    var panel = new Panel(
-        this,
-        {foo: 'with poop'},  // the initial data
-        tpl, 
-        '#main'
-    );
+    var panel = new Panel(this, null, tpl, '#main', [], dataReq);
 
     this.Map = function(evt) {
         console.log("dash got a call to Map", evt);
 
         // TODO map the event data to the panel data model
-        return {'foo': evt.data.foo};
+        return evt.Data;
     }
 
     return panel;

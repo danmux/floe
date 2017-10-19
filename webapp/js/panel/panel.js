@@ -1,4 +1,5 @@
 import {doT} from '../vendor/dot.js';
+import {RestCall} from './rest.js';
 import {store} from './store.js';
 
 "use strict";
@@ -7,9 +8,12 @@ function el(sel) {
     return document.querySelectorAll(sel);
 }
 
-// Panel object
-export function Panel(parent, data, template, attach) {
-    
+// Panel object parent is provided so we can call back and map the event to the store for this panel.
+// data is some initial state for the store, it has to be null if you want to trigger the restReq to
+// get some initial data from the server.
+export function Panel(parent, data, template, attach, events, restReq) {
+    // N.B. this.evtHub is set by the controller
+
     this.store = new store(data);  // the data store to render this panel.
     this.template = template;      // the template to use to render the html from the store data.
     this.attach = attach;          // the CSS selector to attach the resultant html to.
@@ -26,7 +30,24 @@ export function Panel(parent, data, template, attach) {
         }
         console.log("activating", this);
         this.active = true;
-        this.Render(true); // render it in even if the data is unchanged
+
+        // if this store is empty get the data from the server.
+        if (this.store.IsEmpty()) {
+            this.GetData();
+        }
+
+        // render it in even if the data is unchanged, hence true param.
+        this.Render(true); 
+    }
+
+    this.GetData = function() {
+        if (restReq == undefined) {
+            return;
+        }
+        if (restReq.Method == undefined ){
+            restReq.Method = 'GET';
+        }
+        RestCall(this.evtHub, restReq.Method, restReq.URL, restReq.ReqBodyObj); 
     }
 
     // Deactivate marks this panel as not active. Any subsequent calls to render will return without changing the dom.
@@ -36,8 +57,6 @@ export function Panel(parent, data, template, attach) {
 
     // Notify is called by the controller of this panel 
     this.Notify = function(evt) {
-        console.log("panel got an event", evt);
-
         var data = parent.Map(evt);
 
         for (var key in data) {
@@ -62,9 +81,22 @@ export function Panel(parent, data, template, attach) {
         }
         
         // get the template and attach it to its dom element
-        var resultText = this.tempFn(this.store.data);
+        var resultText = "";
+        if (data != null) {
+            resultText = this.tempFn(data);
+        }
+        console.log(el(attach));
         el(attach)[0].innerHTML = resultText; // TODO - trap missing el?
-        
+
+        // attach all the events
+        for (var i in events) {
+            var event = events[i];
+            console.log("ev:", event);
+            el(event.El).forEach(elem => {
+                console.log("adding event", event.El, event.Ev)
+                elem.addEventListener(event.Ev, event.Fn);
+            });
+        }
     }
 }
 

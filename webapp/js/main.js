@@ -1,5 +1,8 @@
 import {rlite} from './vendor/rlite.js';
 import {Controller} from './panel/controller.js';
+
+import {Header} from './page/header.js';
+import {Login} from './page/login.js';
 import {Dash} from './page/dash.js';
 import {Settings} from './page/settings.js';
 
@@ -7,7 +10,8 @@ import {Settings} from './page/settings.js';
 
 function main() {
     
-    var controller = new Controller(eventHub, {
+    var controller = new Controller(new Header(), {
+        'login':    new Login(),
         'dash':     new Dash(),
         'settings': new Settings()
     });
@@ -26,25 +30,6 @@ function main() {
 
     // route the current path
     routes(location.pathname);
-}
-
-var dataHub = {
-    'dash': {},
-    'settings': {}
-}
-
-var eventHub = {
-    subs: [],
-}
-
-eventHub.Subscribe = function(subscriber) {
-    this.subs.push(subscriber);
-}
-
-eventHub.Fire = function(evt) {
-    for (const sub of this.subs) {
-        sub.Notify(evt);
-    }
 }
 
 function notFound() {

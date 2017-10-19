@@ -17,8 +17,6 @@ export function rlite(notFound, base, routeDefinitions) {
 
     function init() {
       for (var key in routeDefinitions) {
-        console.log("oooo", base+key)
-        
         add(base+key, routeDefinitions[key]);
       }
     };

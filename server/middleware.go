@@ -196,7 +196,7 @@ func adaptSub(hub *hub.Hub, handle httprouter.Handle) contextFunc {
 
 func setCookie(rw http.ResponseWriter, tok string) {
 	expiration := time.Now().Add(seshLifetime)
-	cookie := http.Cookie{Name: cookieName, Value: tok, Expires: expiration}
+	cookie := http.Cookie{Name: cookieName, Value: tok, Expires: expiration, Path: "/"}
 	http.SetCookie(rw, &cookie)
 }
 
