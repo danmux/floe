@@ -90,6 +90,21 @@ func (c *Config) Flow(fRef FlowRef) *Flow {
 	return nil
 }
 
+// LatestFlow returns the flow config matching the id with the highest version
+func (c *Config) LatestFlow(id string) *Flow {
+	var latest *Flow
+	highestVer := 0
+	for _, f := range c.Flows {
+		if f.ID != id {
+			continue
+		}
+		if f.Ver > highestVer {
+			latest = f
+		}
+	}
+	return latest
+}
+
 // FindNodeInFlow returns the nodes matching the tag in this flow matching the id and version
 func (c *Config) FindNodeInFlow(fRef FlowRef, tag string) (FoundFlow, bool) {
 	ff := FoundFlow{}

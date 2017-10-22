@@ -36,6 +36,7 @@ func LaunchWeb(host, rp string, hub *hub.Hub, addrChan chan string) {
 	// --- api ---
 	r.GET(rp+"/config", h.mw(confHandler, true)) // return host config and what it knows about other hosts
 	r.GET(rp+"/flows", h.mw(hndAllFlows, true))  // list all the flows configs
+	r.GET(rp+"/flows/:id", h.mw(hndFlow, true))  // return highest version of the flow
 	r.GET(rp+"/runs/active", h.mw(hndActiveRuns, true))
 	r.GET(rp+"/runs/pending", h.mw(hndPendingRuns, true))
 	r.GET(rp+"/runs/archive", h.mw(hndArchiveRuns, true))

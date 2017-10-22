@@ -4,6 +4,7 @@ import {Controller} from './panel/controller.js';
 import {Header} from './page/header.js';
 import {Login} from './page/login.js';
 import {Dash} from './page/dash.js';
+import {Flow} from './page/flow.js';
 import {Settings} from './page/settings.js';
 
 "use strict";
@@ -13,12 +14,18 @@ function main() {
     var controller = new Controller(new Header(), {
         'login':    new Login(),
         'dash':     new Dash(),
+        'flow':     new Flow(),
         'settings': new Settings()
     });
+
+    controller.Base = '/app';
     
     const routes = rlite(notFound, '/app', {
         '/dash': function () { 
             controller.Activate('dash');
+        },
+        '/flows/:id': function (par) { 
+            controller.Activate('flow', par.id);
         },
         '/settings': function () { 
             controller.Activate('settings');
@@ -50,7 +57,7 @@ function trapAnchors(routes) {
 
                 // TODO - take .query into
                 var oldPath = document.location.pathname;
-                var newPath = tag.pathname;
+                var newPath = '/app' + tag.pathname;
                 // Prevent the browser from doing the navigation.
                 event.preventDefault();
                 // only re-route and update history if the page is new

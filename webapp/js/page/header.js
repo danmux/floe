@@ -22,20 +22,15 @@ export function Header() {
     var i = document.cookie.indexOf("floe-sesh=");
     if (i >= 0) {
         console.log("got floe sesh");
-        panel.store.Update("Authed", true);
+        panel.store.Update("Authed", true); // assume token is valid - time will tell
     }
 
     this.Map = function(evt) {
-        console.log('header got a call to Map', evt);
-
         var data = {};
-
         if (evt.Type == 'unauth') {
-            console.log('header knows about being unauthorised');
             data.Authed = false;
         }
         if (evt.Type == 'auth') {
-            console.log('header knows about being authorised');
             data.Authed = true;
         }
         // TODO map the event data to the panel data model
@@ -46,16 +41,15 @@ export function Header() {
 }
 
 var tpl = `
-<h3 class="title"><a href="dash">Dash</a> > Build BE</h3>
+<h3 class='title'><a href='/dash'>Dash</a> > Build BE</h3>
 <nav>
     <ul>
-        <li><a href="settings">settings</a></li>
-        <li><a href="#">nav ul li a</a></li>
-        {{? it.Authed }}
-        <li><a id="logout" href="#">Logout</a></li>
+        <li><a href='/settings'>Settings</a></li>
+        {{? it.Data.Authed }}
+        <li><a id='logout' href='/logout'>Logout</a></li>
         {{?}}
-        {{? !it.Authed }}
-        <li><a id="login" href="#">Login</a></li>
+        {{? !it.Data.Authed }}
+        <li><a href='/login'>Login</a></li>
         {{?}}
     </ul>
 </nav>

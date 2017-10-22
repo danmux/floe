@@ -7,6 +7,9 @@ export function store(initial, restReq) {
 
     // Update updates the data at the given key and marks the Store as having a change.
     this.Update = function(key, val) {
+        if (this.data == null) {
+            this.data = {};
+        }
         this.data[key] = val;
         this.changed = true;
     }

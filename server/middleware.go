@@ -119,7 +119,7 @@ func (h handler) mw(f contextFunc, auth bool) func(rw http.ResponseWriter, r *ht
 				return
 			}
 
-			log.Debug("checking token ", tok, AdminToken)
+			log.Debug("checking token", tok, AdminToken)
 
 			// default to this agent for testing admin token
 			if tok == AdminToken {

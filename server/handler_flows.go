@@ -3,11 +3,30 @@ package server
 import (
 	"net/http"
 
+	"github.com/floeit/floe/config"
+
 	"github.com/floeit/floe/hub"
 )
 
 func hndAllFlows(rw http.ResponseWriter, r *http.Request, ctx *context) (int, string, renderable) {
 	return rOK, "", ctx.hub.Config()
+}
+
+func hndFlow(rw http.ResponseWriter, r *http.Request, ctx *context) (int, string, renderable) {
+	id := ctx.ps.ByName("id")
+
+	conf := ctx.hub.Config()
+	latest := conf.LatestFlow(id)
+
+	response := struct {
+		Config *config.Flow
+	}{
+		Config: latest,
+	}
+
+	// TODO add runs summaries
+
+	return rOK, "", response
 }
 
 func hndExecFlow(rw http.ResponseWriter, r *http.Request, ctx *context) (int, string, renderable) {
