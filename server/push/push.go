@@ -1,8 +1,9 @@
 package push
 
 import (
-	"github.com/floeit/floe/event"
 	"github.com/julienschmidt/httprouter"
+
+	"github.com/floeit/floe/event"
 )
 
 // Push defines the http push handlers that can send events to a queue

@@ -68,7 +68,7 @@ export function Panel(parent, data, template, attach, events, restReq) {
     }
 
     this.WipeData = function() {
-        this.store.TrashAll();
+        this.store.Reset();
     }
 
     // Deactivate marks this panel as not active. Any subsequent calls to render will return without changing the dom.
@@ -126,7 +126,7 @@ export function Panel(parent, data, template, attach, events, restReq) {
         // attach all the events
         for (var i in events) {
             var event = events[i];
-            console.log("ev:", event);
+            console.log("adding event:", event);
             el(event.El).forEach(elem => {
                 console.log("adding event", event.El, event.Ev)
                 elem.addEventListener(event.Ev, (evt)=>{

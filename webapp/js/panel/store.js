@@ -3,8 +3,7 @@
 export function store(initial, restReq) {
     this.changed = true;
     this.data = initial;
-    this.invalid = true;
-
+    
     // Update updates the data at the given key and marks the Store as having a change.
     this.Update = function(key, val) {
         if (this.data == null) {
@@ -24,7 +23,17 @@ export function store(initial, restReq) {
         return this.data;
     }
 
+    this.TrashAll = function(force) {
+        this.changed = true;
+        this.data = initial;
+    }
+
     this.IsEmpty = function(){
         return this.data == null;
+    }
+
+    this.Reset = function() {
+        this.changed = true;
+        this.data = initial;
     }
 }

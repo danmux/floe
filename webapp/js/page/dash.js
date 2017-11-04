@@ -20,7 +20,7 @@ export function Dash() {
     }
 
     var events = [
-        {El: 'aside.flow', Ev: 'click', Fn: flowSummaryClick}
+        {El: 'box.flow', Ev: 'click', Fn: flowSummaryClick}
     ];
 
     // panel is view - or part of it
@@ -56,8 +56,8 @@ export function Dash() {
 
 var tplDash = `
 {{~it.Data.Flows :flow:index}}
-    <aside id='{{=flow.ID}}' class='flow'>
-    </aside>
+    <box id='{{=flow.ID}}' class='flow'>
+    </box>
 {{~}}`
 
 

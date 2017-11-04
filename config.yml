@@ -28,8 +28,7 @@ flows:
                   type: string
                 - id: to_hash
                   prompt: To Branch (or hash)
-                  type: string
-      
+                  type: string 
       merges:
         - name: subs
           type: any
@@ -42,6 +41,12 @@ flows:
           good: [0]                  # define what the good statuses are, default [0]
           ignore-fail: false         # if true only emit good
         
+        - name: build
+          type: floefile
+          listen: task.checkout.good
+          opts:
+            file: "BUILD.floe"         # the command to execute 
+
         - name: build                
           type: exec
           listen: task.checkout.good    

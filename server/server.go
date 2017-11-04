@@ -41,11 +41,11 @@ func LaunchWeb(host, rp string, hub *hub.Hub, addrChan chan string) {
 	r.GET(rp+"/runs/pending", h.mw(hndPendingRuns, true))
 	r.GET(rp+"/runs/archive", h.mw(hndArchiveRuns, true))
 
-	// --- p2p api ---
-	r.POST(rp+"/flows/exec", h.mw(hndExecFlow, true)) // internal api to pass a pending todo to activate it on this host
-
 	// --- push endpoints ---
 	h.setupPushes(rp+"/push/", r, hub)
+
+	// --- p2p api ---
+	r.POST(rp+"/flows/exec", h.mw(hndExecFlow, true)) // internal api to pass a pending todo to activate it on this host
 
 	// --- static files for the spa ---
 	r.ServeFiles("/static/css/*filepath", http.Dir("webapp/css"))

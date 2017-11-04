@@ -5,6 +5,7 @@ import {Header} from './page/header.js';
 import {Login} from './page/login.js';
 import {Dash} from './page/dash.js';
 import {Flow} from './page/flow.js';
+import {FlowSingle} from './page/flow-single.js';
 import {Settings} from './page/settings.js';
 
 "use strict";
@@ -12,10 +13,11 @@ import {Settings} from './page/settings.js';
 function main() {
     
     var controller = new Controller(new Header(), {
-        'login':    new Login(),
-        'dash':     new Dash(),
-        'flow':     new Flow(),
-        'settings': new Settings()
+        'login'      : new Login(),
+        'dash'       : new Dash(),
+        'flow'       : new Flow(),       // flow triggers and history
+        'flow-single': new FlowSingle(), // single flow - details - or an individual run
+        'settings'   : new Settings()
     });
 
     controller.Base = '/app';

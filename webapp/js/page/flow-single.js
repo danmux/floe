@@ -3,7 +3,7 @@ import {Panel} from '../panel/panel.js';
 "use strict";
 
 // the controller for the Dashboard
-export function Flow() {
+export function FlowSingle() {
     var panel;
     var dataReq = function(){
         return {
@@ -40,8 +40,12 @@ var tplFlow = `
         {{~}}
         </triggers>
 
-        <history>
-        
+        <tasks>
+        {{~it.Data.Tasks :task:index}}
+            <box id='task-{{=task.ID}}' class='task'>
+                <h4>{{=task.Name}}</h4>
+            </box>
+        {{~}}
         </tasks>
 
     </div>

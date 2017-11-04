@@ -17,14 +17,6 @@ export function Header() {
 
     panel = new Panel(this, {}, tpl, 'header', events);
 
-    // check if we have a session cookie
-    console.log(document.cookie);
-    var i = document.cookie.indexOf("floe-sesh=");
-    if (i >= 0) {
-        console.log("got floe sesh");
-        panel.store.Update("Authed", true); // assume token is valid - time will tell
-    }
-
     this.Map = function(evt) {
         var data = {};
         if (evt.Type == 'unauth') {
@@ -41,7 +33,7 @@ export function Header() {
 }
 
 var tpl = `
-<h3 class='title'><a href='/dash'>Dash</a> > Build BE</h3>
+<h3 class='title'><a href='/dash'>Floe</a></h3>
 <nav>
     <ul>
         <li><a href='/settings'>Settings</a></li>

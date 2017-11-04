@@ -72,12 +72,13 @@ textarea {
 
 .footer-container,
 .main aside {
-    border-top: 3px solid #D8DDD7;
+    border-top: 1px solid #D8DDD7;
 }
 
 .header-container,
 .footer-container,
-.main aside {
+.main aside,
+box {
     background: #f8f8f8;
 }
 
@@ -147,7 +148,28 @@ nav a:hover {
    Author's custom styles
    ========================================================================== */
 
+triggers,
+tasks {
+    display: block;
+    margin: 20px
+}
 
+box {
+    display: inline-block;
+    min-width: 200px;
+    padding: 6px 3% 0;
+    margin: 10px;
+}
+
+tasks {
+    margin: 20px auto;
+    width: 50%; 
+}
+
+triggers {
+    margin: 20px auto;
+    width: 80%; 
+}
 
 
 
@@ -214,10 +236,11 @@ nav a:hover {
    ==================== */
 
    .header-container,
-   .main aside {
-       -webkit-box-shadow: 0 1px 2px #aaa;
-          -moz-box-shadow: 0 1px 2px #aaa;
-               box-shadow: 0 1px 2px #aaa;
+   .main aside,
+   box {
+       -webkit-box-shadow: 0 0px 3px #aaa;
+          -moz-box-shadow: 0 0px 3px #aaa;
+               box-shadow: 0 0px 3px #aaa;
    }
 
 

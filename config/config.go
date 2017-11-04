@@ -6,7 +6,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	nt "github.com/floeit/floe/config/nodetype"
-	"github.com/floeit/old/log"
+	"github.com/floeit/floe/log"
 )
 
 // Config is the set of nodes and rules
