@@ -27,7 +27,7 @@ function main() {
             controller.Activate('dash');
         },
         '/flows/:id': function (par) { 
-            controller.Activate('flow', par.id);
+            controller.Activate('flow', [par.id]);
         },
         '/settings': function () { 
             controller.Activate('settings');

@@ -12,7 +12,7 @@ export function Header() {
     }
 
     var events = [
-        {El: '#logout', Ev: 'click', Fn: evtLogout}
+        {El: '#logout', Ev: 'click', Fn: evtLogout},
     ];
 
     panel = new Panel(this, {}, tpl, 'header', events);
@@ -38,10 +38,7 @@ var tpl = `
     <ul>
         <li><a href='/settings'>Settings</a></li>
         {{? it.Data.Authed }}
-        <li><a id='logout' href='/logout'>Logout</a></li>
-        {{?}}
-        {{? !it.Data.Authed }}
-        <li><a href='/login'>Login</a></li>
+        <li><a id='logout'>Logout</a></li>
         {{?}}
     </ul>
 </nav>

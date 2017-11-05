@@ -16,23 +16,23 @@ export function Panel(parent, data, template, attach, events, restReq) {
     this.store = new store(data);  // the data store to render this panel.
     this.template = template;      // the template to use to render the html from the store data.
     this.attach = attach;          // the CSS selector to attach the resultant html to.
-    this.ID = "";
-    this.Par = {};
+    this.IDs = [];
     this.active = false;           // active is true if we think this panel is in the dom.
 
     // Compile template function
     this.tempFn = doT.template(template);
 
     // Activate is called to mark this panel active and render it into the dom.
-    // different invocations of the same panel must differentiate with an ID
-    this.Activate = function(id, par) {
-        if (this.active && id == this.ID && par == this.Par) {
+    // different invocations of the same panel must differentiate with the IDs array.
+    this.Activate = function(ids) {
+        // if the panel is active and the ids are the same
+        if (this.active && ids.length==this.IDs.length && ids.every((v,i)=> v === this.IDs[i])) {
+            console.log("allready active", this.IDs)
             return;
         }
-        this.ID = id;
-        this.Par = par;
+        this.IDs = ids;
 
-        console.log("activating", this, par);
+        console.log("activating", this);
 
         this.active = true;
 
@@ -111,9 +111,7 @@ export function Panel(parent, data, template, attach, events, restReq) {
             // more persistent data associated with the invocation of this specific panel.
             var data = {
                 Obj: {
-                    ID: this.ID,
-                    Par: this.par,
-
+                    IDs: this.IDs,
                 },
                 Data: dataIfNew, 
             }

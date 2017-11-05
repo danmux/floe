@@ -75,6 +75,16 @@ func (h *Hub) Tags() []string {
 	return h.tags
 }
 
+// AllClientRuns queries all hosts for their summaries for the given run ID
+func (h *Hub) AllClientRuns(runID string) client.RunSummaries {
+	s := client.RunSummaries{}
+	for _, host := range h.hosts {
+		summaries := host.GetRuns(runID)
+		s.Append(summaries)
+	}
+	return s
+}
+
 // AllHosts returns all the hosts
 func (h *Hub) AllHosts() map[string]client.HostConfig {
 	h.Lock()
@@ -92,8 +102,14 @@ func (h Hub) Config() config.Config {
 	return *h.config
 }
 
-func (h Hub) RunsPending() []Todo {
-	return h.runs.allTodos()
+func (h Hub) RunsPending() Runs {
+	var r Runs
+	for _, t := range h.runs.allTodos() {
+		r = append(r, &Run{
+			Ref: t.Ref,
+		})
+	}
+	return r
 }
 
 func (h Hub) RunsActive() Runs {

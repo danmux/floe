@@ -29,7 +29,7 @@ func hndFlow(rw http.ResponseWriter, r *http.Request, ctx *context) (int, string
 	return rOK, "", response
 }
 
-func hndExecFlow(rw http.ResponseWriter, r *http.Request, ctx *context) (int, string, renderable) {
+func hndP2PExecFlow(rw http.ResponseWriter, r *http.Request, ctx *context) (int, string, renderable) {
 
 	t := hub.Todo{}
 	if ok, code, msg := decodeBody(rw, r, &t); !ok {

@@ -4,7 +4,7 @@ import {eventHub} from './event.js';
 
 export function Controller(header, panels) {
     this.panels = panels;    // map of name -> panel
-    var authRedirectTo = ''; // set in the call to deauth 
+    var currentPage = {};    // name and ids for the current panel
     var authed = false;      // controller maintains some state about current authentication status
 
     // make sure the header has access to the event hub as well
@@ -37,13 +37,14 @@ export function Controller(header, panels) {
     }
 
     // Activate deactivates all but the requested panel and activated the named panel.
-    this.Activate = function(name, id, par) {
-        console.log('activating', name, id, par);
-
-        // if we know we are not authenticated and not activating the login page 
+    this.Activate = function(name, ids) {
+        console.log('activating', name, ids);
+        console.log('current-page',currentPage);
+        
+        // If we know we are not authenticated and not activating the login page 
         // then always redirect to the auth page
         if (!authed && name != 'login') {
-            authRedirectTo = name;
+            currentPage = {name: name, ids: ids};
             this.deauth();
             return;
         }
@@ -63,9 +64,16 @@ export function Controller(header, panels) {
             return;
         }
 
+        // make sure it has the eventHub
         panel.evtHub = eventHub;
         console.log("activated", name, panel);
-        panel.Activate(id, par);
+
+        // Grab the page and ids that are becoming active.
+        if (name != 'login') {
+            currentPage = {name: name, ids: ids};
+        }
+
+        panel.Activate(ids);
     }
 
     this.whichIsActive = function() {
@@ -76,7 +84,6 @@ export function Controller(header, panels) {
         }
         return "";
     }
-
 
     this.deauth = function() {
         // notify the header we are not authenticated
@@ -106,7 +113,6 @@ export function Controller(header, panels) {
             if ((evt.Value.Status == 401) || (evt.Value.Url == '/logout' && evt.Value.Status == 200)) {
                 console.log("UNAUTH");
                 // deauth and return to the panel we were on
-                authRedirectTo = this.whichIsActive();
                 this.deauth();
                 return;
             }
@@ -127,7 +133,7 @@ export function Controller(header, panels) {
                 // remember that we are authenticated
                 authed = true;
                 // return to the prev page
-                this.Activate(authRedirectTo);
+                this.Activate(currentPage.name, currentPage.ids);
                 return;
             }
 
@@ -145,13 +151,12 @@ export function Controller(header, panels) {
             console.log("click", evt.ID);
             // if we know we are not authenticated then always redirect to the auth page
             if (!authed) {
-                authRedirectTo = this.whichIsActive();
                 this.deauth();
                 return;
             }
             if (evt.What == 'flow') {
                 history.pushState(null, '', this.Base + "/flows/" + evt.ID);
-                this.Activate('flow', evt.ID);
+                this.Activate('flow', [evt.ID]);
             }
         }
     }

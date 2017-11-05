@@ -34,18 +34,17 @@ func LaunchWeb(host, rp string, hub *hub.Hub, addrChan chan string) {
 	r.POST(rp+"/logout", h.mw(logoutHandler, true))
 
 	// --- api ---
-	r.GET(rp+"/config", h.mw(confHandler, true)) // return host config and what it knows about other hosts
-	r.GET(rp+"/flows", h.mw(hndAllFlows, true))  // list all the flows configs
-	r.GET(rp+"/flows/:id", h.mw(hndFlow, true))  // return highest version of the flow
-	r.GET(rp+"/runs/active", h.mw(hndActiveRuns, true))
-	r.GET(rp+"/runs/pending", h.mw(hndPendingRuns, true))
-	r.GET(rp+"/runs/archive", h.mw(hndArchiveRuns, true))
+	r.GET(rp+"/flows", h.mw(hndAllFlows, true))      // list all the flows configs
+	r.GET(rp+"/flows/:id", h.mw(hndFlow, true))      // return highest version of the flow
+	r.GET(rp+"/flows/:id/runs", h.mw(hndRuns, true)) // all runs from all hosts for this flow id
 
 	// --- push endpoints ---
 	h.setupPushes(rp+"/push/", r, hub)
 
 	// --- p2p api ---
-	r.POST(rp+"/flows/exec", h.mw(hndExecFlow, true)) // internal api to pass a pending todo to activate it on this host
+	r.POST(rp+"/p2p/flows/exec", h.mw(hndP2PExecFlow, true)) // internal api to pass a pending todo to activate it on this host
+	r.GET(rp+"/p2p/flows/:id/runs", h.mw(hndP2PRuns, true))  // all runs from this hosts for this flow id
+	r.GET(rp+"/p2p/config", h.mw(confHandler, true))         // return host config and what it knows about other hosts
 
 	// --- static files for the spa ---
 	r.ServeFiles("/static/css/*filepath", http.Dir("webapp/css"))

@@ -6,6 +6,7 @@ package client
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"sync"
@@ -54,7 +55,7 @@ type FloeHost struct {
 func New(base, token string) *FloeHost {
 	fh := &FloeHost{
 		config: HostConfig{
-			BaseURL: base,
+			BaseURL: base + "/p2p",
 		},
 		token: token,
 	}
@@ -97,6 +98,51 @@ func (f *FloeHost) AttemptExecute(ref event.RunRef, ie event.Event) bool {
 	}
 
 	return false
+}
+
+// RunSummaries holds slices of RunSummary for each group of run
+type RunSummaries struct {
+	Active  []RunSummary
+	Pending []RunSummary
+	Archive []RunSummary
+}
+
+func (s *RunSummaries) Append(o *RunSummaries) {
+	s.Active = append(s.Active, o.Active...)
+	s.Pending = append(s.Pending, o.Pending...)
+	s.Archive = append(s.Archive, o.Archive...)
+}
+
+// RunSummary represents the state of a run
+type RunSummary struct {
+	Ref       event.RunRef
+	ExecHost  string // the id of the host who's actually executing this run
+	StartTime time.Time
+	EndTime   time.Time
+	Ended     bool
+	Status    string
+	Good      bool
+}
+
+// GetRuns - gets the runs from a host for the given id or nil if there is a problem
+func (f *FloeHost) GetRuns(id string) *RunSummaries {
+	w := wrap{}
+	runs := &RunSummaries{}
+	w.Payload = runs
+
+	code, err := f.get(fmt.Sprintf("/flows/%s/runs", id), &w)
+	if err != nil {
+		log.Error(err)
+		return nil
+	}
+	switch code {
+	case http.StatusOK:
+		return runs
+	default:
+		log.Errorf("got response: %d from %s, with: %s", code, f.GetConfig().HostID, w.Message)
+	}
+
+	return nil
 }
 
 type wrap struct {
