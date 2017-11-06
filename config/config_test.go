@@ -1,6 +1,7 @@
 package config
 
 import (
+	"encoding/json"
 	"testing"
 
 	nt "github.com/floeit/floe/config/nodetype"
@@ -107,12 +108,12 @@ flows:
         - name: start
           type: data
           opts:
-            form:
-              title: Start
-              fields:
-                - id: branch
-                  prompt: Branch
-                  type: string
+            Form:
+              Title: Start
+              Fields:
+                - Id: branch
+                  Prompt: Branch
+                  Type: string
       
       tasks: 
         - name: checkout             # the name of this node 
@@ -205,5 +206,35 @@ func TestYaml(t *testing.T) {
 	}
 	if ns[0].NodeRef().ID != "checkout" {
 		t.Error("got wrong node id", ns[0].NodeRef().ID)
+	}
+}
+
+func TestYamlTrigger(t *testing.T) {
+	c, err := ParseYAML(in)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	fl := c.Flows[0]
+	ts := fl.matchTriggers("data", &nt.Opts{})
+
+	if len(ts) != 2 {
+		t.Fatal("got wrong number of data nodes", len(ts))
+	}
+
+	n := ts[1]
+
+	opt, ok := n.Opts["Form"]
+	if !ok {
+		t.Fatal("did not get form opts")
+	}
+	if _, ok := opt.(map[string]interface{})["Title"]; !ok {
+		t.Error("did not get form title")
+	}
+
+	b, err := json.Marshal(&n.Opts)
+
+	if string(b) != `{"Form":{"Fields":[{"Id":"branch","Prompt":"Branch","Type":"string"}],"Title":"Start"}}` {
+		t.Error("json opts are wrong", string(b))
 	}
 }

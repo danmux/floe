@@ -6,6 +6,8 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"runtime"
+	"strings"
 	"sync"
 )
 
@@ -67,11 +69,27 @@ func PrintLog() {
 	fmt.Print(&logbuf)
 }
 
+func prefix(level string, args ...interface{}) []interface{} {
+	_, file, line, ok := runtime.Caller(2)
+	if !ok {
+		file = "???"
+		line = 0
+	} else {
+		bits := strings.Split(file, "/")
+		if len(bits) > 2 {
+			file = bits[len(bits)-2] + "/" + bits[len(bits)-1]
+		}
+	}
+	a := []interface{}{level, fmt.Sprintf("(%s:%d)", file, line)}
+	a = append(a, args...)
+	return a
+}
+
 func Debug(args ...interface{}) {
 	if badLevel(lDbg) {
 		return
 	}
-	args = append([]interface{}{dbg}, args...)
+	args = prefix(dbg, args...)
 	logger.Println(args...)
 }
 
@@ -79,14 +97,16 @@ func Debugf(format string, args ...interface{}) {
 	if badLevel(lDbg) {
 		return
 	}
-	logger.Println(dbg, fmt.Sprintf(format, args...))
+	args = []interface{}{fmt.Sprintf(format, args...)}
+	args = prefix(dbg, args...)
+	logger.Println(args...)
 }
 
 func Info(args ...interface{}) {
 	if badLevel(lInf) {
 		return
 	}
-	args = append([]interface{}{inf}, args...)
+	args = prefix(inf, args...)
 	logger.Println(args...)
 }
 
@@ -94,7 +114,9 @@ func Infof(format string, args ...interface{}) {
 	if badLevel(lInf) {
 		return
 	}
-	logger.Println(inf, fmt.Sprintf(format, args...))
+	args = []interface{}{fmt.Sprintf(format, args...)}
+	args = prefix(inf, args...)
+	logger.Println(args...)
 }
 
 func Warning(args ...interface{}) {
@@ -126,37 +148,7 @@ func Errorf(format string, args ...interface{}) {
 	if badLevel(lErr) {
 		return
 	}
-	logger.Println(err, fmt.Sprintf(format, args...))
+	args = []interface{}{fmt.Sprintf(format, args...)}
+	args = prefix(err, args...)
+	logger.Println(args...)
 }
-
-// func V(l int) bool {
-// 	return l < level
-// }
-
-// func Info(args ...interface{}) {
-// 	glog.DebugDepth(1, args...)
-// }
-
-// func Infof(format string, args ...interface{}) {
-// 	glog.DebugDepth(1, fmt.Sprintf(format, args...))
-// }
-
-// func Error(args ...interface{}) {
-// 	glog.ErrorDepth(1, args...)
-// }
-
-// func Warning(args ...interface{}) {
-// 	glog.WarningDepth(1, args...)
-// }
-
-// func Fatal(args ...interface{}) {
-// 	glog.FatalDepth(1, args...)
-// }
-
-// func Errorf(format string, args ...interface{}) {
-// 	glog.ErrorDepth(1, fmt.Sprintf(format, args...))
-// }
-
-// func V(level glog.Level) glog.Verbose {
-// 	return glog.V(level)
-// }

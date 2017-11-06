@@ -19,6 +19,7 @@ func (f FlowRef) String() string {
 	return fmt.Sprintf("%s-%d", f.ID, f.Ver)
 }
 
+// Equal returns true if all fields in f anf g are equal
 func (f FlowRef) Equal(g FlowRef) bool {
 	return f.ID == g.ID && f.Ver == g.Ver
 }
@@ -94,6 +95,9 @@ func (f *Flow) zero() error {
 		}
 	}
 
+	// convert to json-able options
+	f.fixupOpts()
+
 	return nil
 }
 
@@ -110,4 +114,19 @@ func (f *Flow) classToList(class NodeClass) []*node {
 		nl = f.Tasks
 	}
 	return nl
+}
+
+func (f *Flow) fixupOpts() {
+	for _, v := range f.Triggers {
+		v.Opts.Fixup()
+	}
+	for _, v := range f.Tasks {
+		v.Opts.Fixup()
+	}
+	for _, v := range f.Pubs {
+		v.Opts.Fixup()
+	}
+	for _, v := range f.Merges {
+		v.Opts.Fixup()
+	}
 }

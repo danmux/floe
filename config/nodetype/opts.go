@@ -1,22 +1,7 @@
 package nodetype
 
-import "encoding/json"
-
 // Opts are the options on the node type that will be compared to those on the event
 type Opts map[string]interface{}
-
-func (u *Opts) MarshalJSON() ([]byte, error) {
-	f := map[string]string{}
-	for k, v := range *u {
-		s, ok := v.(string)
-		if ok {
-			f[k] = s
-		} else {
-			f[k] = "-"
-		}
-	}
-	return json.Marshal(&f)
-}
 
 func (o Opts) string(key string) (string, bool) {
 	si, ok := o[key]
@@ -56,4 +41,30 @@ func MergeOpts(l, r Opts) Opts {
 
 type Workspace struct {
 	BasePath string
+}
+
+func (u *Opts) Fixup() {
+	for k, v := range *u {
+		(*u)[k] = yamlToJson(v)
+	}
+}
+
+func yamlToJson(in interface{}) interface{} {
+
+	if m, ok := in.(map[interface{}]interface{}); ok {
+		o := map[string]interface{}{}
+		for k, v := range m {
+			o[k.(string)] = yamlToJson(v)
+		}
+		return o
+	}
+	if m, ok := in.([]interface{}); ok {
+		o := make([]interface{}, len(m))
+		for i, v := range m {
+			o[i] = yamlToJson(v)
+		}
+		return o
+	}
+
+	return in
 }

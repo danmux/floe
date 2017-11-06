@@ -35,9 +35,11 @@ export function Dash() {
         return {Flows: flows};
     }
 
+    // Keep a reference to the dash panels - TODO: needed ?
     var panels = {};
 
-    // AfterRender is called when the dash hs rendered containers
+    // AfterRender is called when the dash hs rendered containers.
+    // we go and add the child summary panels
     this.AfterRender = function(data) {
         // ignore if initial rendering before data fetched.
         if (data == null ) {

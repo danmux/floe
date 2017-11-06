@@ -25,10 +25,10 @@ flows:
               fields:
                 - id: from_hash
                   prompt: From Branch (or hash)
-                  type: string
+                  type: text
                 - id: to_hash
                   prompt: To Branch (or hash)
-                  type: string 
+                  type: text 
       merges:
         - name: subs
           type: any

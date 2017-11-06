@@ -1,4 +1,5 @@
 import {Panel} from '../panel/panel.js';
+import {Form} from '../panel/form.js';
 
 "use strict";
 
@@ -21,7 +22,31 @@ export function Flow() {
         return evt.Value.Response.Payload.Config;
     }
 
+    // Keep a reference to the dash panels - TODO: needed ?
     var panels = {};
+    
+    // AfterRender is called when the dash hs rendered containers.
+    // we go and add the child summary panels
+    this.AfterRender = function(data) {
+        if (data == undefined) {
+            return
+        }
+        console.log(data);
+        var trigs = data.Data.Triggers;
+        for (var t in trigs) {
+            var trig = trigs[t];
+            var form = trig.Opts.form;
+            if (form == undefined) {
+                continue;
+            }
+            // Give the form the trigger id so it can be uniquely directly referenced.
+            form.ID = trig.ID;
+            console.log(form);
+            var form = new Form('#trig-form-container-'+trig.ID, form, (e)=>{console.log(e)});
+            form.Activate();
+        }
+    }
+
 
     return panel;
 }
@@ -36,6 +61,7 @@ var tplFlow = `
         {{~it.Data.Triggers :trigger:index}}
             <box id='trig-{{=trigger.ID}}' class='trigger'>
                 <h4>{{=trigger.Name}}</h4>
+                <div class='trig-form' id='trig-form-container-{{=trigger.ID}}'></div>
             </box>
         {{~}}
         </triggers>
@@ -46,153 +72,3 @@ var tplFlow = `
 
     </div>
 `
-
-/*
-{
-  "Message": "OK",
-  "Payload": {
-    "Config": {
-      "ID": "build-project",
-      "Ver": 1,
-      "Name": "build project",
-      "ReuseSpace": true,
-      "HostTags": [
-        "linux",
-        "go",
-        "couch"
-      ],
-      "ResourceTags": [
-        "couchbase",
-        "nic"
-      ],
-      "Triggers": [
-        {
-          "Ref": {
-            "Class": "trigger",
-            "ID": "push"
-          },
-          "ID": "push",
-          "Name": "push",
-          "Listen": "",
-          "Wait": null,
-          "Type": "git-push",
-          "Good": null,
-          "IgnoreFail": false,
-          "UseStatus": false,
-          "Opts": {
-            "url": "blah.blah"
-          }
-        },
-        {
-          "Ref": {
-            "Class": "trigger",
-            "ID": "start"
-          },
-          "ID": "start",
-          "Name": "start",
-          "Listen": "",
-          "Wait": null,
-          "Type": "data",
-          "Good": null,
-          "IgnoreFail": false,
-          "UseStatus": false,
-          "Opts": {
-            "form": "-"
-          }
-        }
-      ],
-      "Tasks": [
-        {
-          "Ref": {
-            "Class": "task",
-            "ID": "checkout"
-          },
-          "ID": "checkout",
-          "Name": "checkout",
-          "Listen": "merge.subs.good",
-          "Wait": null,
-          "Type": "git-merge",
-          "Good": [
-            0
-          ],
-          "IgnoreFail": false,
-          "UseStatus": false,
-          "Opts": {}
-        },
-        {
-          "Ref": {
-            "Class": "task",
-            "ID": "build"
-          },
-          "ID": "build",
-          "Name": "build",
-          "Listen": "task.checkout.good",
-          "Wait": null,
-          "Type": "exec",
-          "Good": null,
-          "IgnoreFail": false,
-          "UseStatus": false,
-          "Opts": {
-            "cmd": "make build"
-          }
-        },
-        {
-          "Ref": {
-            "Class": "task",
-            "ID": "test"
-          },
-          "ID": "test",
-          "Name": "test",
-          "Listen": "task.build.good",
-          "Wait": null,
-          "Type": "exec",
-          "Good": null,
-          "IgnoreFail": false,
-          "UseStatus": false,
-          "Opts": {
-            "cmd": "make test"
-          }
-        },
-        {
-          "Ref": {
-            "Class": "task",
-            "ID": "sign-off"
-          },
-          "ID": "sign-off",
-          "Name": "Sign Off",
-          "Listen": "task.build.good",
-          "Wait": null,
-          "Type": "data",
-          "Good": null,
-          "IgnoreFail": false,
-          "UseStatus": false,
-          "Opts": {
-            "form": "-"
-          }
-        }
-      ],
-      "Pubs": null,
-      "Merges": [
-        {
-          "Ref": {
-            "Class": "merge",
-            "ID": "subs"
-          },
-          "ID": "subs",
-          "Name": "subs",
-          "Listen": "",
-          "Wait": [
-            "sub.push.good",
-            "sub.start.good"
-          ],
-          "Type": "any",
-          "Good": null,
-          "IgnoreFail": false,
-          "UseStatus": false,
-          "Opts": {}
-        }
-      ]
-    }
-  }
-}
-*/

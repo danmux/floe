@@ -4,7 +4,7 @@ import {store} from './store.js';
 
 "use strict";
 
-function el(sel) {
+export function el(sel) {
     return document.querySelectorAll(sel);
 }
 
@@ -37,14 +37,10 @@ export function Panel(parent, data, template, attach, events, restReq) {
         this.active = true;
 
         // if this store is empty get the data from the server.
-        if (this.store.IsEmpty()) {
+        // if the request is a function then assume its dynamic and call get data every time.
+        // TODO possibly consider comparing this and last request and only call if different.
+        if (this.store.IsEmpty() || typeof restReq == 'function') {
             this.GetData();
-        }
-
-        // if the request is a function then assume its dynamic and call get data
-        // TODO consider comparing this and last  request and only call if different
-        if (typeof restReq == 'function') { 
-            this.GetData(); 
         }
 
         // render it in even if the data is unchanged, hence true param.
