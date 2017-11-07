@@ -45,7 +45,7 @@ export function Controller(header, panels) {
         // then always redirect to the auth page
         if (!authed && name != 'login') {
             currentPage = {name: name, ids: ids};
-            this.deauth();
+            this.DeAuth();
             return;
         }
 
@@ -76,16 +76,7 @@ export function Controller(header, panels) {
         panel.Activate(ids);
     }
 
-    this.whichIsActive = function() {
-        for (var key in this.panels) {
-            if (this.panels[key].active) {
-                return key;
-            }
-        }
-        return "";
-    }
-
-    this.deauth = function() {
+    this.DeAuth = function() {
         // notify the header we are not authenticated
         header.Notify({
             Type: 'unauth'
@@ -103,70 +94,87 @@ export function Controller(header, panels) {
         this.Activate('login');
     }
 
-    // Notify allows this controller to attach to an event hub.
-    this.Notify = function(evt) {
-        console.log("controller got an event", evt);
+    // Auth is called when the client listener detects that we have become authenticated.
+    this.Auth = function() {
+        // tell the header we are now authenticated
+        header.Notify({
+            Type: 'auth'
+        });
+        // remember that we are authenticated
+        authed = true;
 
-        if (evt.Type == 'rest') {
-            // did we try and do a server side call and it was authenticated
-            // or an explicit logout was effective
-            if ((evt.Value.Status == 401) || (evt.Value.Url == '/logout' && evt.Value.Status == 200)) {
-                console.log("UNAUTH");
-                // deauth and return to the panel we were on
-                this.deauth();
-                return;
-            }
+        // return to the prev page
+        this.Activate(currentPage.name, currentPage.ids);
+    }
 
-            if (evt.Value.Status == 404) {
-                console.log("rest call returned 404");
-                // this.Activate('problem'); // TODO - error page
-                return
-            }
-
-            // did we get a successful login
-            if (evt.Value.Url == '/login' && evt.Value.Status == 200) {
-                console.log("LOGIN");
-                // tell the header we are now authenticated
-                header.Notify({
-                    Type: 'auth'
-                });
-                // remember that we are authenticated
-                authed = true;
-                // return to the prev page
-                this.Activate(currentPage.name, currentPage.ids);
-                return;
-            }
-
-            // map the rest event to the panel
-            var panel;
-            if (evt.Value.Url.indexOf("/flows/") >= 0) {
-                panel = this.panels['flow']
-            } else if (evt.Value.Url== "/flows") {
-                panel = this.panels['dash'];
-            }
-            if (panel != undefined) {
-                panel.Notify(evt);
-            }
+    // AuthCheck - checks if the controller thinks it is authenticated
+    // and calls Deauth if not.
+    this.AuthCheck = function() {
+        if (!authed) {
+            this.DeAuth();
+            return false;
         }
+        return true;
+    }
 
-        if (evt.Type == 'click') {
-            console.log("click", evt.ID);
-            // if we know we are not authenticated then always redirect to the auth page
-            if (!authed) {
-                this.deauth();
+    // SetListener attaches a function to the Notify method which the event queue calls.
+    this.SetListener = function(listener) {
+        this.Notify = listener;
+    }
+
+    // NotifyPanel will send the event evt to the named panel
+    this.NotifyPanel = function(name, evt) {
+        var panel = this.panels[name];
+        if (panel == undefined) {
+            return;
+        }
+        panel.Notify(evt);
+    }
+    
+    this.TrapAnchors = function (routes) {
+        // set up the anchor click
+        document.body.addEventListener('click', function(event) {
+            var tag = event.target;
+            if (event.button != 0) {
                 return;
             }
-            if (evt.What == 'flow') {
-                history.pushState(null, '', this.Base + "/flows/" + evt.ID);
-                this.Activate('flow', [evt.ID]);
+            console.log(event);
+    
+            // find the first thing with an anchor
+            while (tag.tagName != 'A') {
+                if (tag.tagName == "HTML") {
+                    return;
+                }
+                tag = tag.parentElement;
             }
-            if (evt.What == 'settings') {
-                history.pushState(null, '', this.Base + "/settings");
-                this.Activate('settings');
+            
+            // It's a left click on an <a href=...> and it's a same-origin 
+            // navigation: a link within the site.
+            if (tag.href && (tag.origin == document.location.origin)) {
+                // Now check that the the app is capable of doing a
+                // within-page update. 
+    
+                // TODO - take .query into
+                var oldPath = document.location.pathname;
+                var newPath = '/app' + tag.pathname;
+                // Prevent the browser from doing the navigation.
+                event.preventDefault();
+                // only re-route and update history if the page is new
+                if (oldPath != newPath) {
+                    // Let the app handle it.
+                    routes(newPath);
+                    history.pushState(null, '', newPath);
+                }
             }
-        }
+        });
+    
+        window.onpopstate = function(event) {
+            routes(document.location.pathname);
+            event.preventDefault();
+        };
     }
 
     // subscribe this controller to the eventHub.
     eventHub.Subscribe(this);
 }
+

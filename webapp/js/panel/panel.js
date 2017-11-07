@@ -122,6 +122,7 @@ export function Panel(parent, data, template, attach, events, restReq) {
         function eventHandler(fn, el) {
             return function(evt) {
                 evt.preventDefault();
+                evt.stopPropagation();
                 fn(evt, el);	
             }
          }

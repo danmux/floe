@@ -41,7 +41,7 @@ export function Header() {
 }
 
 var tpl = `
-<h3 class='title'><a href='/dash'>Floe</a></h3>
+<h3 class='title'><a href='/dash'><img class="header-logo" src="/static/img/floe.png"></img></a></h3>
 <nav>
     <ul>
         <li><a id='settings'><i class='icon-cog'></i></a></li>

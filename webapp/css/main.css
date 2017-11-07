@@ -168,6 +168,10 @@ i {
     font-weight: normal;
 }
 
+.header-logo {
+    width: 30px;
+}
+
 triggers,
 tasks {
     display: block;
