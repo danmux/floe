@@ -194,28 +194,22 @@ nav {
     width: 30px;
 }
 
-triggers,
-tasks {
-    display: block;
-    margin: 20px
+.login {
+    margin: 0 auto;
+    padding: 20px;
+    width: 40%;
 }
 
 box {
     display: block;
     float: left;
     min-width: 200px;
-    padding: 10px 3% 0;
-    margin: 10px;
+    padding: 10px 15px 2px;
+    margin: 5px 10px;
     border-radius: 3px;
     font-weight: lighter;
     min-height: 70px;
     transition: all 0.5s ease-in-out;
-}
-
-.login {
-    margin: 0 auto;
-    padding: 20px;
-    width: 40%;
 }
 
 box h3 {
@@ -223,9 +217,40 @@ box h3 {
     font-size: 12pt;
 }
 
+box.run {
+    padding: 2px 15px;
+    min-height: 30px;
+}
+
+box.run h4{
+    font-size: 12pt;
+    float: left;
+}
+
+box.run .label{
+    margin: 5px 0;
+    padding: 5px;
+    font-size: 8pt;
+    float: right;
+    background-color: #999;
+    border-radius: 2px;
+}
+
+top {
+    display: block;
+    overflow: hidden;
+}
+
 detail {
     display: block;
     border-top: 1px solid #ddd;
+}
+
+box.run detail {
+    font-size: 8pt;
+}
+
+box.flow detail {
     min-height: 50px;
 }
 

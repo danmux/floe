@@ -1,6 +1,7 @@
 import {Panel} from '../panel/panel.js';
 import {Form} from '../panel/form.js';
 import {RestCall} from '../panel/rest.js';
+import {PrettyDate} from '../panel/util.js';
 
 "use strict";
 
@@ -15,10 +16,34 @@ export function Flow() {
     
     // panel is view - or part of it
     var panel = new Panel(this, null, tplFlow, '#main', [], dataReq);
-
+ 
     this.Map = function(evt) {
         console.log("flow got a call to Map", evt);
-        return evt.Value.Response.Payload;
+        var pl = evt.Value.Response.Payload;
+
+        // TODO - update all these dates in the page every 30 seconds
+        if (pl.Runs.Archive) {
+            pl.Runs.Archive.forEach((r, i) => {
+                r.StartedAgo = PrettyDate(r.StartTime);
+                pl.Runs.Archive[i] = r;
+            });
+        }
+
+        if (pl.Runs.Pending) {
+            pl.Runs.Pending.forEach((r, i) => {
+                r.StartedAgo = 'waiting...';
+                pl.Runs.Pending[i] = r;
+            });
+        }
+
+        if (pl.Runs.Active) {
+            pl.Runs.Active.forEach((r, i) => {
+                r.StartedAgo = PrettyDate(r.StartTime);
+                pl.Runs.Active[i] = r;
+            });
+        }
+        
+        return pl;
     }
 
     // Keep a reference to the dash panels - TODO: needed ?
@@ -97,7 +122,6 @@ export function Flow() {
         attacheExpander();
     }
 
-
     return panel;
 }
 
@@ -151,8 +175,14 @@ var tplFlow = `
                 Archive
             </heading>
             {{~it.Data.Runs.Archive :run:index}}
-                <box id='run-{{=run.Ref.Run.HostID}}-{{=run.Ref.Run.ID}}' class='archive'>
-                    <h4>{{=run.Ref.Run.ID}}</h4>
+                <box id='run-{{=run.Ref.Run.HostID}}-{{=run.Ref.Run.ID}}' class='run archive'>
+                    <top>
+                        <h4>{{=run.Ref.Run.HostID}}-{{=run.Ref.Run.ID}}</h4>
+                        <span class="label label-danger">New</span>
+                    </top>
+                    <detail>
+                        {{=run.StartedAgo}}
+                    </detail>
                 </box>
             {{~}}
         </div>
