@@ -76,7 +76,8 @@ function summary(flow) {
 }
 
 var tplSummary = `
-        <h3>{{=it.Data.Name}}</h3>
-        <p>flow</p>    
+    <subtitle>({{=it.Data.ID}})</subtitle>    
+    <h3>{{=it.Data.Name}}</h3>
+    <detail></detail>    
 `
     

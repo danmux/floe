@@ -34,10 +34,6 @@ export function Form(sel, obj, onSubmit) {
 
 var tplForm = `
 <form id="form-{{=it.Data.ID}}">
-    <summary>
-        <h3>{{=it.Data.title}}</h3>
-    </summary>
-    
     <fields>
     {{~it.Data.fields :field:index}}
         <prompt>{{=field.prompt}}:</prompt>
@@ -45,7 +41,7 @@ var tplForm = `
     {{~}}
     </fields>
 
-    <button id="submit-{{=it.Data.ID}}" type="submit">
+    <button class="btn" id="submit-{{=it.Data.ID}}" type="submit">Submit</button>
 
 </form>
 `

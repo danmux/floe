@@ -34,7 +34,45 @@ export function Flow() {
         }
         RestCall(panel.evtHub, "POST", "/push/data", payload);
     }
-    
+
+    var trigUp = false;
+    function expandHandler(elem) {
+        var id = elem.getAttribute('for')
+        return function(evt) {
+            evt.preventDefault();
+            evt.stopPropagation();
+
+            var box = document.querySelectorAll('#trig-'+id)[0];
+            var thing = document.querySelectorAll('#trig-form-container-'+id)[0]
+            if (!trigUp) {
+                trigUp = true;
+                box.className='trigger modal';
+                thing.className='trig-form expander';
+                setTimeout(()=>{
+                    thing.className='trig-form expander expand';
+                    elem.className='expander expand'
+                }, 20);
+            } else {
+                box.className='trigger';
+                thing.className='trig-form expander';
+                setTimeout(()=>{
+                    thing.className='trig-form expander hidden';
+                    elem.className='expander'
+                }, 490);
+                trigUp = false;
+            }
+        }
+     }
+
+    function attacheExpander() {
+        var els = document.querySelectorAll('label.expander');
+        var len = els.length;
+        for (var i = 0; i < len; i++) {
+            var elem = els[i];
+            elem.addEventListener('click', expandHandler(elem));
+        }
+        // label for="trig-form-container-{{=trigger.ID}}" class='expander'
+    }
     // AfterRender is called when the dash hs rendered containers.
     // we go and add the child summary panels
     this.AfterRender = function(data) {
@@ -55,6 +93,8 @@ export function Flow() {
             var form = new Form('#trig-form-container-'+trig.ID, form, sendData);
             form.Activate();
         }
+
+        attacheExpander();
     }
 
 
@@ -67,36 +107,55 @@ var tplFlow = `
             <h2>{{=it.Data.Config.Name}}</h3>
         </summary>
         
-        <triggers>
-        {{~it.Data.Config.Triggers :trigger:index}}
-            <box id='trig-{{=trigger.ID}}' class='trigger'>
-                <h3>{{=trigger.Name}}</h4>
-                <div class='trig-form' id='trig-form-container-{{=trigger.ID}}'></div>
-            </box>
-        {{~}}
-        </triggers>
+        <div class='triggers section'>
+            <heading>
+                Triggers
+            </heading>
+            {{~it.Data.Config.Triggers :trigger:index}}
+                <box id='trig-{{=trigger.ID}}' class='trigger'>
+                    <h3>{{=trigger.Name}}</h4>
+                    <detail>
+                        {{? trigger.Type=='data'}}
+                        <label for="{{=trigger.ID}}" class='expander'>Input</label>
+                        <section class='trig-form expander hidden' id='trig-form-container-{{=trigger.ID}}'></section>
+                        {{?}}
+                    </detail>
+                </box>
+            {{~}}
+        </div>
 
-        <active>
+        <div class='active section'>
+        <heading>
+            Active
+        </heading>
         {{~it.Data.Runs.Active :run:index}}
             <box id='run-{{=run.Ref.Run.HostID}}-{{=run.Ref.Run.ID}}' class='active'>
                 <h4>{{=run.Ref.Run.ID}}</h4>
             </box>
         {{~}}
-        </active>
-        <pending>
+        </div>
+
+        <div class='pending section'>
+        <heading>
+            Pending
+        </heading>
         {{~it.Data.Runs.Active :run:index}}
             <box id='run-{{=run.Ref.Run.HostID}}-{{=run.Ref.Run.ID}}' class='pending'>
                 <h4>{{=run.Ref.Run.ID}}</h4>
             </box>
         {{~}}
-        </pending>
-        <archive>
-        {{~it.Data.Runs.Archive :run:index}}
-            <box id='run-{{=run.Ref.Run.HostID}}-{{=run.Ref.Run.ID}}' class='archive'>
-                <h4>{{=run.Ref.Run.ID}}</h4>
-            </box>
-        {{~}}
-        </archive>
+        </div>
+
+        <div class='archive section'>
+            <heading>
+                Archive
+            </heading>
+            {{~it.Data.Runs.Archive :run:index}}
+                <box id='run-{{=run.Ref.Run.HostID}}-{{=run.Ref.Run.ID}}' class='archive'>
+                    <h4>{{=run.Ref.Run.ID}}</h4>
+                </box>
+            {{~}}
+        </div>
 
     </div>
 `
