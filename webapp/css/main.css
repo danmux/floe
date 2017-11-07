@@ -104,6 +104,7 @@ nav ul {
 
 nav ul li {
     display: inline;
+    margin: 0 15px;
 }
 
 nav a {
@@ -166,6 +167,24 @@ i {
     font-family: "floe";
     font-style: normal;
     font-weight: normal;
+}
+/* end of fonts */
+
+.title {
+    float: left;
+}
+
+.header-container,
+.main aside,
+box {
+   -webkit-box-shadow: 0 0px 3px #aaa;
+      -moz-box-shadow: 0 0px 3px #aaa;
+           box-shadow: 0 0px 3px #aaa;
+}
+
+nav {
+    float: right;
+    width: 105px;
 }
 
 .header-logo {
@@ -230,35 +249,6 @@ triggers {
     }
 }
 
-@media only screen and (min-width: 512px) {
-
-/* ============
-    WIDE: Menu
-   ============ */
-
-   .title {
-        float: left;
-    }
-
-    nav {
-        float: right;
-        width: 55%;
-    }
-
-/* ====================
-    WIDE: CSS3 Effects
-   ==================== */
-
-   .header-container,
-   .main aside,
-   box {
-       -webkit-box-shadow: 0 0px 3px #aaa;
-          -moz-box-shadow: 0 0px 3px #aaa;
-               box-shadow: 0 0px 3px #aaa;
-   }
-
-
-}
 
 @media only screen and (min-width: 768px) {
 
