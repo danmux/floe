@@ -34,15 +34,15 @@ export function Login() {
 }
 
 var tpl = `
-    <div class="wrapper">
-        <form action="" method="post" name="login-form" class="form-signin">       
-            <h3 class="form-signin-heading">Welcome Back! Please Sign In</h3>
+    <div class='login'>
+        <form action=' method='post' name='login-form' class='form-signin'>       
+            <h3 class='form-signin-heading'>Please log in</h3>
             <hr>
             
-            <input type="text" name="Username" placeholder="Username" required="" autofocus="" />
-            <input type="password" name="Password" placeholder="Password" required=""/>     		  
+            <input type='text' name='Username' placeholder='Username' required='' autofocus='' />
+            <input type='password' name='Password' placeholder='Password' required=''/>     		  
             
-            <button name="Submit" value="Login" type="Submit">Login</button>  			
+            <button class='btn' name='Submit' value='Login' type='Submit'>Login</button>  			
         </form>			
     </div>
 `

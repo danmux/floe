@@ -80,6 +80,7 @@ textarea {
 .header-container,
 .footer-container,
 .main aside,
+.login,
 box {
     background: #ffffff;
 }
@@ -177,6 +178,7 @@ i {
 
 .header-container,
 .main aside,
+.login,
 box {
    -webkit-box-shadow: 0 0px 1px #aaa;
       -moz-box-shadow: 0 0px 1px #aaa;
@@ -208,6 +210,12 @@ box {
     font-weight: lighter;
     min-height: 70px;
     transition: all 0.5s ease-in-out;
+}
+
+.login {
+    margin: 0 auto;
+    padding: 20px;
+    width: 40%;
 }
 
 box h3 {
@@ -247,10 +255,27 @@ tasks {
 prompt {
     margin-top: 10px;
     display: block;
+    font-size: 11pt;
 }
 
 input {
+    margin-top: 10px;
     display: block;
+
+    display: block;
+    width: 90%;
+    height: 24px;
+    padding: 3px 6px;
+    font-size: 12pt;
+    line-height: 1.42857143;
+    font-weight: lighter;
+    color: #333333;
+    background-color: #ffffff;
+    background-image: none;
+    border: 1px solid #cacaca;
+    border-radius: 3px;
+    box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.075);
+    transition: border-color ease-in-out .15s, box-shadow ease-in-out .15s;
 }
 
 .btn {
