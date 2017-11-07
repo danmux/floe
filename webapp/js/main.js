@@ -49,6 +49,7 @@ function trapAnchors(routes) {
     // set up the anchor click
     document.body.addEventListener('click', function(event) {
         var tag = event.target;
+        console.log(event);
         if (tag.tagName == 'A' && tag.href && event.button == 0) {
         // It's a left click on an <a href=...>.
             if (tag.origin == document.location.origin) {

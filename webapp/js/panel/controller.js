@@ -141,10 +141,12 @@ export function Controller(header, panels) {
             var panel;
             if (evt.Value.Url.indexOf("/flows/") >= 0) {
                 panel = this.panels['flow']
-            } else{
+            } else if (evt.Value.Url== "/flows") {
                 panel = this.panels['dash'];
             }
-            panel.Notify(evt);
+            if (panel != undefined) {
+                panel.Notify(evt);
+            }
         }
 
         if (evt.Type == 'click') {
@@ -157,6 +159,10 @@ export function Controller(header, panels) {
             if (evt.What == 'flow') {
                 history.pushState(null, '', this.Base + "/flows/" + evt.ID);
                 this.Activate('flow', [evt.ID]);
+            }
+            if (evt.What == 'settings') {
+                history.pushState(null, '', this.Base + "/settings");
+                this.Activate('settings');
             }
         }
     }

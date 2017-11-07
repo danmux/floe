@@ -50,6 +50,7 @@ func LaunchWeb(host, rp string, hub *hub.Hub, addrChan chan string) {
 	r.ServeFiles("/static/css/*filepath", http.Dir("webapp/css"))
 	r.ServeFiles("/static/img/*filepath", http.Dir("webapp/img"))
 	r.ServeFiles("/static/js/*filepath", http.Dir("webapp/js"))
+	r.ServeFiles("/static/font/*filepath", http.Dir("webapp/font"))
 	r.GET("/app/*filepath", singleFile("webapp/index.html"))
 	r.GET("/favicon.ico", singleFile("webapp/favicon.ico"))
 

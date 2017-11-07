@@ -107,7 +107,11 @@ type RunSummaries struct {
 	Archive []RunSummary
 }
 
+// Append adds the summaries o to the reciever s
 func (s *RunSummaries) Append(o *RunSummaries) {
+	if o == nil {
+		return
+	}
 	s.Active = append(s.Active, o.Active...)
 	s.Pending = append(s.Pending, o.Pending...)
 	s.Archive = append(s.Archive, o.Archive...)

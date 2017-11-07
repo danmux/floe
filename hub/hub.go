@@ -98,26 +98,12 @@ func (h *Hub) AllHosts() map[string]client.HostConfig {
 }
 
 // Config returns the config for this hub
-func (h Hub) Config() config.Config {
+func (h *Hub) Config() config.Config {
 	return *h.config
 }
 
-func (h Hub) RunsPending() Runs {
-	var r Runs
-	for _, t := range h.runs.allTodos() {
-		r = append(r, &Run{
-			Ref: t.Ref,
-		})
-	}
-	return r
-}
-
-func (h Hub) RunsActive() Runs {
-	return h.runs.active
-}
-
-func (h Hub) RunsArchive() Runs {
-	return h.runs.archive
+func (h Hub) AllRuns(id string) (pending Runs, active Runs, archive Runs) {
+	return h.runs.allRuns(id)
 }
 
 // Queue returns the hubs queue
@@ -234,7 +220,7 @@ func (h *Hub) distributePending() error {
 			return fmt.Errorf("pending not found %s, %s removed from todo", p, p.InitiatingEvent.Tag)
 		}
 
-		log.Debugf("<%s> - pending - found flow %s tags: %v", flow.Ref, flow.HostTags)
+		log.Debugf("<%s> - pending - found flow %s tags: %v", p, flow.Ref, flow.HostTags)
 
 		// Find candidate hosts that have a superset of the tags for the pending flow
 		candidates := []*client.FloeHost{}

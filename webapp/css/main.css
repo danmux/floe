@@ -2,11 +2,12 @@
 
 html {
     color: #1B1F21;
+    background-color: #f8f8f8;
     font: 1em Helvetica, Helvetica Neue, Arial;
     line-height: 1.3;
 }
 
-h1, h2, h3 {
+h1, h2, h3, h4, h5 {
     margin: 6px 0;
 }
 
@@ -79,7 +80,7 @@ textarea {
 .footer-container,
 .main aside,
 box {
-    background: #f8f8f8;
+    background: #ffffff;
 }
 
 a:visited {
@@ -148,6 +149,24 @@ nav a:hover {
 /* ==========================================================================
    Author's custom styles
    ========================================================================== */
+@font-face {
+    font-family: 'floe';
+    src: url('../font/floe.woff2') format('woff2'),
+         url('../font/floe.woff') format('woff');
+         
+    font-weight: normal;
+    font-style: normal;
+}
+
+/* fonts */
+.icon-cog:before { content: '\e800'; }
+.icon-off:before { content: '\e801'; }
+
+i {
+    font-family: "floe";
+    font-style: normal;
+    font-weight: normal;
+}
 
 triggers,
 tasks {
@@ -158,8 +177,9 @@ tasks {
 box {
     display: inline-block;
     min-width: 200px;
-    padding: 6px 3% 0;
+    padding: 10px 3%;
     margin: 10px;
+    border-radius: 3px;
 }
 
 tasks {
@@ -169,18 +189,7 @@ tasks {
 
 triggers {
     margin: 20px auto;
-    width: 80%; 
 }
-
-
-
-
-
-
-
-
-
-
 
 /* ==========================================================================
    Media Queries

@@ -2,6 +2,7 @@ package server
 
 import (
 	"net/http"
+	"sort"
 	"time"
 
 	"github.com/floeit/floe/event"
@@ -25,11 +26,24 @@ type RunSummaries struct {
 type RunSummary struct {
 	Ref       event.RunRef
 	ExecHost  string // the id of the host who's actually executing this run
+	Status    string
 	StartTime time.Time
 	EndTime   time.Time
 	Ended     bool
-	Status    string
 	Good      bool
+}
+
+// RunsNewestFirst sorts the runs by most recent start time
+type RunsNewestFirst []RunSummary
+
+func (s RunsNewestFirst) Len() int {
+	return len(s)
+}
+func (s RunsNewestFirst) Swap(i, j int) {
+	s[i], s[j] = s[j], s[i]
+}
+func (s RunsNewestFirst) Less(i, j int) bool {
+	return s[i].StartTime.Sub(s[j].StartTime) > 0
 }
 
 func fromHubRuns(runs hub.Runs) []RunSummary {
@@ -37,6 +51,7 @@ func fromHubRuns(runs hub.Runs) []RunSummary {
 	for _, run := range runs {
 		summaries = append(summaries, fromHubRun(run))
 	}
+	sort.Sort(RunsNewestFirst(summaries))
 	return summaries
 }
 
@@ -54,10 +69,12 @@ func fromHubRun(run *hub.Run) RunSummary {
 
 // this handler answers just for this host and returns the run summaries
 func hndP2PRuns(rw http.ResponseWriter, r *http.Request, ctx *context) (int, string, renderable) {
+	id := ctx.ps.ByName("id")
+	pending, active, archive := ctx.hub.AllRuns(id)
 	summaries := RunSummaries{
-		Active:  fromHubRuns(ctx.hub.RunsActive()),
-		Pending: fromHubRuns(ctx.hub.RunsPending()),
-		Archive: fromHubRuns(ctx.hub.RunsArchive()),
+		Pending: fromHubRuns(pending),
+		Active:  fromHubRuns(active),
+		Archive: fromHubRuns(archive),
 	}
 	return rOK, "", summaries
 }

@@ -240,3 +240,44 @@ func (r *RunStore) removeTodo(todo Todo) {
 	// If the todo is not found then there is nothing to worry about
 	// it is already removed
 }
+
+func (r *RunStore) allRuns(id string) (pending Runs, active Runs, archive Runs) {
+
+	r.Lock()
+	defer r.Unlock()
+
+	for _, t := range r.pending.Todos {
+		if t.Ref.FlowRef.ID != id {
+			continue
+		}
+		pending = append(pending, &Run{
+			Ref: t.Ref,
+		})
+	}
+
+	for _, t := range r.active {
+		if t.Ref.FlowRef.ID != id {
+			continue
+		}
+		active = append(active, t)
+	}
+
+	// TODO - page or e.g. limit to last 100
+	for _, t := range r.archive {
+		if t.Ref.FlowRef.ID != id {
+			continue
+		}
+		archive = append(archive, t)
+	}
+
+	return pending, active, archive
+}
+
+func (h Hub) RunsActive() Runs {
+
+	return h.runs.active
+}
+
+func (h Hub) RunsArchive() Runs {
+	return h.runs.archive
+}

@@ -123,7 +123,7 @@ func Warning(args ...interface{}) {
 	if badLevel(lWar) {
 		return
 	}
-	args = append([]interface{}{war}, args...)
+	args = prefix(war, args...)
 	logger.Println(args...)
 }
 
@@ -131,17 +131,8 @@ func Error(args ...interface{}) {
 	if badLevel(lErr) {
 		return
 	}
-	args = append([]interface{}{err}, args...)
+	args = prefix(err, args...)
 	logger.Println(args...)
-}
-
-func Fatal(args ...interface{}) {
-	if badLevel(lErr) {
-		return
-	}
-	args = append([]interface{}{err}, args...)
-	logger.Println(args...)
-	os.Exit(255)
 }
 
 func Errorf(format string, args ...interface{}) {
@@ -151,4 +142,13 @@ func Errorf(format string, args ...interface{}) {
 	args = []interface{}{fmt.Sprintf(format, args...)}
 	args = prefix(err, args...)
 	logger.Println(args...)
+}
+
+func Fatal(args ...interface{}) {
+	if badLevel(lErr) {
+		return
+	}
+	args = prefix(err, args...)
+	logger.Println(args...)
+	os.Exit(255)
 }

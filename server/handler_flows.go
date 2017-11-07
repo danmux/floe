@@ -15,16 +15,25 @@ func hndAllFlows(rw http.ResponseWriter, r *http.Request, ctx *context) (int, st
 func hndFlow(rw http.ResponseWriter, r *http.Request, ctx *context) (int, string, renderable) {
 	id := ctx.ps.ByName("id")
 
+	// config
 	conf := ctx.hub.Config()
 	latest := conf.LatestFlow(id)
 
-	response := struct {
-		Config *config.Flow
-	}{
-		Config: latest,
+	// runs
+	pending, active, archive := ctx.hub.AllRuns(id)
+	summaries := RunSummaries{
+		Pending: fromHubRuns(pending),
+		Active:  fromHubRuns(active),
+		Archive: fromHubRuns(archive),
 	}
 
-	// TODO add runs summaries
+	response := struct {
+		Config *config.Flow
+		Runs   RunSummaries
+	}{
+		Config: latest,
+		Runs:   summaries,
+	}
 
 	return rOK, "", response
 }

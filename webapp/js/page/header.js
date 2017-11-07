@@ -11,8 +11,16 @@ export function Header() {
         RestCall(panel.evtHub, "POST", "/logout");
     }
 
+    function evtSettings() {
+        panel.evtHub.Fire({
+            Type: 'click',
+            What: 'settings',
+        })
+    }
+
     var events = [
-        {El: '#logout', Ev: 'click', Fn: evtLogout},
+        {El: '#settings', Ev: 'click', Fn: evtSettings},
+        {El: '#logout', Ev: 'click', Fn: evtLogout}    
     ];
 
     panel = new Panel(this, {}, tpl, 'header', events);
@@ -36,9 +44,9 @@ var tpl = `
 <h3 class='title'><a href='/dash'>Floe</a></h3>
 <nav>
     <ul>
-        <li><a href='/settings'>Settings</a></li>
+        <li><a id='settings'><i class='icon-cog'></i></a></li>
         {{? it.Data.Authed }}
-        <li><a id='logout'>Logout</a></li>
+        <li><a id='logout'><i class='icon-off'></i></a></li>
         {{?}}
     </ul>
 </nav>

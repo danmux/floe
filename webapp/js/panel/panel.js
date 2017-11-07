@@ -26,7 +26,8 @@ export function Panel(parent, data, template, attach, events, restReq) {
     // different invocations of the same panel must differentiate with the IDs array.
     this.Activate = function(ids) {
         // if the panel is active and the ids are the same
-        if (this.active && ids.length==this.IDs.length && ids.every((v,i)=> v === this.IDs[i])) {
+        if (this.active && (ids==undefined || 
+            ids.length==this.IDs.length && ids.every((v,i)=> v === this.IDs[i]))) {
             console.log("allready active", this.IDs)
             return;
         }
@@ -117,17 +118,25 @@ export function Panel(parent, data, template, attach, events, restReq) {
         console.log(el(attach));
         el(attach)[0].innerHTML = resultText; // TODO - trap missing el?
 
+        // This closes around the loop vars in constructing the events below
+        function eventHandler(fn, el) {
+            return function(evt) {
+                evt.preventDefault();
+                fn(evt, el);	
+            }
+         }
+
         // attach all the events
-        for (var i in events) {
-            var event = events[i];
-            console.log("adding event:", event);
-            el(event.El).forEach(elem => {
-                console.log("adding event", event.El, event.Ev)
-                elem.addEventListener(event.Ev, (evt)=>{
-                    evt.preventDefault();
-                    event.Fn(evt, elem);
-                });
-            });
+        var elen = events.length;
+        for (var e = 0; e < elen; e++) {
+            var ev = events[e];
+            var els = el(ev.El);
+            var len = els.length;
+            console.log("adding event:", event, "to:", len, "elems");
+            for (var i = 0; i < len; i++) {
+                var elem = els[i];
+                elem.addEventListener(ev.Ev, eventHandler(ev.Fn, elem));
+            }
         }
 
         // if the parent wanted to do anything after rendering...
