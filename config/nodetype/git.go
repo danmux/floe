@@ -2,7 +2,8 @@ package nodetype
 
 import (
 	"fmt"
-	"log"
+
+	"github.com/floeit/floe/log"
 )
 
 // gitMerge is an executable node that executes a git merge
@@ -22,7 +23,7 @@ func (g gitMerge) Execute(ws Workspace, in Opts, output chan string) (int, Opts,
 		return 255, nil, fmt.Errorf("problem getting to_hash string option")
 	}
 
-	log.Println("GIT merge command thing", from, to)
+	log.Debug("GIT merge command thing", from, to)
 	return 0, nil, nil
 }
 

@@ -2,8 +2,9 @@ package nodetype
 
 import (
 	"fmt"
-	"log"
 	"time"
+
+	"github.com/floeit/floe/log"
 )
 
 // exec node executes an external task
@@ -19,12 +20,12 @@ func (e exec) Execute(ws Workspace, in Opts, output chan string) (int, Opts, err
 		return 255, nil, fmt.Errorf("missing cmd option")
 	}
 
-	log.Println("COMMAND >", cmd.(string)) // TODO - it
+	log.Debug("COMMAND >", cmd.(string)) // TODO - it
 	for i := 0; i < 5; i++ {
 		time.Sleep(time.Second * 1)
 		output <- fmt.Sprintf("something after %d seconds", i)
 	}
-	log.Println("COMMAND >", cmd.(string), "DONE")
+	log.Debug("COMMAND >", cmd.(string), "DONE")
 
 	return 0, Opts{}, nil
 }

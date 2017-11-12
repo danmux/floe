@@ -50,6 +50,7 @@ func (r RunRef) String() string {
 	return fmt.Sprintf("runref_%s_%s", r.FlowRef, r.Run)
 }
 
+// Equal returns true ir r and s are considered to refer to the same thing
 func (r RunRef) Equal(s RunRef) bool {
 	return r.FlowRef.Equal(s.FlowRef) && r.Run.Equal(s.Run)
 }
@@ -129,8 +130,6 @@ func (q *Queue) Publish(e Event) {
 		isTrig = ""
 	}
 
-	log.Debugf("<%s> - queue publish type:<%s>%s", e.RunRef, e.Tag, isTrig)
-
 	q.Lock()
 	// grab the next event ID
 	q.idCounter++
@@ -139,6 +138,8 @@ func (q *Queue) Publish(e Event) {
 		e.Opts = nt.Opts{}
 	}
 	q.Unlock()
+
+	log.Debugf("<%s-ev:%d> - queue publish type:<%s>%s from: %s", e.RunRef, e.ID, e.Tag, isTrig, e.SourceNode)
 
 	// and notify all observers - in background goroutines
 	for _, o := range q.observers {

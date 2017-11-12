@@ -2,7 +2,8 @@ package nodetype
 
 import (
 	"fmt"
-	"log"
+
+	"github.com/floeit/floe/log"
 )
 
 // data
@@ -18,7 +19,7 @@ func (d data) Execute(ws Workspace, in Opts, output chan string) (int, Opts, err
 		return 255, nil, fmt.Errorf("missing cmd option")
 	}
 
-	log.Println("COMMAND >", cmd.(string)) // TODO - it
+	log.Debug("DATA >", cmd.(string)) // TODO - it
 
 	return 0, Opts{}, nil
 }

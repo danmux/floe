@@ -8,7 +8,6 @@ import (
 
 	"strings"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/floeit/floe/config"
 	nt "github.com/floeit/floe/config/nodetype"
 	"github.com/floeit/floe/event"
@@ -16,12 +15,12 @@ import (
 )
 
 type task struct {
-	exec func(ws nt.Workspace)
+	exec func(ws nt.Workspace, updates chan string)
 }
 
-func (t *task) Execute(ws nt.Workspace, opts nt.Opts) (int, nt.Opts, error) {
+func (t *task) Execute(ws nt.Workspace, opts nt.Opts, updates chan string) (int, nt.Opts, error) {
 	if t.exec != nil {
-		t.exec(ws)
+		t.exec(ws, updates)
 	}
 	return 0, nil, nil
 }
@@ -65,7 +64,7 @@ func TestExecuteNode(t *testing.T) {
 		},
 	}
 	didExec := false
-	exec := func(ws nt.Workspace) {
+	exec := func(ws nt.Workspace, updates chan string) {
 		didExec = true
 		if ws.BasePath != "/foo/bar/testflow/ws/h1-5" {
 			t.Errorf("base path is wrong <%s>", ws.BasePath)
@@ -152,38 +151,42 @@ func TestHub(t *testing.T) {
 		},
 	})
 
-	// sink the publish event
-	<-to.ch
+	// sink the data publish event
+	e := <-to.ch
 
 	// grab the trigger event
-	e := <-to.ch
+	e = <-to.ch
 	if e.Tag != "trigger.good" {
 		t.Error("got bad event", e.Tag)
 	}
 
-	// and confirm the store has a run pending
+	// record the error event
+	e = <-to.ch
+	if e.Tag != "task.checkout.error" {
+		t.Fatal("got wrong checkout error tag", e.Tag)
+	}
+
+	// and confirm the store has no runs still pending
 	pd, _ := s.Load(pendingKey)
 	pend := pd.(pending)
-	if len(pend.Todos) != 1 {
+	if len(pend.Todos) != 0 {
 		t.Error("wrong number of pending runs", len(pend.Todos))
 	}
 
-	// record the error event
-	e = <-to.ch
-
 	// wait for end of floe event
-	<-to.ch
-
-	spew.Dump(e)
+	e = <-to.ch
+	if e.Tag != "sys.end.all" {
+		t.Fatal("should have got the end event", e.Tag)
+	}
 	if e.Good {
 		t.Error("flow should have ended badly")
 	}
 
-	// and confirm the store has a no runs pending
-	pd, _ = s.Load(pendingKey)
-	pend = pd.(pending)
-	if len(pend.Todos) != 0 {
-		t.Error("wrong number of pending runs after finishing", len(pend.Todos))
+	// and confirm the store has a no runs active
+	pd, _ = s.Load(activeKey)
+	act := pd.(Runs)
+	if len(act) != 0 {
+		t.Error("wrong number of active runs after finishing", len(act))
 	}
 
 	// add an external event whose do match those needed by git-merge so will execute
@@ -195,10 +198,9 @@ func TestHub(t *testing.T) {
 		},
 	})
 
-	// get all events
+	// get all events until the end
 	for {
 		e = <-to.ch
-
 		if e.Tag == "sys.end.all" {
 			return
 		}

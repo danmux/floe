@@ -14,7 +14,10 @@ import (
 	"github.com/floeit/floe/store"
 )
 
-const flowEndTag = "sys.end.all"
+const (
+	tagEndFlow    = "sys.end.all"
+	tagNodeUpdate = "sys.node.update"
+)
 
 // Hub links events to the config rules
 type Hub struct {
@@ -288,8 +291,8 @@ func (h *Hub) pendFlowFromTrigger(e event.Event) error {
 
 // dispatchActive takes event e and routes it to a specific active flow as detailed in e
 func (h *Hub) dispatchActive(e event.Event) {
-	// the system event flow end removes the flow from the active list
-	if e.Tag == flowEndTag {
+	// We dont care about these system events
+	if e.Tag == tagEndFlow || e.Tag == tagNodeUpdate {
 		return
 	}
 
@@ -353,16 +356,23 @@ func (h *Hub) executeNode(runRef *event.RunRef, node config.Node, e event.Event,
 		return
 	}
 
+	// capture all the node updates
 	updates := make(chan string)
-
 	go func() {
 		for update := range updates {
-			println("UPDATES >>>>>", update)
+			h.queue.Publish(event.Event{
+				RunRef:     runRef,
+				SourceNode: node.NodeRef(),
+				Tag:        "sys.node.update",
+				Opts: nt.Opts{
+					"update": update,
+				},
+				Good: true,
+			})
 		}
 	}()
 
 	status, outOpts, err := node.Execute(*ws, e.Opts, updates)
-
 	close(updates)
 
 	if err != nil {
@@ -424,7 +434,7 @@ func (h *Hub) endRun(run *Run, source config.NodeRef, opts nt.Opts, status strin
 	e := event.Event{
 		RunRef:     &run.Ref,
 		SourceNode: source,
-		Tag:        flowEndTag,
+		Tag:        tagEndFlow,
 		Opts:       opts,
 	}
 	h.queue.Publish(e)
