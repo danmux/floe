@@ -105,7 +105,8 @@ func (c *Config) LatestFlow(id string) *Flow {
 	return latest
 }
 
-// FindNodeInFlow returns the nodes matching the tag in this flow matching the id and version
+// FindNodeInFlow returns the nodes matching the tag in this flow matching fRef
+// returns false if the flow is not found
 func (c *Config) FindNodeInFlow(fRef FlowRef, tag string) (FoundFlow, bool) {
 	ff := FoundFlow{}
 	f := c.Flow(fRef)

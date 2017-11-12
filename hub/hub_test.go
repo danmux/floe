@@ -8,6 +8,7 @@ import (
 
 	"strings"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/floeit/floe/config"
 	nt "github.com/floeit/floe/config/nodetype"
 	"github.com/floeit/floe/event"
@@ -96,7 +97,7 @@ flows:
             
       tasks: 
         - name: checkout             # the name of this node 
-          listen: trigger.data.good  # the event that triggers this node
+          listen: trigger.good       # the event that triggers this node
           type: git-merge            # the task type 
           good: [0]                  # define what the good statuses are, default [0]
           ignore-fail: false         # if true only emit good
@@ -138,12 +139,12 @@ func TestHub(t *testing.T) {
 	// make a new hub
 	New("h1", "master", "~/floe", "admintok", c, s, q)
 
-	to := testObs{
+	to := &testObs{
 		ch: make(chan event.Event, 2),
 	}
 	q.Register(to)
 
-	// add an external event
+	// add an external event whose opts dont match those needed by git-merge so will error
 	q.Publish(event.Event{
 		Tag: "data", // will match the trigger type
 		Opts: nt.Opts{
@@ -151,18 +152,57 @@ func TestHub(t *testing.T) {
 		},
 	})
 
+	// sink the publish event
 	<-to.ch
-	<-to.ch
+
+	// grab the trigger event
+	e := <-to.ch
+	if e.Tag != "trigger.good" {
+		t.Error("got bad event", e.Tag)
+	}
 
 	// and confirm the store has a run pending
 	pd, _ := s.Load(pendingKey)
-	pending := pd.(pending)
-	if len(pending.Todos) != 1 {
-		t.Error("wrong number of active runs")
+	pend := pd.(pending)
+	if len(pend.Todos) != 1 {
+		t.Error("wrong number of pending runs", len(pend.Todos))
 	}
 
-	// wait for end event
+	// record the error event
+	e = <-to.ch
+
+	// wait for end of floe event
 	<-to.ch
+
+	spew.Dump(e)
+	if e.Good {
+		t.Error("flow should have ended badly")
+	}
+
+	// and confirm the store has a no runs pending
+	pd, _ = s.Load(pendingKey)
+	pend = pd.(pending)
+	if len(pend.Todos) != 0 {
+		t.Error("wrong number of pending runs after finishing", len(pend.Todos))
+	}
+
+	// add an external event whose do match those needed by git-merge so will execute
+	q.Publish(event.Event{
+		Tag: "data", // will match the trigger type
+		Opts: nt.Opts{
+			"from_hash": "blah.blah",
+			"to_hash":   "blah.blah",
+		},
+	})
+
+	// get all events
+	for {
+		e = <-to.ch
+
+		if e.Tag == "sys.end.all" {
+			return
+		}
+	}
 }
 
 type testObs struct {
@@ -170,7 +210,7 @@ type testObs struct {
 	ch chan event.Event
 }
 
-func (o testObs) Notify(e event.Event) {
+func (o *testObs) Notify(e event.Event) {
 	o.ch <- e
 }
 
@@ -182,7 +222,7 @@ func TestEventQueue(t *testing.T) {
 	New("h1", "master", "%tmp/flow", "admin-tok", c, s, q)
 
 	// register a test observer
-	to := testObs{
+	to := &testObs{
 		ch: make(chan event.Event, 2),
 	}
 	q.Register(to)

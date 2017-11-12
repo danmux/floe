@@ -126,7 +126,7 @@ func newRunStore(store store.Store) *RunStore {
 	}
 }
 
-// activate adds the active configs to the active list saves it, and returns the run id
+// findActiveRun returns the run from the active list that matches the given ref
 func (r *RunStore) findActiveRun(ref event.HostedIDRef) (int, *Run) {
 	r.RLock()
 	defer r.RUnlock()
@@ -135,7 +135,7 @@ func (r *RunStore) findActiveRun(ref event.HostedIDRef) (int, *Run) {
 			return i, run
 		}
 	}
-	return 0, nil
+	return -1, nil
 }
 
 func (r *RunStore) updateWithMergeEvent(run *Run, nodeID, tag string, opts nt.Opts) (int, nt.Opts) {
@@ -149,7 +149,10 @@ func (r *RunStore) updateWithMergeEvent(run *Run, nodeID, tag string, opts nt.Op
 func (r *RunStore) end(run *Run, status string, good bool) {
 	run.end(status, good)
 
-	i, _ := r.findActiveRun(run.Ref.Run)
+	i, run := r.findActiveRun(run.Ref.Run)
+	if run == nil {
+		panic("fucked it")
+	}
 
 	r.Lock()
 	defer r.Unlock()
@@ -158,8 +161,8 @@ func (r *RunStore) end(run *Run, status string, good bool) {
 	copy(r.active[i:], r.active[i+1:])
 	r.active[len(r.active)-1] = nil
 	r.active = r.active[:len(r.active)-1]
-
 	r.archive = append(r.archive, run)
+
 	r.active.Save(activeKey, r.store)
 	r.archive.Save(archiveKey, r.store)
 }
@@ -223,9 +226,10 @@ func (r *RunStore) allTodos() []Todo {
 	return t
 }
 
-func (r *RunStore) removeTodo(todo Todo) {
+func (r *RunStore) removeTodo(todo Todo) error {
 	r.Lock()
 	defer r.Unlock()
+
 	for i, td := range r.pending.Todos {
 		if td.Equal(todo) {
 			// slide them down
@@ -234,11 +238,14 @@ func (r *RunStore) removeTodo(todo Todo) {
 			r.pending.Todos[len(r.pending.Todos)-1] = nil
 			// and remove it from the slice
 			r.pending.Todos = r.pending.Todos[:len(r.pending.Todos)-1]
-			return
+
+			// save the whole pending list
+			return r.pending.Save(pendingKey, r.store)
 		}
 	}
 	// If the todo is not found then there is nothing to worry about
 	// it is already removed
+	return nil
 }
 
 func (r *RunStore) allRuns(id string) (pending Runs, active Runs, archive Runs) {
@@ -271,13 +278,4 @@ func (r *RunStore) allRuns(id string) (pending Runs, active Runs, archive Runs) 
 	}
 
 	return pending, active, archive
-}
-
-func (h Hub) RunsActive() Runs {
-
-	return h.runs.active
-}
-
-func (h Hub) RunsArchive() Runs {
-	return h.runs.archive
 }

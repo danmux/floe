@@ -127,14 +127,16 @@ func (h *Hub) Notify(e event.Event) {
 }
 
 // ExecutePending executes a todo on this host - if this host has no conflicts.
-// This could have ben called directly if this is the only host, or could have
+// This could have been called directly if this is the only host, or could have
 // been called via the server API as this host has been asked to accept the run.
+// The boolean returned represents whether the flow was considered dealt with,
+// meaning an attempt to start executing it occurred.
 func (h *Hub) ExecutePending(todo Todo) (bool, error) {
 	log.Debugf("<%s> - exec - attempt to execute pending type:<%s>", todo, todo.InitiatingEvent.Tag)
 
 	flow, ok := h.config.FindFlow(todo.Ref.FlowRef, todo.InitiatingEvent.Tag, todo.InitiatingEvent.Opts)
 	if !ok {
-		return false, fmt.Errorf("pending not found %s, %s", todo.Ref.FlowRef, todo.InitiatingEvent.Tag)
+		return false, fmt.Errorf("pending flow not known %s, %s", todo.Ref.FlowRef, todo.InitiatingEvent.Tag)
 	}
 
 	// confirm no currently executing flows have a resource flag conflicts
@@ -206,8 +208,9 @@ func (h *Hub) distributePending() error {
 				return err
 			}
 			if !ok {
-				log.Debugf("<%s> - pending - could not run job %s locally yet", p)
+				log.Debugf("<%s> - pending - could not run job locally yet", p)
 			} else {
+				log.Debugf("<%s> - pending - job started locally", p)
 				h.runs.removeTodo(p)
 			}
 			continue
@@ -234,6 +237,7 @@ func (h *Hub) distributePending() error {
 		}
 
 		log.Debugf("<%s> - pending - found %d candidate hosts", p, len(candidates))
+
 		// attempt to send it to any of the candidates
 		launched := false
 		for _, host := range candidates {
@@ -244,6 +248,7 @@ func (h *Hub) distributePending() error {
 				launched = true
 			}
 		}
+
 		if !launched {
 			log.Debugf("<%s> - pending - no available host yet", p)
 		}
@@ -281,40 +286,47 @@ func (h *Hub) pendFlowFromTrigger(e event.Event) error {
 	return nil
 }
 
-// dispatchActive takes event e and routes it to a specific flow as detailed in e
+// dispatchActive takes event e and routes it to a specific active flow as detailed in e
 func (h *Hub) dispatchActive(e event.Event) {
-	// ignore the flow end event
+	// the system event flow end removes the flow from the active list
 	if e.Tag == flowEndTag {
 		return
 	}
+
 	// for all active flows find ones that match
 	_, r := h.runs.findActiveRun(e.RunRef.Run)
-	// no matching active run - why do we have more events for an ended run
 	if r == nil {
-		log.Errorf("<%s> - dispatch - no run '%s'", e.RunRef, e.Tag)
+		// no matching active run - throw the events away
+		log.Debugf("<%s> - dispatch - event '%s' received, but run not active (ignoring event)", e.RunRef, e.Tag)
 		return
 	}
-	// find all specific nodes that listen for this event
-	found, ok := h.config.FindNodeInFlow(r.Ref.FlowRef, e.Tag)
-	// no flow matched this active event
-	if !ok {
+
+	// find all specific nodes from the config that listen for this event
+	found, flowExists := h.config.FindNodeInFlow(r.Ref.FlowRef, e.Tag)
+	if !flowExists {
 		log.Errorf("<%s> - dispatch - no flow for event '%s'", e.RunRef, e.Tag)
+		// this is indeed a strange occurrence so this run is considered bad and incomplete
+		h.endRun(r, e.SourceNode, e.Opts, "incomplete", false)
 		return
 	}
-	// no nodes matched this event in the flow
+
+	// We got a matching flow but no nodes matched this event in the flow
 	if len(found.Nodes) == 0 {
 		if e.Good {
 			// all good statuses should make it to a next node, so log the warning that this one has not
-			log.Errorf("<%s> - dispatch - no node for good event '%s'", e.RunRef, e.Tag)
+			// the run ended with a good node, but that was not explicitly routed so the run is considered incomplete
+			log.Errorf("<%s> - dispatch - nothing listening to good event '%s' - prematurely end", e.RunRef, e.Tag)
 			h.endRun(r, e.SourceNode, e.Opts, "incomplete", true)
 		} else {
-			// bad events un routed can implicitly trigger the end of a run
-			log.Debugf("<%s> - dispatch - no node for bad event '%s' (ending flow)", e.RunRef, e.Tag)
+			// bad events un routed can implicitly trigger the end of a run, but the run
+			// with the run marked bad
+			log.Debugf("<%s> - dispatch - nothing listening to bad event '%s' (ending flow as bad)", e.RunRef, e.Tag)
 			h.endRun(r, e.SourceNode, e.Opts, "complete", false)
 		}
 		return
 	}
-	// otherwise do something for for all matching nodes
+
+	// Fire all matching nodes
 	for _, n := range found.Nodes {
 		switch n.Class() {
 		case config.NcTask:
@@ -332,7 +344,7 @@ func (h *Hub) dispatchActive(e event.Event) {
 
 // executeNode invokes a task node Execute
 func (h *Hub) executeNode(runRef *event.RunRef, node config.Node, e event.Event, singleWs bool) {
-	log.Debugf("<%s> - exec node - exec %s", runRef, e.Tag)
+	log.Debugf("<%s> - exec node - event tag: %s", runRef, e.Tag)
 
 	// setup the workspace config
 	ws, err := h.getWS(*runRef, singleWs)
@@ -344,9 +356,18 @@ func (h *Hub) executeNode(runRef *event.RunRef, node config.Node, e event.Event,
 	// execute the node
 	status, opts, err := node.Execute(*ws, e.Opts)
 	if err != nil {
-		log.Debugf("<%s> (%d) - error %v", runRef.FlowRef.ID, runRef.Run, err)
+		log.Errorf("<%s> - exec node (%s) - execute produced error: %v", runRef, node.NodeRef(), err)
+		// publish the fact an internal node error happened
+		h.queue.Publish(event.Event{
+			RunRef:     runRef,
+			SourceNode: node.NodeRef(),
+			Tag:        getTag(node, "error"),
+			Opts:       opts,
+			Good:       false,
+		})
 		return
 	}
+
 	// construct event based on the Execute exit status
 	ne := event.Event{
 		RunRef:     runRef,
@@ -385,7 +406,7 @@ func (h *Hub) mergeEvent(run *Run, node config.Node, e event.Event) {
 
 // endRun marks and saves this run as being complete
 func (h *Hub) endRun(run *Run, source config.NodeRef, opts nt.Opts, status string, good bool) {
-	log.Debugf("<%s> - DONE (status:%s, good:%v)", run.Ref, status, good)
+	log.Debugf("<%s> - END RUN (status:%s, good:%v)", run.Ref, status, good)
 	h.runs.end(run, status, good)
 	// publish specific end run event - so other observers know specifically that this flow finished
 	e := event.Event{

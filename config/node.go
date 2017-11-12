@@ -59,6 +59,10 @@ type NodeRef struct {
 	ID    string
 }
 
+func (n NodeRef) String() string {
+	return fmt.Sprintf("%s.%s", n.Class, n.ID)
+}
+
 // trim trailing spaces and dots and hyphens
 func trimNIDs(s string) string {
 	return strings.Trim(s, " .-")
@@ -66,7 +70,7 @@ func trimNIDs(s string) string {
 
 func zeroNID(n nid) error {
 	name := trimNIDs(n.name())
-	id := trimNIDs(n.id())
+	id := strings.ToLower(trimNIDs(n.id()))
 
 	if name == "" && id == "" {
 		return errors.New("task id and name can not both be empty")

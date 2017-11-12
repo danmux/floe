@@ -71,7 +71,8 @@ func (f *FloeHost) GetConfig() HostConfig {
 	return f.config
 }
 
-// AttemptExecute tries to execute the flow matching the flowref and instigating event
+// AttemptExecute tries to execute the flow matching the flowref and instigating event.
+// Returns true if the host accepted the run.
 func (f *FloeHost) AttemptExecute(ref event.RunRef, ie event.Event) bool {
 	w := wrap{}
 

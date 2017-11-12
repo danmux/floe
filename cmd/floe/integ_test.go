@@ -103,7 +103,7 @@ func TestWebLaunch(t *testing.T) {
 	// 	t.Fatal("bad floe ID", flid)
 	// }
 
-	// time.Sleep(time.Second * 3)
+	time.Sleep(time.Second * 10)
 
 	// resp = &genResp{}
 	// if ok := webGet(t, tok, "/flows/"+flid, resp, []int{200}); !ok {
@@ -114,6 +114,7 @@ func TestWebLaunch(t *testing.T) {
 }
 
 func setupWeb(t *testing.T) {
+	// N.B. Very important to use spaces in this YAML literal
 	var in = []byte(`
 config:
     hosts:
@@ -144,19 +145,15 @@ flows:
                 - id: to_hash
                   prompt: To Branch (or hash)
                   type: string
-      
+    
       merges:
-        - name: subs
-          type: any
-          wait: [sub.push.good, sub.start.good]
-
         - name: wait tests
           type: all
           wait: [task.test.good, task.test2.good]
-            
+    
       tasks: 
         - name: checkout             # the name of this node 
-          listen: merge.subs.good    # the event tag that triggers this node
+          listen: trigger.good       # the event tag that triggers this node
           type: git-merge            # the task type 
           good: [0]                  # define what the good statuses are, default [0]
           ignore-fail: false         # if true only emit good
@@ -205,34 +202,28 @@ flows:
 	addr := "127.0.0.1:0"
 
 	s := store.NewMemStore()
-	failed := make(chan bool)
+	failed := make(chan error)
 	addrChan := make(chan string, 1)
 	go func() {
 		err := start("hi1", "master", "%tmp/floe", addr, adminToken, in, s, addrChan)
 		if err != nil {
-			t.Error(err)
-			failed <- false
+			failed <- err
 		}
 	}()
 
 	// get the actual address assigned
-	addr = <-addrChan
-	base = "http://" + addr + basePath
-
-	ready := make(chan bool)
-	go func() {
-		ready <- waitAPIReady(t)
-	}()
-
-	// wait for api decision or start fail
 	select {
-	case <-failed:
-	case res := <-ready:
-		if !res {
-			t.Fatal("failed to wait or server to come up")
-		}
+	case addr = <-addrChan:
+		base = "http://" + addr + basePath
+	case e := <-failed:
+		t.Fatal(e)
+		return
 	}
 
+	// make sure we can contact the server under test
+	if !waitAPIReady(t) {
+		t.Fatal("failed to wait or server to come up")
+	}
 }
 
 func setup(t *testing.T) {

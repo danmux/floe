@@ -88,9 +88,16 @@ func (f *Flow) zero() error {
 
 	for _, class := range []NodeClass{NcMerge, NcPub, NcTrigger, NcTask} {
 		nl := f.classToList(class)
+		ids := map[string]int{}
 		for i, t := range nl {
 			if err := t.zero(class, fr); err != nil {
 				return fmt.Errorf("%s %d - %v", class, i, err)
+			}
+			ids[t.id()]++
+		}
+		for k, c := range ids {
+			if c != 1 {
+				return fmt.Errorf("%d nodes have id: %s", c, k)
 			}
 		}
 	}

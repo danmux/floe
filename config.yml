@@ -2,7 +2,7 @@ common:
     base-url: "/build/api" 
     hosts:
         - http://127.0.0.1:8080
-        - http://127.0.0.1:8090
+        # - http://127.0.0.1:8090
 
 flows:
     - id: build-project              # the name of this flow
@@ -29,22 +29,19 @@ flows:
                 - id: to_hash
                   prompt: To Branch (or hash)
                   type: text 
-      merges:
-        - name: subs
-          type: any
-          wait: [sub.push.good, sub.start.good]
             
       tasks: 
         - name: checkout             # the name of this node 
           type: git-merge            # the task type 
-          listen: merge.subs.good    # the event tag that triggers this node
+          listen: trigger.good       # the event tag that triggers this node
           good: [0]                  # define what the good statuses are, default [0]
           ignore-fail: false         # if true only emit good
         
-        - name: build
-          type: floefile
+        - name: echo
+          type: exec
           listen: task.checkout.good
           opts:
+            cmd: "echo dan"
             file: "BUILD.floe"         # the command to execute 
 
         - name: build                
@@ -53,7 +50,7 @@ flows:
           opts:
             cmd: "make build"        # the command to execute 
 
-        - id: test
+        - name: Test
           type: exec                 # execute a command
           listen: task.build.good    
           opts:
@@ -72,19 +69,34 @@ flows:
                 - id: to_hash
                   prompt: To Branch (or hash)
                   type: string
-    
-    - id: build-merge
+
+        - name: complete
+          listen: merge.signed.good
+          type: end                 # getting here means the flow was a success
+
+      merges:
+        - name: wait test and sign off
+          id: signed
+          type: all
+          wait: [task.test.good, task.sign-off.good]
+
+    - id: danmux
       ver: 1
       
-      subs:
-        - name: push
-          type: git-merge
+      triggers:
+        - name: start
+          type: data
           opts:
-            url: blah.blah
+            form:
+              title: Start
+              fields:
+                - id: branch
+                  prompt: Branch (or hash)
+                  type: text
             
       tasks: 
         - name: checkout
-          listen: sub.git-push.good
+          listen: trigger.good
           type: git-checkout
           good: [0]
           ignore-fail: false
