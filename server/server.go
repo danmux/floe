@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"io"
 
 	"golang.org/x/net/websocket"
 
@@ -55,7 +56,7 @@ func LaunchWeb(host, rp string, hub *hub.Hub, addrChan chan string) {
 	r.GET("/favicon.ico", singleFile("webapp/favicon.ico"))
 
 	// ws endpoint
-	r.GET("/ws", getWsHandler())
+	r.GET("/ws", getWsHandler(&h))
 
 	// --- CORS ---
 	r.OPTIONS(rp+"/*all", h.mw(nil, false)) // catch all options
@@ -99,11 +100,19 @@ func LaunchWeb(host, rp string, hub *hub.Hub, addrChan chan string) {
 	log.Fatal(http.Serve(listener, r))
 }
 
-func getWsHandler() httprouter.Handle {
+func getWsHandler(h *handler) httprouter.Handle {
 	return func(rw http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+		sesh := authRequest(rw, r)
+		if sesh == nil {
+			return
+		}
 		h := websocket.Handler(wsHandler)
 		h.ServeHTTP(rw, r)
 	}
+}
+
+type wsHub struct {
+
 }
 
 func wsHandler(ws *websocket.Conn) {
@@ -111,7 +120,17 @@ func wsHandler(ws *websocket.Conn) {
 		msg := make([]byte, 512)
 		n, err := ws.Read(msg)
 		if err != nil {
-			log.Fatal(err)
+			// normal client close
+			if err == io.EOF {
+				log.Debug("websocket - client closed")
+			} else {
+				log.Error("websocket - got an error", err)	
+			}
+			err = ws.Close()
+			if err != nil {
+				log.Error("websocket - close error", err)
+			}
+			return
 		}
 		fmt.Printf("Receive: %s\n", msg[:n])
 

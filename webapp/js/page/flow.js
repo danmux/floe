@@ -149,25 +149,37 @@ var tplFlow = `
         </div>
 
         <div class='active section'>
-        <heading>
-            Active
-        </heading>
-        {{~it.Data.Runs.Active :run:index}}
-            <box id='run-{{=run.Ref.Run.HostID}}-{{=run.Ref.Run.ID}}' class='active'>
-                <h4>{{=run.Ref.Run.ID}}</h4>
+            <heading>
+                Active
+            </heading>
+            {{~it.Data.Runs.Active :run:index}}
+            <box id='run-{{=run.Ref.Run.HostID}}-{{=run.Ref.Run.ID}}' class='run archive'>
+                <top>
+                    <h4>{{=run.Ref.Run.HostID}}-{{=run.Ref.Run.ID}}</h4>
+                    <span class="label label-danger">New</span>
+                </top>
+                <detail>
+                    {{=run.StartedAgo}}
+                </detail>
             </box>
-        {{~}}
+            {{~}}
         </div>
 
         <div class='pending section'>
-        <heading>
-            Pending
-        </heading>
-        {{~it.Data.Runs.Active :run:index}}
-            <box id='run-{{=run.Ref.Run.HostID}}-{{=run.Ref.Run.ID}}' class='pending'>
-                <h4>{{=run.Ref.Run.ID}}</h4>
+            <heading>
+                Pending
+            </heading>
+            {{~it.Data.Runs.Pending :run:index}}
+            <box id='run-{{=run.Ref.Run.HostID}}-{{=run.Ref.Run.ID}}' class='run archive'>
+                <top>
+                    <h4>{{=run.Ref.Run.HostID}}-{{=run.Ref.Run.ID}}</h4>
+                    <span class="label label-danger">New</span>
+                </top>
+                <detail>
+                    {{=run.StartedAgo}}
+                </detail>
             </box>
-        {{~}}
+            {{~}}
         </div>
 
         <div class='archive section'>
@@ -175,15 +187,15 @@ var tplFlow = `
                 Archive
             </heading>
             {{~it.Data.Runs.Archive :run:index}}
-                <box id='run-{{=run.Ref.Run.HostID}}-{{=run.Ref.Run.ID}}' class='run archive'>
-                    <top>
-                        <h4>{{=run.Ref.Run.HostID}}-{{=run.Ref.Run.ID}}</h4>
-                        <span class="label label-danger">New</span>
-                    </top>
-                    <detail>
-                        {{=run.StartedAgo}}
-                    </detail>
-                </box>
+            <box id='run-{{=run.Ref.Run.HostID}}-{{=run.Ref.Run.ID}}' class='run archive'>
+                <top>
+                    <h4>{{=run.Ref.Run.HostID}}-{{=run.Ref.Run.ID}}</h4>
+                    <span class="label label-danger">New</span>
+                </top>
+                <detail>
+                    {{=run.StartedAgo}}
+                </detail>
+            </box>
             {{~}}
         </div>
 

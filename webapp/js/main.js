@@ -1,5 +1,6 @@
 import {rlite} from './vendor/rlite.js';
 import {Controller} from './panel/controller.js';
+import {WsHub} from './ws.js';
 
 import {Header} from './page/header.js';
 import {Login} from './page/login.js';
@@ -34,9 +35,10 @@ function main() {
         }
     });
 
+    var ws = new WsHub();
+
     // in page links also call the routes
     controller.TrapAnchors(routes);
-
 
     controller.SetListener(function(evt) {
         console.log("controller got an event", evt);
@@ -46,6 +48,7 @@ function main() {
             // or an explicit logout was effective, then tell the controller to UnAuthenticate
             if ((evt.Value.Status == 401) || (evt.Value.Url == '/logout' && evt.Value.Status == 200)) {
                 console.log("UNAUTH");
+                ws.Close();
                 // DeAuth and return to the panel we were on
                 controller.DeAuth();
                 return;
@@ -60,6 +63,8 @@ function main() {
             // did we get a successful login
             if (evt.Value.Url == '/login' && evt.Value.Status == 200) {
                 console.log("LOGIN");
+                ws.Close();
+                ws = new WsHub();
                 controller.Auth();
                 return;
             }
@@ -93,7 +98,7 @@ function main() {
             }
         }
     });
-
+    
     // route the current path
     routes(location.pathname);
 }

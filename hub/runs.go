@@ -146,12 +146,14 @@ func (r *RunStore) updateWithMergeEvent(run *Run, nodeID, tag string, opts nt.Op
 	return i, o
 }
 
-func (r *RunStore) end(run *Run, status string, good bool) {
+// end moves the run from active to archive. As a run may have many events that would end it
+// only the first one does the others are ignored. Only the ending run returns true.
+func (r *RunStore) end(run *Run, status string, good bool) bool{
 	run.end(status, good)
 
 	i, run := r.findActiveRun(run.Ref.Run)
 	if run == nil {
-		panic("fucked it")
+		return false
 	}
 
 	r.Lock()
@@ -165,6 +167,8 @@ func (r *RunStore) end(run *Run, status string, good bool) {
 
 	r.active.Save(activeKey, r.store)
 	r.archive.Save(archiveKey, r.store)
+
+	return true
 }
 
 // addToPending adds the active configs to pending list, and returns the run id

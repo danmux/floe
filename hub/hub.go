@@ -429,7 +429,11 @@ func (h *Hub) mergeEvent(run *Run, node config.Node, e event.Event) {
 // endRun marks and saves this run as being complete
 func (h *Hub) endRun(run *Run, source config.NodeRef, opts nt.Opts, status string, good bool) {
 	log.Debugf("<%s> - END RUN (status:%s, good:%v)", run.Ref, status, good)
-	h.runs.end(run, status, good)
+	didEndIt := h.runs.end(run, status, good)
+	// if this end call was not the one that actually ended it then dont publish the end event
+	if !didEndIt {
+		return
+	}
 	// publish specific end run event - so other observers know specifically that this flow finished
 	e := event.Event{
 		RunRef:     &run.Ref,

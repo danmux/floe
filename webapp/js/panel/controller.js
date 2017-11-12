@@ -175,6 +175,6 @@ export function Controller(header, panels) {
     }
 
     // subscribe this controller to the eventHub.
-    eventHub.Subscribe(this);
+    eventHub.Subscribe("controller", this);
 }
 
