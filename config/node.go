@@ -36,7 +36,7 @@ type Node interface {
 	FlowRef() FlowRef
 	NodeRef() NodeRef
 	Class() NodeClass
-	Execute(nt.Workspace, nt.Opts) (int, nt.Opts, error)
+	Execute(nt.Workspace, nt.Opts, chan string) (int, nt.Opts, error)
 	Status(status int) (string, bool)
 	TypeOfNode() string
 	Waits() int
@@ -107,13 +107,13 @@ type node struct {
 	Opts       nt.Opts // static config options
 }
 
-func (t *node) Execute(ws nt.Workspace, opts nt.Opts) (int, nt.Opts, error) {
+func (t *node) Execute(ws nt.Workspace, opts nt.Opts, output chan string) (int, nt.Opts, error) {
 	n := nt.GetNodeType(t.Type)
 	if n == nil {
 		return 255, nil, fmt.Errorf("no node type found: %s", t.Type)
 	}
 	inOpts := nt.MergeOpts(t.Opts, opts)
-	return n.Execute(ws, inOpts)
+	return n.Execute(ws, inOpts, output)
 }
 
 // Status will return the string to use on an event tag and a boolean to

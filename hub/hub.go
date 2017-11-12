@@ -353,8 +353,18 @@ func (h *Hub) executeNode(runRef *event.RunRef, node config.Node, e event.Event,
 		return
 	}
 
-	// execute the node
-	status, opts, err := node.Execute(*ws, e.Opts)
+	updates := make(chan string)
+
+	go func() {
+		for update := range updates {
+			println("UPDATES >>>>>", update)
+		}
+	}()
+
+	status, outOpts, err := node.Execute(*ws, e.Opts, updates)
+
+	close(updates)
+
 	if err != nil {
 		log.Errorf("<%s> - exec node (%s) - execute produced error: %v", runRef, node.NodeRef(), err)
 		// publish the fact an internal node error happened
@@ -362,7 +372,7 @@ func (h *Hub) executeNode(runRef *event.RunRef, node config.Node, e event.Event,
 			RunRef:     runRef,
 			SourceNode: node.NodeRef(),
 			Tag:        getTag(node, "error"),
-			Opts:       opts,
+			Opts:       outOpts,
 			Good:       false,
 		})
 		return
@@ -372,12 +382,14 @@ func (h *Hub) executeNode(runRef *event.RunRef, node config.Node, e event.Event,
 	ne := event.Event{
 		RunRef:     runRef,
 		SourceNode: node.NodeRef(),
-		Opts:       opts,
+		Opts:       outOpts,
 	}
-	// work out which tag this event has
+
+	// construct the event tag
 	tagbit, good := node.Status(status)
 	ne.Tag = getTag(node, tagbit)
 	ne.Good = good
+
 	// and publish it
 	h.queue.Publish(ne)
 }

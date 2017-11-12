@@ -13,14 +13,17 @@ func (e exec) Match(ol, or Opts) bool {
 	return true
 }
 
-func (e exec) Execute(ws Workspace, in Opts) (int, Opts, error) {
+func (e exec) Execute(ws Workspace, in Opts, output chan string) (int, Opts, error) {
 	cmd, ok := in["cmd"]
 	if !ok {
 		return 255, nil, fmt.Errorf("missing cmd option")
 	}
 
 	log.Println("COMMAND >", cmd.(string)) // TODO - it
-	time.Sleep(time.Second * 5)
+	for i := 0; i < 5; i++ {
+		time.Sleep(time.Second * 1)
+		output <- fmt.Sprintf("something after %d seconds", i)
+	}
 	log.Println("COMMAND >", cmd.(string), "DONE")
 
 	return 0, Opts{}, nil

@@ -3,7 +3,7 @@ package nodetype
 // NodeType is the interface for an option comparing node
 type NodeType interface {
 	Match(Opts, Opts) bool
-	Execute(ws Workspace, in Opts) (int, Opts, error)
+	Execute(ws Workspace, in Opts, output chan string) (int, Opts, error)
 	CastOpts(in *Opts)
 }
 
