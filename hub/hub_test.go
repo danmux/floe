@@ -50,9 +50,11 @@ func (t *task) Waits() int {
 }
 
 func TestExecuteNode(t *testing.T) {
+	s := store.NewMemStore()
 	h := Hub{
 		basePath: "/foo/bar",
 		queue:    &event.Queue{},
+		runs:     newRunStore(s),
 	}
 	runRef := &event.RunRef{
 		FlowRef: config.FlowRef{

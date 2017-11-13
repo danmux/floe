@@ -44,6 +44,6 @@ func start(host, tags, root, bind, adminToken string, conf []byte, store store.S
 	hub := hub.New(host, tags, root, adminToken, c, store, q)
 	server.AdminToken = adminToken
 
-	server.LaunchWeb(bind, c.Common.BaseURL, hub, addr)
+	server.LaunchWeb(bind, c.Common.BaseURL, hub, q, addr)
 	return nil
 }

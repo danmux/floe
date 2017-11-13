@@ -126,7 +126,7 @@ func (h *Hub) Notify(e event.Event) {
 		return
 	}
 	// otherwise it is a run specific event
-	h.dispatchActive(e)
+	h.dispatchToActive(e)
 }
 
 // ExecutePending executes a todo on this host - if this host has no conflicts.
@@ -289,8 +289,8 @@ func (h *Hub) pendFlowFromTrigger(e event.Event) error {
 	return nil
 }
 
-// dispatchActive takes event e and routes it to a specific active flow as detailed in e
-func (h *Hub) dispatchActive(e event.Event) {
+// dispatchToActive takes event e and routes it to a specific active flow as detailed in e
+func (h *Hub) dispatchToActive(e event.Event) {
 	// We dont care about these system events
 	if e.Tag == tagEndFlow || e.Tag == tagNodeUpdate {
 		return
@@ -345,12 +345,24 @@ func (h *Hub) dispatchActive(e event.Event) {
 	}
 }
 
+// publishIfActive publishes the event if the run is still active
+func (h *Hub) publishIfActive(e event.Event) {
+	if e.RunRef != nil {
+		_, r := h.runs.findActiveRun(e.RunRef.Run)
+		if r == nil {
+			return
+		}
+	}
+
+	h.queue.Publish(e)
+}
+
 // executeNode invokes a task node Execute
 func (h *Hub) executeNode(runRef *event.RunRef, node config.Node, e event.Event, singleWs bool) {
 	log.Debugf("<%s> - exec node - event tag: %s", runRef, e.Tag)
 
 	// setup the workspace config
-	ws, err := h.getWS(*runRef, singleWs)
+	ws, err := h.getWorkspace(*runRef, singleWs)
 	if err != nil {
 		log.Debugf("<%s> - exec node - error getting workspace %v", runRef, err)
 		return
@@ -360,7 +372,7 @@ func (h *Hub) executeNode(runRef *event.RunRef, node config.Node, e event.Event,
 	updates := make(chan string)
 	go func() {
 		for update := range updates {
-			h.queue.Publish(event.Event{
+			h.publishIfActive(event.Event{
 				RunRef:     runRef,
 				SourceNode: node.NodeRef(),
 				Tag:        "sys.node.update",
@@ -378,7 +390,7 @@ func (h *Hub) executeNode(runRef *event.RunRef, node config.Node, e event.Event,
 	if err != nil {
 		log.Errorf("<%s> - exec node (%s) - execute produced error: %v", runRef, node.NodeRef(), err)
 		// publish the fact an internal node error happened
-		h.queue.Publish(event.Event{
+		h.publishIfActive(event.Event{
 			RunRef:     runRef,
 			SourceNode: node.NodeRef(),
 			Tag:        getTag(node, "error"),
@@ -401,7 +413,7 @@ func (h *Hub) executeNode(runRef *event.RunRef, node config.Node, e event.Event,
 	ne.Good = good
 
 	// and publish it
-	h.queue.Publish(ne)
+	h.publishIfActive(ne)
 }
 
 // mergeEvent deals with events to a merge node
@@ -422,7 +434,7 @@ func (h *Hub) mergeEvent(run *Run, node config.Node, e event.Event) {
 			Good:       true,
 			Opts:       opts,
 		}
-		h.queue.Publish(e)
+		h.publishIfActive(e)
 	}
 }
 
@@ -434,6 +446,7 @@ func (h *Hub) endRun(run *Run, source config.NodeRef, opts nt.Opts, status strin
 	if !didEndIt {
 		return
 	}
+	
 	// publish specific end run event - so other observers know specifically that this flow finished
 	e := event.Event{
 		RunRef:     &run.Ref,

@@ -1,25 +1,22 @@
 package server
 
 import (
-	"fmt"
 	"net"
 	"net/http"
-	"io"
-
-	"golang.org/x/net/websocket"
-
+	
 	"github.com/julienschmidt/httprouter"
 
 	"github.com/floeit/floe/hub"
 	"github.com/floeit/floe/log"
+	"github.com/floeit/floe/event"
 	"github.com/floeit/floe/server/push"
 )
 
 const rootPath = "/build/api"
-
+	
 // LaunchWeb sets up all the http routes runs the server and launches the trigger flows
 // rp is the root path. Returns the address it binds to.
-func LaunchWeb(host, rp string, hub *hub.Hub, addrChan chan string) {
+func LaunchWeb(host, rp string, hub *hub.Hub, q *event.Queue, addrChan chan string) {
 	if rp == "" {
 		rp = rootPath
 	}
@@ -56,7 +53,9 @@ func LaunchWeb(host, rp string, hub *hub.Hub, addrChan chan string) {
 	r.GET("/favicon.ico", singleFile("webapp/favicon.ico"))
 
 	// ws endpoint
-	r.GET("/ws", getWsHandler(&h))
+	wsh := newWsHub()
+	q.Register(wsh)
+	r.GET("/ws", wsh.getWsHandler(&h))
 
 	// --- CORS ---
 	r.OPTIONS(rp+"/*all", h.mw(nil, false)) // catch all options
@@ -98,48 +97,6 @@ func LaunchWeb(host, rp string, hub *hub.Hub, addrChan chan string) {
 	log.Debug("agent server starting on:", address)
 
 	log.Fatal(http.Serve(listener, r))
-}
-
-func getWsHandler(h *handler) httprouter.Handle {
-	return func(rw http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-		sesh := authRequest(rw, r)
-		if sesh == nil {
-			return
-		}
-		h := websocket.Handler(wsHandler)
-		h.ServeHTTP(rw, r)
-	}
-}
-
-type wsHub struct {
-
-}
-
-func wsHandler(ws *websocket.Conn) {
-	for {
-		msg := make([]byte, 512)
-		n, err := ws.Read(msg)
-		if err != nil {
-			// normal client close
-			if err == io.EOF {
-				log.Debug("websocket - client closed")
-			} else {
-				log.Error("websocket - got an error", err)	
-			}
-			err = ws.Close()
-			if err != nil {
-				log.Error("websocket - close error", err)
-			}
-			return
-		}
-		fmt.Printf("Receive: %s\n", msg[:n])
-
-		m, err := ws.Write(msg[:n])
-		if err != nil {
-			log.Fatal(err)
-		}
-		fmt.Printf("Send: %s\n", msg[:m])
-	}
 }
 
 func singleFile(path string) httprouter.Handle {

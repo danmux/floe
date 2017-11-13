@@ -49,7 +49,7 @@ func expandPath(w string) (string, error) {
 // enforceWS make sure there is a matching file system location and returns the workspace object
 // shared will use the 'single' workspace
 func (h Hub) enforceWS(runRef event.RunRef, single bool) (*nt.Workspace, error) {
-	ws, err := h.getWS(runRef, single)
+	ws, err := h.getWorkspace(runRef, single)
 	if err != nil {
 		return nil, err
 	}
@@ -61,8 +61,8 @@ func (h Hub) enforceWS(runRef event.RunRef, single bool) (*nt.Workspace, error) 
 	return ws, err
 }
 
-// getWS returns the appropriate Workspace struct for this flow
-func (h Hub) getWS(runRef event.RunRef, single bool) (*nt.Workspace, error) {
+// getWorkspace returns the appropriate Workspace struct for this flow
+func (h Hub) getWorkspace(runRef event.RunRef, single bool) (*nt.Workspace, error) {
 	ebp, err := expandPath(h.basePath)
 	if err != nil {
 		return nil, err
