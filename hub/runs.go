@@ -230,7 +230,8 @@ func (r *RunStore) allTodos() []Todo {
 	return t
 }
 
-func (r *RunStore) removeTodo(todo Todo) error {
+// removeTodo returns true if the given todo is removed from the pending list
+func (r *RunStore) removeTodo(todo Todo) (bool, error) {
 	r.Lock()
 	defer r.Unlock()
 
@@ -244,12 +245,12 @@ func (r *RunStore) removeTodo(todo Todo) error {
 			r.pending.Todos = r.pending.Todos[:len(r.pending.Todos)-1]
 
 			// save the whole pending list
-			return r.pending.Save(pendingKey, r.store)
+			return true, r.pending.Save(pendingKey, r.store)
 		}
 	}
 	// If the todo is not found then there is nothing to worry about
 	// it is already removed
-	return nil
+	return false, nil
 }
 
 func (r *RunStore) allRuns(id string) (pending Runs, active Runs, archive Runs) {

@@ -168,7 +168,7 @@ func TestYaml(t *testing.T) {
 		t.Error("wrong number of resource tags", len(fl.ResourceTags))
 	}
 
-	fns := c.FindFlowsBySubs("data", nil, nt.Opts{"url": "blah.blah"})
+	fns := c.FindFlowsBySubs("data", FlowRef{}, nt.Opts{"url": "blah.blah"})
 	if len(fns) != 1 {
 		t.Fatal("did not find the flow based on this sub", len(fns))
 	}

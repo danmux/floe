@@ -33,7 +33,7 @@ func (d Data) PostHandler(queue *event.Queue) httprouter.Handle {
 
 		// add a data event - including a specific targeted Run if given
 		queue.Publish(event.Event{
-			RunRef: &event.RunRef{
+			RunRef: event.RunRef{
 				FlowRef: o.Ref,
 				// Run // TODO - if a run is given then it is data targetting a data input node - and not a trigger
 			},

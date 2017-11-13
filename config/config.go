@@ -35,11 +35,11 @@ type FoundFlow struct {
 }
 
 // FindFlowsBySubs finds all flows where its subs match the given params
-func (c *Config) FindFlowsBySubs(eType string, flow *FlowRef, opts nt.Opts) map[FlowRef]FoundFlow {
+func (c *Config) FindFlowsBySubs(eType string, flow FlowRef, opts nt.Opts) map[FlowRef]FoundFlow {
 	res := map[FlowRef]FoundFlow{}
 	for _, f := range c.Flows {
 		// if a flow is specified it has to match
-		if flow != nil {
+		if flow.NonZero(){
 			log.Debugf("config - comparing flow:<%s> to config flow:<%s-%d>", flow, f.ID, f.Ver)
 			if f.ID != flow.ID || f.Ver != flow.Ver {
 				continue
@@ -75,7 +75,7 @@ func (c *Config) FindFlowsBySubs(eType string, flow *FlowRef, opts nt.Opts) map[
 
 // FindFlow finds the specific flow where its subs match the given params
 func (c *Config) FindFlow(f FlowRef, eType string, opts nt.Opts) (FoundFlow, bool) {
-	found := c.FindFlowsBySubs(eType, nil, opts)
+	found := c.FindFlowsBySubs(eType, FlowRef{}, opts)
 	flow, ok := found[f]
 	return flow, ok
 }

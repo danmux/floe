@@ -1,6 +1,7 @@
 package event
 
 import (
+	"strings"
 	"fmt"
 	"sync"
 
@@ -8,6 +9,8 @@ import (
 	nt "github.com/floeit/floe/config/nodetype"
 	"github.com/floeit/floe/log"
 )
+
+const sysPrefix = "sys."
 
 // HostedIDRef is any ID unique within the scope of the host that created it.
 type HostedIDRef struct {
@@ -57,10 +60,7 @@ func (r RunRef) Equal(s RunRef) bool {
 
 // Adopted means that this RunRef has been added to a pending list and been assigned a
 // unique run ID
-func (r *RunRef) Adopted() bool {
-	if r == nil {
-		return false
-	}
+func (r RunRef) Adopted() bool {
 	if r.Run.ID == 0 {
 		return false
 	}
@@ -76,7 +76,7 @@ type Observer interface {
 type Event struct {
 	// RunRef if this event is in the scope of a specific run
 	// if nil then is a general event that could be routed to triggers
-	RunRef *RunRef
+	RunRef RunRef
 
 	// SourceNode is the Ref of the node in the context of a RunRef
 	SourceNode config.NodeRef
@@ -101,6 +101,13 @@ type Event struct {
 func (e *Event) SetGood() {
 	e.Good = true
 	e.Tag = getTag(e.SourceNode, "good")
+}
+
+func (e *Event) IsSystem() bool{
+	if len(e.Tag) < 3 {
+		return false
+	}
+	return strings.HasPrefix(e.Tag, sysPrefix)
 }
 
 func getTag(node config.NodeRef, subTag string) string {

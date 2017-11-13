@@ -56,7 +56,7 @@ func TestExecuteNode(t *testing.T) {
 		queue:    &event.Queue{},
 		runs:     newRunStore(s),
 	}
-	runRef := &event.RunRef{
+	runRef := event.RunRef{
 		FlowRef: config.FlowRef{
 			ID: "testflow",
 		},
@@ -153,19 +153,25 @@ func TestHub(t *testing.T) {
 		},
 	})
 
-	// sink the data publish event
-	e := <-to.ch
-
-	// grab the trigger event
-	e = <-to.ch
-	if e.Tag != "trigger.good" {
-		t.Error("got bad event", e.Tag)
+	// get the first 5 events and confirm correct tag order
+	var events [5]event.Event
+	for i := 0; i < len(events); i++ {
+		e := <-to.ch
+		events[e.ID-1] = e
 	}
 
-	// record the error event
-	e = <-to.ch
-	if e.Tag != "task.checkout.error" {
-		t.Fatal("got wrong checkout error tag", e.Tag)
+	tags := []string{
+		"data",
+		"sys.state",
+		"trigger.good",
+		"sys.state",
+		"task.checkout.error",
+	}
+
+	for i := 0; i < len(events); i++ {
+		if events[i].Tag != tags[i] {
+			t.Errorf("got %d tag wrong: wanted:%s got:%s", i, tags[i], events[i].Tag)
+		}
 	}
 
 	// and confirm the store has no runs still pending
@@ -176,7 +182,7 @@ func TestHub(t *testing.T) {
 	}
 
 	// wait for end of floe event
-	e = <-to.ch
+	e := <-to.ch
 	if e.Tag != "sys.end.all" {
 		t.Fatal("should have got the end event", e.Tag)
 	}
@@ -216,71 +222,6 @@ type testObs struct {
 
 func (o *testObs) Notify(e event.Event) {
 	o.ch <- e
-}
-
-func TestEventQueue(t *testing.T) {
-	c, _ := config.ParseYAML(in)
-	s := store.NewMemStore()
-	q := &event.Queue{}
-
-	New("h1", "master", "%tmp/flow", "admin-tok", c, s, q)
-
-	// register a test observer
-	to := &testObs{
-		ch: make(chan event.Event, 2),
-	}
-	q.Register(to)
-
-	// add an external event
-	pe := event.Event{
-		Tag: "data",
-		Opts: nt.Opts{
-			"url":       "blah.blah",
-			"from_hash": "from123456",
-			"to_hash":   "to7890",
-		},
-	}
-	q.Publish(pe)
-
-	// wait for our observer to receive 2 events
-	e := <-to.ch
-	if e.ID != 1 {
-		t.Error("got out of order event")
-	}
-	e = <-to.ch
-	if e.ID != 2 {
-		t.Error("got out of order event wanted 2", e.ID)
-	}
-	if e.Tag != "trigger.good" {
-		t.Error("got bad event", e.Tag)
-	}
-
-	// and confirm the store has an active list
-	ac, _ := s.Load(activeKey)
-	actives := ac.(Runs)
-	if len(actives) != 1 {
-		t.Error("wrong number of active runs")
-	}
-
-	// wait for end to close the chanel
-	for e := range to.ch {
-		if e.Tag == "sys.end.all" {
-			break
-		}
-	}
-
-	// and confirm the store has an active list
-	ac, _ = s.Load(activeKey)
-	actives = ac.(Runs)
-	if len(actives) != 0 {
-		t.Error("wrong number of active runs")
-	}
-	// and one archive
-	ac, _ = s.Load(archiveKey)
-	archives := ac.(Runs)
-	if len(archives) != 1 {
-		t.Error("wrong number of archives runs")
-	}
 }
 
 func TestExpandPath(t *testing.T) {

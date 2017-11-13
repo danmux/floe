@@ -19,6 +19,11 @@ func (f FlowRef) String() string {
 	return fmt.Sprintf("%s-%d", f.ID, f.Ver)
 }
 
+// NonZero returns true if this ref has been assigned nonzero values
+func (f FlowRef) NonZero() bool {
+	return f.ID != "" && f.Ver != 0
+}
+
 // Equal returns true if all fields in f anf g are equal
 func (f FlowRef) Equal(g FlowRef) bool {
 	return f.ID == g.ID && f.Ver == g.Ver
