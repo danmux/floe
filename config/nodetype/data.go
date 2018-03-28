@@ -1,11 +1,5 @@
 package nodetype
 
-import (
-	"fmt"
-
-	"github.com/floeit/floe/log"
-)
-
 // data
 type data struct{}
 
@@ -13,15 +7,7 @@ func (d data) Match(qs, as Opts) bool {
 	return true
 }
 
-func (d data) Execute(ws Workspace, in Opts, output chan string) (int, Opts, error) {
-	cmd, ok := in["cmd"]
-	if !ok {
-		return 255, nil, fmt.Errorf("missing cmd option")
-	}
-
-	log.Debug("DATA >", cmd.(string)) // TODO - it
-
-	return 0, Opts{}, nil
+func (d data) Execute(ws *Workspace, in Opts, output chan string) (int, Opts, error) {
+	// data nodes just fill in the opts
+	return 0, in, nil
 }
-
-func (d data) CastOpts(in *Opts) {}

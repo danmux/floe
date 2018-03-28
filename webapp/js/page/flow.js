@@ -5,7 +5,7 @@ import {PrettyDate} from '../panel/util.js';
 
 "use strict";
 
-// the controller for the Dashboard
+// the controller for the specific flow - showing all the runs
 export function Flow() {
     var panel;
     var dataReq = function(){
@@ -13,37 +13,99 @@ export function Flow() {
             URL: '/flows/' + panel.IDs[0],
         };
     }
+
+    function runClick(ev, item) {
+        console.log("run summary", ev, item, item.id, item.dataset.key);
+        panel.evtHub.Fire({
+            Type: 'click',
+            What: 'run',
+            ID: item.dataset.key,
+            ParentID: panel.IDs[0],
+        })
+    }
+
+    var events = [
+        {El: 'box.run', Ev: 'click', Fn: runClick}
+    ];
     
     // panel is view - or part of it
-    var panel = new Panel(this, null, tplFlow, '#main', [], dataReq);
+    var panel = new Panel(this, null, tplFlow, '#main', events, dataReq);
  
-    this.Map = function(evt) {
+    this.Map = function(evt, data) {
         console.log("flow got a call to Map", evt);
-        var pl = evt.Value.Response.Payload;
 
-        // TODO - update all these dates in the page every 30 seconds
-        if (pl.Runs.Archive) {
-            pl.Runs.Archive.forEach((r, i) => {
-                r.StartedAgo = PrettyDate(r.StartTime);
-                pl.Runs.Archive[i] = r;
-            });
+        if (evt.Type == 'rest') {
+            var pl = evt.Value.Response.Payload;
+
+            // TODO - update all these dates in the page every 30 seconds
+            if (pl.Runs.Archive) {
+                pl.Runs.Archive.forEach((r, i) => {
+                    r.StartedAgo = PrettyDate(r.StartTime);
+                    pl.Runs.Archive[i] = r;
+                });
+            }
+
+            if (pl.Runs.Pending) {
+                pl.Runs.Pending.forEach((r, i) => {
+                    r.StartedAgo = 'waiting...';
+                    pl.Runs.Pending[i] = r;
+                });
+            }
+
+            if (pl.Runs.Active) {
+                pl.Runs.Active.forEach((r, i) => {
+                    r.StartedAgo = PrettyDate(r.StartTime);
+                    pl.Runs.Active[i] = r;
+                });
+            }
+            
+            return pl;
         }
 
-        if (pl.Runs.Pending) {
-            pl.Runs.Pending.forEach((r, i) => {
-                r.StartedAgo = 'waiting...';
-                pl.Runs.Pending[i] = r;
-            });
+        if (evt.Type == 'ws') {
+            // state changes
+            if (evt.Msg.Tag == "sys.state") {
+                // it was added to pending list
+                if (evt.Msg.Opts.action == "add-todo") {
+                    console.log("adding pending", evt.Msg);
+                }
+                // it was activated - so remove from pending and add to active
+                if (evt.Msg.Opts.action == "activate") {
+                    console.log("adding active", evt.Msg);
+                    console.log(data);
+                    if (data.Runs.Active == null) {
+                        data.Runs.Active = [];
+                    }
+                    data.Runs.Active.push({
+                        Ended: false,
+                        Ref: evt.Msg.RunRef,
+                        StartedAgo: "just now",
+                        Status: "active"
+                    });
+                }
+                return data;
+            }
+            // flow ended so remove it from active and add it to archive
+            if (evt.Msg.Tag == "sys.end.all") {
+                console.log("adding archive", evt.Msg);
+                if (data.Runs.Archive == null) {
+                    data.Runs.Archive = [];
+                }
+                var removeIndex = -1;
+                for (var i = 0; i < data.Runs.Active.length; i++) {
+                    if (runsEqual(evt.Msg.RunRef, data.Runs.Active[i].Ref)) {
+                        removeIndex = i
+                        break;
+                    }
+                }
+                if (removeIndex >= 0) {
+                    var m = data.Runs.Active[removeIndex];
+                    data.Runs.Active.splice(removeIndex, 1);
+                    data.Runs.Archive.unshift(m);
+                }
+                return data;
+            }
         }
-
-        if (pl.Runs.Active) {
-            pl.Runs.Active.forEach((r, i) => {
-                r.StartedAgo = PrettyDate(r.StartTime);
-                pl.Runs.Active[i] = r;
-            });
-        }
-        
-        return pl;
     }
 
     // Keep a reference to the dash panels - TODO: needed ?
@@ -96,8 +158,8 @@ export function Flow() {
             var elem = els[i];
             elem.addEventListener('click', expandHandler(elem));
         }
-        // label for="trig-form-container-{{=trigger.ID}}" class='expander'
     }
+
     // AfterRender is called when the dash hs rendered containers.
     // we go and add the child summary panels
     this.AfterRender = function(data) {
@@ -115,14 +177,21 @@ export function Flow() {
             // Give the form the trigger id so it can be uniquely directly referenced.
             form.ID = trig.ID;
             console.log(form);
-            var form = new Form('#trig-form-container-'+trig.ID, form, sendData);
-            form.Activate();
+            var formP = new Form('#trig-form-container-'+trig.ID, form, sendData);
+            formP.Activate();
         }
 
         attacheExpander();
     }
 
     return panel;
+}
+
+function runsEqual(r1, r2) {
+    return r1.FlowRef.ID == r1.FlowRef.ID &&
+    r1.FlowRef.Ver == r1.FlowRef.Ver &&
+    r1.Run.HostID == r1.Run.HostID &&
+    r1.Run.ID == r1.Run.ID;
 }
 
 var tplFlow = `
@@ -153,7 +222,7 @@ var tplFlow = `
                 Active
             </heading>
             {{~it.Data.Runs.Active :run:index}}
-            <box id='run-{{=run.Ref.Run.HostID}}-{{=run.Ref.Run.ID}}' class='run archive'>
+            <box id='run-{{=run.Ref.Run.HostID}}-{{=run.Ref.Run.ID}}' class='run' data-key='{{=run.Ref.Run.HostID}}-{{=run.Ref.Run.ID}}'>
                 <top>
                     <h4>{{=run.Ref.Run.HostID}}-{{=run.Ref.Run.ID}}</h4>
                     <span class="label label-danger">New</span>
@@ -170,7 +239,7 @@ var tplFlow = `
                 Pending
             </heading>
             {{~it.Data.Runs.Pending :run:index}}
-            <box id='run-{{=run.Ref.Run.HostID}}-{{=run.Ref.Run.ID}}' class='run archive'>
+            <box id='run-{{=run.Ref.Run.HostID}}-{{=run.Ref.Run.ID}}' class='run' data-key='{{=run.Ref.Run.HostID}}-{{=run.Ref.Run.ID}}'>
                 <top>
                     <h4>{{=run.Ref.Run.HostID}}-{{=run.Ref.Run.ID}}</h4>
                     <span class="label label-danger">New</span>
@@ -187,7 +256,7 @@ var tplFlow = `
                 Archive
             </heading>
             {{~it.Data.Runs.Archive :run:index}}
-            <box id='run-{{=run.Ref.Run.HostID}}-{{=run.Ref.Run.ID}}' class='run archive'>
+            <box id='run-{{=run.Ref.Run.HostID}}-{{=run.Ref.Run.ID}}' class='run' data-key='{{=run.Ref.Run.HostID}}-{{=run.Ref.Run.ID}}'>
                 <top>
                     <h4>{{=run.Ref.Run.HostID}}-{{=run.Ref.Run.ID}}</h4>
                     <span class="label label-danger">New</span>

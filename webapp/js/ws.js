@@ -1,4 +1,4 @@
-import {eventHub} from './panel/event.js';
+import { eventHub } from './panel/event.js';
 
 "use strict";
 
@@ -29,7 +29,10 @@ export function WsHub() {
     };
     
     ws.onmessage = (evt) => { 
-        console.log("received:", evt.data);
+        eventHub.Fire({
+            Type: "ws",
+            Msg:JSON.parse(evt.data)
+        });
     };
     
     ws.onclose = () => { 

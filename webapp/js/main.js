@@ -30,6 +30,9 @@ function main() {
         '/flows/:id': function (par) { 
             controller.Activate('flow', [par.id]);
         },
+        '/flows/:fid/runs/:rid': function (par) { 
+            controller.Activate('flow-single', [par.id, par.rid]);
+        },
         '/settings': function () { 
             controller.Activate('settings');
         }
@@ -83,7 +86,7 @@ function main() {
 
         // a specific click event was dispatched
         if (evt.Type == 'click') {
-            console.log("click", evt.ID);
+            console.log("click", evt.What, evt.ID);
             // if we know we are not authenticated then always redirect to the auth page
             if (!controller.AuthCheck()) {
                 return;
@@ -92,9 +95,23 @@ function main() {
                 history.pushState(null, '', this.Base + "/flows/" + evt.ID);
                 controller.Activate('flow', [evt.ID]);
             }
+            if (evt.What == 'run') {
+                console.log(evt.ParentID, evt.ID);
+                history.pushState(null, '', this.Base + "/flows/" + evt.ParentID + "/runs/" + evt.ID);
+                controller.Activate('flow-single', [evt.ParentID, evt.ID]);
+            }
             if (evt.What == 'settings') {
                 history.pushState(null, '', this.Base + "/settings");
                 controller.Activate('settings');
+            }
+        }
+
+        // web socket received message
+        if (evt.Type == "ws") {
+            // dash and flow need to know about state changes 
+            if ( (evt.Msg.Tag == "sys.node.update") || (evt.Msg.Tag == "sys.state") || (evt.Msg.Tag =="sys.end.all")) {
+                // controller.NotifyPanel("dash", evt);
+                controller.NotifyPanel("flow", evt);
             }
         }
     });

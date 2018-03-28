@@ -14,7 +14,7 @@ func (e exec) Match(ol, or Opts) bool {
 	return true
 }
 
-func (e exec) Execute(ws Workspace, in Opts, output chan string) (int, Opts, error) {
+func (e exec) Execute(ws *Workspace, in Opts, output chan string) (int, Opts, error) {
 	cmd, ok := in["cmd"]
 	if !ok {
 		return 255, nil, fmt.Errorf("missing cmd option")
@@ -29,5 +29,3 @@ func (e exec) Execute(ws Workspace, in Opts, output chan string) (int, Opts, err
 
 	return 0, Opts{}, nil
 }
-
-func (e exec) CastOpts(in *Opts) {}

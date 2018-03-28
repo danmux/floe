@@ -78,7 +78,7 @@ flows:
         - name: wait test and sign off
           id: signed
           type: all
-          wait: [task.test.good, task.sign-off.good]
+          wait: [task.echo.good, task.test.good, task.sign-off.good]
 
     - id: danmux
       ver: 1

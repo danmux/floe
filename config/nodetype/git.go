@@ -13,7 +13,7 @@ func (g gitMerge) Match(ol, or Opts) bool {
 	return true
 }
 
-func (g gitMerge) Execute(ws Workspace, in Opts, output chan string) (int, Opts, error) {
+func (g gitMerge) Execute(ws *Workspace, in Opts, output chan string) (int, Opts, error) {
 	from, ok := in.string("from_hash")
 	if !ok {
 		return 255, nil, fmt.Errorf("problem getting from_hash string option")
@@ -26,5 +26,3 @@ func (g gitMerge) Execute(ws Workspace, in Opts, output chan string) (int, Opts,
 	log.Debug("GIT merge command thing", from, to)
 	return 0, nil, nil
 }
-
-func (g gitMerge) CastOpts(in *Opts) {}

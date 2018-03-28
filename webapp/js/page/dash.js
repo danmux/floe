@@ -28,11 +28,17 @@ export function Dash() {
 
     this.Map = function(evt) {
         console.log("dash got a call to Map", evt);
-        var flows = evt.Value.Response.Payload.Flows;
+        if (evt.Type == 'rest') {
+            var flows = evt.Value.Response.Payload.Flows;
+            console.log(flows);
+            return {Flows: flows};
+        }
 
-        console.log(flows);
+        if (evt.Type == 'ws') {
+            // console.log('evt.Msg', evt.Msg);
+        }
 
-        return {Flows: flows};
+        return{};
     }
 
     // Keep a reference to the dash panels - TODO: needed ?

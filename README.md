@@ -12,6 +12,10 @@ start three terminals:
 
 3. one for dev
 
+web 
+---
+
+http://localhost:8080/app/dash
 
 
 floe 
@@ -37,11 +41,11 @@ RunStore - the hub references a run store that can persist the following lists -
 * Archive List - Runs that are have finished executing.
 
 
-Lifecycle of a flow
--------------------
-When a trigger event arrives on the queue that matches a flow, the event reference will be considered 'un-adopted' this means it has not got a full run reference.  A run is created with a globally unique compound reference (now adopted) - this reference (and some other meta data) is added to the pending list of the host that adopted it - this may not be the host that executed the run.
+Life cycle of a flow
+--------------------
+When a trigger event arrives on the queue that matches a flow, the event reference will be considered 'un-adopted' this means it has not got a full run reference. A run is created with a globally unique compound reference (now adopted) - this reference (and some other meta data) is added to the pending list of the host that adopted it as a 'Todo' - this may not be the host that executes the run.
 
-A background process tries to assign Todo's to any host where the HostTags match, and where there are no Runs already matching the ResourceTags asked for - this allows certain nodes to be assigned to certain Runs, and to serialise Runs that need exclusive access to any third party resources.
+A background process tries to assign Todo's to any host where the HostTags match, and where there are no Runs already matching the ResourceTags asked for - this allows certain nodes to be assigned to certain Runs, and to serialise Runs that need exclusive access to any third party, or other shared resources.
 
 Once a Todo has been dispatched for execution it is moved out of the adopting Pending list and into the Active List on the executing host.
 

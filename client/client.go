@@ -1,4 +1,4 @@
-// package client provides helper functions to communicate with flow servers.
+// Package client provides helper functions to communicate with flow servers.
 // Each server uses this client to talk to each other, and the client can be used for.
 // integration testing, or building other go based interfaces.
 package client
@@ -201,9 +201,9 @@ func (f *FloeHost) put(path string, q, r interface{}) (int, error) {
 	return f.req("PUT", path, q, r)
 }
 
-func (f *FloeHost) req(method, spath string, rq, rp interface{}) (status int, err error) {
+func (f *FloeHost) req(method, sPath string, rq, rp interface{}) (status int, err error) {
 	f.RLock()
-	path := f.config.BaseURL + spath
+	path := f.config.BaseURL + sPath
 	f.RUnlock()
 
 	var b []byte

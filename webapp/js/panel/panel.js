@@ -16,7 +16,7 @@ export function Panel(parent, data, template, attach, events, restReq) {
     this.store = new store(data);  // the data store to render this panel.
     this.template = template;      // the template to use to render the html from the store data.
     this.attach = attach;          // the CSS selector to attach the resultant html to.
-    this.IDs = [];
+    this.IDs = [];                 // array of ids that uniquely identify this instance of a panel
     this.active = false;           // active is true if we think this panel is in the dom.
 
     // Compile template function
@@ -73,15 +73,14 @@ export function Panel(parent, data, template, attach, events, restReq) {
         this.active = false;
     }
 
-    // Notify is called by the controller of this panel 
+    // Notify is called by the controller of this panel with a relevant event
     this.Notify = function(evt) {
-        var data = parent.Map(evt);
+        var data = parent.Map(evt, this.store.Get(true));
 
         var updated = false;
         for (var key in data) {
             console.log("updating", key, data[key]);
             this.store.Update(key, data[key]); // TODO - decide if the data changed
-            
             updated = true;
         }
 

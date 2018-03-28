@@ -14,11 +14,14 @@ import (
 	"github.com/floeit/floe/store"
 )
 
+// some special event tags
 const (
-	tagEndFlow    = "sys.end.all"
-	tagNodeUpdate = "sys.node.update"
-	tagStateChange = "sys.state"
-	tagGoodTrigger = "trigger.good"    // always issued when a trigger 
+	tagEndFlow     = "sys.end.all"       // a run has ended
+	tagNodeUpdate  = "sys.node.update"   // an executing node has had an update to its output
+	tagStateChange = "sys.state"         // a run has transitioned state
+	tagWaitingData = "sys.data.required" // a node in the run needs data input
+	tagGoodTrigger = "trigger.good"      // always issued when a trigger
+
 )
 
 // Hub links events to the config rules
@@ -131,19 +134,18 @@ func (h *Hub) Notify(e event.Event) {
 	h.dispatchToActive(e)
 }
 
-
-func (h *Hub) activate(todo Todo, hostID string) error {
+func (h *Hub) activate(todo *Todo, hostID string) error {
 	err := h.runs.activate(todo, h.hostID)
 	if err != nil {
 		return err
 	}
 	h.queue.Publish(event.Event{
-		RunRef:     todo.Ref,
-		Tag:        tagStateChange,
-		Opts:       nt.Opts{
+		RunRef: todo.Ref,
+		Tag:    tagStateChange,
+		Opts: nt.Opts{
 			"action": "activate",
 		},
-		Good:       true,
+		Good: true,
 	})
 	return nil
 }
@@ -184,7 +186,7 @@ func (h *Hub) ExecutePending(todo Todo) (bool, error) {
 	}
 
 	// add the active flow
-	err = h.activate(todo, h.hostID)
+	err = h.activate(&todo, h.hostID)
 	if err != nil {
 		return false, err
 	}
@@ -222,15 +224,15 @@ func (h *Hub) removeTodo(todo Todo) error {
 	if err != nil {
 		return err
 	}
-	// if this did remove it from the pending list then send the system event 
+	// if this did remove it from the pending list then send the system event
 	if ok {
 		h.queue.Publish(event.Event{
-			RunRef:     todo.Ref,
-			Tag:        tagStateChange,
-			Opts:       nt.Opts{
+			RunRef: todo.Ref,
+			Tag:    tagStateChange,
+			Opts: nt.Opts{
 				"action": "remove-todo",
 			},
-			Good:       true,
+			Good: true,
 		})
 	}
 	return nil
@@ -301,10 +303,28 @@ func (h *Hub) distributeAllPending() error {
 	return nil
 }
 
+func (h *Hub) addToPending(flow config.FlowRef, hostID string, e event.Event) (event.RunRef, error) {
+	ref, err := h.runs.addToPending(flow, hostID, e)
+	if err != nil {
+		return ref, err
+	}
+
+	h.queue.Publish(event.Event{
+		RunRef: ref,
+		Tag:    tagStateChange,
+		Opts: nt.Opts{
+			"action": "add-todo",
+		},
+		Good: true,
+	})
+
+	return ref, nil
+}
+
 // pendFlowFromTrigger uses the subscription fired event e to put a FoundFlow
 // on the pending queue, storing the initial event for use as the run is executed.
 func (h *Hub) pendFlowFromTrigger(e event.Event) error {
-	
+
 	log.Debugf("attempt to trigger type:<%s> (specified flow: %v)", e.Tag, e.RunRef.FlowRef)
 
 	// find any Flows with subs matching this event
@@ -315,7 +335,7 @@ func (h *Hub) pendFlowFromTrigger(e event.Event) error {
 	}
 	// add each flow to the pending list
 	for f := range found {
-		ref, err := h.runs.addToPending(f, h.hostID, e)
+		ref, err := h.addToPending(f, h.hostID, e)
 		if err != nil {
 			return err
 		}
@@ -324,7 +344,7 @@ func (h *Hub) pendFlowFromTrigger(e event.Event) error {
 	return nil
 }
 
-// dispatchToActive takes event e and routes it to a specific active flow as detailed in e
+// dispatchToActive takes event e and routes it to the specific active flow as detailed in e
 func (h *Hub) dispatchToActive(e event.Event) {
 	// We dont care about these system events
 	if e.IsSystem() {
@@ -343,20 +363,23 @@ func (h *Hub) dispatchToActive(e event.Event) {
 	found, flowExists := h.config.FindNodeInFlow(r.Ref.FlowRef, e.Tag)
 	if !flowExists {
 		log.Errorf("<%s> - dispatch - no flow for event '%s'", e.RunRef, e.Tag)
-		// this is indeed a strange occurrence so this run is considered bad and incomplete
+		// this is indeed a strange occurrence so this run is considered both bad and incomplete
 		h.endRun(r, e.SourceNode, e.Opts, "incomplete", false)
 		return
 	}
 
-	// We got a matching flow but no nodes matched this event in the flow
+	// We got a matching flow but no nodes matched this event in the flow.
+	// TODO I think we should be able to decide if dangling nodes (events that are not routed)
+	// end the flow - for now - they do - so be sure to route all events
 	if len(found.Nodes) == 0 {
 		if e.Good {
-			// all good statuses should make it to a next node, so log the warning that this one has not
-			// the run ended with a good node, but that was not explicitly routed so the run is considered incomplete
+			// The run ended with a good node, but that was not explicitly routed so the run is considered incomplete.
+			// TODO allow dangling event - so the other events can have a chance to finish.
+			// All good statuses should make it to a next node, so log the warning that this one has not.
 			log.Errorf("<%s> - dispatch - nothing listening to good event '%s' - prematurely end", e.RunRef, e.Tag)
 			h.endRun(r, e.SourceNode, e.Opts, "incomplete", true)
 		} else {
-			// bad events un routed can implicitly trigger the end of a run, but the run
+			// bad events un routed can implicitly trigger the end of a run,
 			// with the run marked bad
 			log.Debugf("<%s> - dispatch - nothing listening to bad event '%s' (ending flow as bad)", e.RunRef, e.Tag)
 			h.endRun(r, e.SourceNode, e.Opts, "complete", false)
@@ -368,31 +391,52 @@ func (h *Hub) dispatchToActive(e event.Event) {
 	for _, n := range found.Nodes {
 		switch n.Class() {
 		case config.NcTask:
-			if n.TypeOfNode() == "end" { // special task type end the run
+			switch nt.NType(n.TypeOfNode()) {
+			case nt.NtEnd: // special task type end the run
 				h.endRun(r, n.NodeRef(), e.Opts, "complete", e.Good)
 				return
+			case nt.NtData:
+				h.setFormData(r, n, e.Opts)
+			default:
+				// asynchronous execute
+				go h.executeNode(r, n, e, found.ReuseSpace)
 			}
-			// asynchronous execute
-			go h.executeNode(r.Ref, n, e, found.ReuseSpace)
 		case config.NcMerge:
 			h.mergeEvent(r, n, e)
 		}
 	}
 }
 
+// setFormData - sets the opts form data on the active run it emits no events
+// so will effectively pause the run, until inbound data triggers the event for
+// this data node.
+func (h *Hub) setFormData(run *Run, node config.Node, opts nt.Opts) {
+	// data nodes just do stuff with the inbound opts and the node opts (that define the data fields)
+	_, outOpts, _ := node.Execute(nil, opts, nil)
+	// add the form fields to the flow
+	run.updateDataNode(node.NodeRef().ID, outOpts)
+	// and inform whoever that there is data input needed
+	h.queue.Publish(event.Event{
+		RunRef:     run.Ref,
+		SourceNode: node.NodeRef(),
+		Tag:        tagWaitingData,
+		Opts:       outOpts,
+		Good:       true,
+	})
+}
+
 // publishIfActive publishes the event if the run is still active
 func (h *Hub) publishIfActive(e event.Event) {
-	
 	_, r := h.runs.findActiveRun(e.RunRef.Run)
 	if r == nil {
 		return
 	}
-
 	h.queue.Publish(e)
 }
 
-// executeNode invokes a task node Execute
-func (h *Hub) executeNode(runRef event.RunRef, node config.Node, e event.Event, singleWs bool) {
+// executeNode invokes a task node Execute function for the active run
+func (h *Hub) executeNode(run *Run, node config.Node, e event.Event, singleWs bool) {
+	runRef := run.Ref
 	log.Debugf("<%s> - exec node - event tag: %s", runRef, e.Tag)
 
 	// setup the workspace config
@@ -406,7 +450,7 @@ func (h *Hub) executeNode(runRef event.RunRef, node config.Node, e event.Event, 
 	updates := make(chan string)
 	go func() {
 		for update := range updates {
-			h.publishIfActive(event.Event{
+			h.queue.Publish(event.Event{
 				RunRef:     runRef,
 				SourceNode: node.NodeRef(),
 				Tag:        tagNodeUpdate,
@@ -415,10 +459,13 @@ func (h *Hub) executeNode(runRef event.RunRef, node config.Node, e event.Event, 
 				},
 				Good: true,
 			})
+
+			// explicitly update any exec nodes with the ongoing execute
+			run.updateExecNode(node.NodeRef().ID, update)
 		}
 	}()
 
-	status, outOpts, err := node.Execute(*ws, e.Opts, updates)
+	status, outOpts, err := node.Execute(ws, e.Opts, updates)
 	close(updates)
 
 	if err != nil {
@@ -480,7 +527,7 @@ func (h *Hub) endRun(run *Run, source config.NodeRef, opts nt.Opts, status strin
 	if !didEndIt {
 		return
 	}
-	
+
 	// publish specific end run event - so other observers know specifically that this flow finished
 	e := event.Event{
 		RunRef:     run.Ref,

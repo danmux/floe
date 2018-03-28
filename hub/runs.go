@@ -4,6 +4,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
+
 	"github.com/floeit/floe/config"
 	nt "github.com/floeit/floe/config/nodetype"
 	"github.com/floeit/floe/event"
@@ -37,8 +39,13 @@ type merge struct {
 }
 
 type data struct {
-	Enabled bool    // Enabled is true if the enabling event has occured
+	Enabled bool    // Enabled is true if the enabling event has occurred
 	Opts    nt.Opts // opts from the data event
+}
+
+type exec struct {
+	Opts nt.Opts  // opts from the exec event
+	Logs []string // any output of the node
 }
 
 // Run is a specific invocation of a flow
@@ -53,6 +60,7 @@ type Run struct {
 	Good       bool
 	MergeNodes map[string]merge // the states of the merge nodes by node id
 	DataNodes  map[string]data  // the sates of any data nodes
+	ExecNodes  map[string]exec  // the sates of any exec nodes
 }
 
 // updateWithMergeEvent adds the tag to the nodeID and returns current length of tags
@@ -72,6 +80,31 @@ func (r *Run) updateWithMergeEvent(nodeID, tag string, opts nt.Opts) (int, nt.Op
 	r.MergeNodes[nodeID] = m
 
 	return len(m.Waits), nt.MergeOpts(m.Opts, nil) // merge copies the opts
+}
+
+// updateExecNode adds the output line to the log lines for the nod in this run
+func (r *Run) updateExecNode(nodeID string, line string) {
+	r.Lock()
+	defer r.Unlock()
+	m, ok := r.ExecNodes[nodeID]
+	if !ok {
+		m = exec{}
+	}
+	m.Logs = append(m.Logs, line)
+	r.ExecNodes[nodeID] = m
+}
+
+// updateDataNode adds the opts form description
+func (r *Run) updateDataNode(nodeID string, opts nt.Opts) {
+	r.Lock()
+	defer r.Unlock()
+	m, ok := r.DataNodes[nodeID]
+	if !ok {
+		m = data{}
+	}
+	m.Opts = opts
+	m.Enabled = true
+	r.DataNodes[nodeID] = m
 }
 
 func (r *Run) end(status string, good bool) {
@@ -148,7 +181,7 @@ func (r *RunStore) updateWithMergeEvent(run *Run, nodeID, tag string, opts nt.Op
 
 // end moves the run from active to archive. As a run may have many events that would end it
 // only the first one does the others are ignored. Only the ending run returns true.
-func (r *RunStore) end(run *Run, status string, good bool) bool{
+func (r *RunStore) end(run *Run, status string, good bool) bool {
 	run.end(status, good)
 
 	i, run := r.findActiveRun(run.Ref.Run)
@@ -164,6 +197,8 @@ func (r *RunStore) end(run *Run, status string, good bool) bool{
 	r.active[len(r.active)-1] = nil
 	r.active = r.active[:len(r.active)-1]
 	r.archive = append(r.archive, run)
+
+	spew.Dump(run)
 
 	r.active.Save(activeKey, r.store)
 	r.archive.Save(archiveKey, r.store)
@@ -204,7 +239,7 @@ func (r *RunStore) activeFlows() []config.FlowRef {
 }
 
 // activate adds the active configs to the active list saves it, and returns the run id
-func (r *RunStore) activate(todo Todo, hostID string) error {
+func (r *RunStore) activate(todo *Todo, hostID string) error {
 	r.Lock()
 	defer r.Unlock()
 
@@ -215,6 +250,8 @@ func (r *RunStore) activate(todo Todo, hostID string) error {
 		Ref:        todo.Ref,
 		StartTime:  time.Now(),
 		MergeNodes: map[string]merge{},
+		DataNodes:  map[string]data{},
+		ExecNodes:  map[string]exec{},
 	})
 
 	return r.active.Save(activeKey, r.store)
