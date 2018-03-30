@@ -3,8 +3,8 @@ package server
 import (
 	"net/http"
 
+	"github.com/floeit/floe/client"
 	"github.com/floeit/floe/config"
-
 	"github.com/floeit/floe/hub"
 )
 
@@ -12,24 +12,23 @@ func hndAllFlows(rw http.ResponseWriter, r *http.Request, ctx *context) (int, st
 	return rOK, "", ctx.hub.Config()
 }
 
+// hndFlow returns the latest config and run summaries from all clients for this flow
 func hndFlow(rw http.ResponseWriter, r *http.Request, ctx *context) (int, string, renderable) {
 	id := ctx.ps.ByName("id")
 
-	// config
+	// get the latest config
 	conf := ctx.hub.Config()
 	latest := conf.LatestFlow(id)
-
-	// runs
-	pending, active, archive := ctx.hub.AllRuns(id)
-	summaries := RunSummaries{
-		Pending: fromHubRuns(pending),
-		Active:  fromHubRuns(active),
-		Archive: fromHubRuns(archive),
+	if latest == nil {
+		return rNotFound, "not found", nil
 	}
+
+	// and run summaries from all hosts
+	summaries := ctx.hub.AllClientRuns(id)
 
 	response := struct {
 		Config *config.Flow
-		Runs   RunSummaries
+		Runs   client.RunSummaries
 	}{
 		Config: latest,
 		Runs:   summaries,
@@ -38,6 +37,7 @@ func hndFlow(rw http.ResponseWriter, r *http.Request, ctx *context) (int, string
 	return rOK, "", response
 }
 
+// hndP2PExecFlow is the handler for the internal call to execute the flow on this node
 func hndP2PExecFlow(rw http.ResponseWriter, r *http.Request, ctx *context) (int, string, renderable) {
 
 	t := hub.Todo{}

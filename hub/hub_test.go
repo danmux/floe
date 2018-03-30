@@ -3,6 +3,7 @@ package hub
 import (
 	"os/user"
 	"testing"
+	"time"
 
 	"sync"
 
@@ -15,10 +16,10 @@ import (
 )
 
 type task struct {
-	exec func(ws nt.Workspace, updates chan string)
+	exec func(ws *nt.Workspace, updates chan string)
 }
 
-func (t *task) Execute(ws nt.Workspace, opts nt.Opts, updates chan string) (int, nt.Opts, error) {
+func (t *task) Execute(ws *nt.Workspace, opts nt.Opts, updates chan string) (int, nt.Opts, error) {
 	if t.exec != nil {
 		t.exec(ws, updates)
 	}
@@ -26,7 +27,7 @@ func (t *task) Execute(ws nt.Workspace, opts nt.Opts, updates chan string) (int,
 }
 
 func (t *task) Status(status int) (string, bool) {
-	return "good", true
+	return config.SubTagBad, true
 }
 
 func (t *task) FlowRef() config.FlowRef {
@@ -49,6 +50,10 @@ func (t *task) Waits() int {
 	return 0
 }
 
+func (t *task) GetTag(string) string {
+	return "tag"
+}
+
 func TestExecuteNode(t *testing.T) {
 	s := store.NewMemStore()
 	h := Hub{
@@ -66,7 +71,7 @@ func TestExecuteNode(t *testing.T) {
 		},
 	}
 	didExec := false
-	exec := func(ws nt.Workspace, updates chan string) {
+	exec := func(ws *nt.Workspace, updates chan string) {
 		didExec = true
 		if ws.BasePath != "/foo/bar/testflow/ws/h1-5" {
 			t.Errorf("base path is wrong <%s>", ws.BasePath)
@@ -76,7 +81,8 @@ func TestExecuteNode(t *testing.T) {
 		exec: exec,
 	}
 	e := event.Event{}
-	h.executeNode(runRef, node, e, false)
+	run := newRun(runRef)
+	h.executeNode(run, node, e, false)
 	if !didExec {
 		t.Error("did not execute executor")
 	}
@@ -98,7 +104,7 @@ flows:
             
       tasks: 
         - name: checkout             # the name of this node 
-          listen: trigger.good       # the event that triggers this node
+          listen: trigger.good   # the event that triggers this node
           type: git-merge            # the task type 
           good: [0]                  # define what the good statuses are, default [0]
           ignore-fail: false         # if true only emit good
@@ -132,6 +138,16 @@ flows:
       
 `)
 
+func waitEvtTimeout(t *testing.T, ch chan event.Event) *event.Event {
+	select {
+	case e := <-ch:
+		return &e
+	case <-time.After(time.Second * 5):
+		t.Fatal("timed out waiting for edn event")
+	}
+	return nil
+}
+
 func TestHub(t *testing.T) {
 	c, _ := config.ParseYAML(in)
 	s := store.NewMemStore()
@@ -147,21 +163,22 @@ func TestHub(t *testing.T) {
 
 	// add an external event whose opts dont match those needed by git-merge so will error
 	q.Publish(event.Event{
-		Tag: "data", // will match the trigger type
+		Tag: "inbound.data", // will match the trigger type
 		Opts: nt.Opts{
 			"url": "blah.blah",
 		},
 	})
 
-	// get the first 5 events and confirm correct tag order
-	var events [5]event.Event
+	// get the first 6 events and confirm correct tag order
+	var events [6]*event.Event
 	for i := 0; i < len(events); i++ {
-		e := <-to.ch
+		e := waitEvtTimeout(t, to.ch)
 		events[e.ID-1] = e
 	}
 
 	tags := []string{
-		"data",
+		"inbound.data",
+		"sys.state",
 		"sys.state",
 		"trigger.good",
 		"sys.state",
@@ -169,6 +186,7 @@ func TestHub(t *testing.T) {
 	}
 
 	for i := 0; i < len(events); i++ {
+		// fmt.Println(events[i].Opts["action"])
 		if events[i].Tag != tags[i] {
 			t.Errorf("got %d tag wrong: wanted:%s got:%s", i, tags[i], events[i].Tag)
 		}
@@ -182,7 +200,7 @@ func TestHub(t *testing.T) {
 	}
 
 	// wait for end of floe event
-	e := <-to.ch
+	e := waitEvtTimeout(t, to.ch)
 	if e.Tag != "sys.end.all" {
 		t.Fatal("should have got the end event", e.Tag)
 	}
@@ -197,20 +215,49 @@ func TestHub(t *testing.T) {
 		t.Error("wrong number of active runs after finishing", len(act))
 	}
 
-	// add an external event whose do match those needed by git-merge so will execute
+	// relaunch the flow with an external event whose optsdo match those
+	// needed by git-merge so will execute
 	q.Publish(event.Event{
-		Tag: "data", // will match the trigger type
+		Tag: "inbound.data", // will match the trigger type
 		Opts: nt.Opts{
 			"from_hash": "blah.blah",
 			"to_hash":   "blah.blah",
 		},
 	})
 
-	// get all events until the end
-	for {
-		e = <-to.ch
-		if e.Tag == "sys.end.all" {
-			return
+	counts := map[string]int{}
+	done := make(chan struct{})
+	// count all events until the end
+	go func() {
+		for {
+			e := waitEvtTimeout(t, to.ch)
+			counts[e.Tag] = counts[e.Tag] + 1
+			if e.Tag == "sys.end.all" {
+				done <- struct{}{}
+			}
+		}
+	}()
+
+	expected := map[string]int{
+		"sys.state":              3,
+		"task.build.good":        1,
+		"task.test1.good":        1,
+		"merge.merge-tests.good": 1,
+		"sys.end.all":            1,
+		"inbound.data":           1,
+		"trigger.good":           1,
+		"task.checkout.good":     1,
+		"sys.node.update":        15,
+		"task.test2.good":        1,
+	}
+	select {
+	case <-time.After(time.Second * 60):
+		t.Fatal("timed out")
+	case <-done:
+		for k, v := range expected {
+			if counts[k] != v {
+				t.Errorf("got wrong number of events, %s was %d expected %d", k, counts[k], v)
+			}
 		}
 	}
 }

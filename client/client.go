@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	nt "github.com/floeit/floe/config/nodetype"
 	"github.com/floeit/floe/event"
 	"github.com/floeit/floe/log"
 )
@@ -145,6 +146,58 @@ func (f *FloeHost) GetRuns(id string) *RunSummaries {
 		return runs
 	default:
 		log.Errorf("got response: %d from %s, with: %s", code, f.GetConfig().HostID, w.Message)
+	}
+
+	return nil
+}
+
+// a merge record is kept per node id
+type merge struct {
+	Waits map[string]bool // each wait event received
+	Opts  nt.Opts         // merged opts from all events
+}
+
+type data struct {
+	Enabled bool    // Enabled is true if the enabling event has occurred
+	Opts    nt.Opts // opts from the data event
+}
+
+type exec struct {
+	Opts nt.Opts  // opts from the exec event
+	Logs []string // any output of the node
+}
+
+// Run is a specific invocation of a flow
+type Run struct {
+	Ref        event.RunRef
+	ExecHost   string
+	StartTime  time.Time
+	EndTime    time.Time
+	Ended      bool
+	Status     string
+	Good       bool
+	MergeNodes map[string]merge
+	DataNodes  map[string]data
+	ExecNodes  map[string]exec
+}
+
+// FindRun - finds the run in any of the peer hosts
+func (f *FloeHost) FindRun(flowID, runID string) *Run {
+	w := wrap{}
+	run := &Run{}
+	w.Payload = run
+
+	code, err := f.get(fmt.Sprintf("/flows/%s/runs/%s", flowID, runID), &w)
+	if err != nil {
+		log.Error(err)
+		return nil
+	}
+	switch code {
+	case http.StatusOK:
+		return run
+	case http.StatusNotFound:
+	default:
+		log.Errorf("got find run response: %d from %s, with: %s", code, f.GetConfig().HostID, w.Message)
 	}
 
 	return nil

@@ -9,6 +9,13 @@ import (
 	nt "github.com/floeit/floe/config/nodetype"
 )
 
+const (
+	// SubTagGood the tag to be used on events who's result is good
+	SubTagGood = "good"
+	// SubTagBad the tag to be used on events who's result is bad
+	SubTagBad = "bad"
+)
+
 // idFromName makes a file and URL/HTML friendly ID from the name.
 func idFromName(name string) string {
 	s := strings.Split(strings.ToLower(strings.TrimSpace(name)), " ")
@@ -40,6 +47,7 @@ type Node interface {
 	Status(status int) (string, bool)
 	TypeOfNode() string
 	Waits() int
+	GetTag(string) string
 }
 
 // NodeClass the type def for the types a Node can be
@@ -101,10 +109,12 @@ type node struct {
 	Listen     string
 	Wait       []string // if used as a merge node this is an array of event tags to wait for
 	Type       string
-	Good       []int   // the array of exit status codes considered a success
-	IgnoreFail bool    `yaml:"ignore-fail"` // only ever send the good event cant be used in conjunction with UseStatus
-	UseStatus  bool    `yaml:"use-status"`  // use status if we don't send good or bad but the actual status code as an event
-	Opts       nt.Opts // static config options
+	Good       []int // the array of exit status codes considered a success
+	IgnoreFail bool  `yaml:"ignore-fail"` // only ever send the good event cant be used in conjunction with UseStatus
+	// use status if we don't send good or bad but the actual status code as an event
+	// TODO - consider if mapping status codes to good and bad is all the complexity we need
+	UseStatus bool    `yaml:"use-status"`
+	Opts      nt.Opts // static config options
 }
 
 func (t *node) Execute(ws *nt.Workspace, opts nt.Opts, output chan string) (int, nt.Opts, error) {
@@ -121,7 +131,7 @@ func (t *node) Execute(ws *nt.Workspace, opts nt.Opts, output chan string) (int,
 func (t *node) Status(status int) (string, bool) {
 	// always good if ignore fail
 	if t.IgnoreFail {
-		return "good", true
+		return SubTagGood, true
 	}
 	// is this code considered a success
 	good := false
@@ -136,15 +146,15 @@ func (t *node) Status(status int) (string, bool) {
 			}
 		}
 	}
-	// use specific exit statuses
+	// use specific exit statuses TODO - is it an overcomplication
 	if t.UseStatus {
 		return strconv.Itoa(status), good
 	}
 	// or binary result
 	if good {
-		return "good", true
+		return SubTagGood, true
 	}
-	return "bad", false
+	return SubTagBad, false
 }
 
 func (t *node) FlowRef() FlowRef {
@@ -165,6 +175,10 @@ func (t *node) TypeOfNode() string {
 
 func (t *node) Waits() int {
 	return len(t.Wait)
+}
+
+func (t *node) GetTag(subTag string) string {
+	return fmt.Sprintf("%s.%s.%s", t.class, t.Ref.ID, subTag)
 }
 
 func (t *node) matchedTriggers(eType string, opts *nt.Opts) bool {

@@ -117,7 +117,7 @@ flows:
       
       tasks: 
         - name: checkout             # the name of this node 
-          listen: sub.git-push.good  # the event tag that triggers this node
+          listen: trigger.good       # the event tag that fires node (all triggers fire trigger.good)
           type: git-merge            # the task type 
           good: [0]                  # define what the good statuses are, default [0]
           ignore-fail: false         # if true only emit good
@@ -168,7 +168,7 @@ func TestYaml(t *testing.T) {
 		t.Error("wrong number of resource tags", len(fl.ResourceTags))
 	}
 
-	fns := c.FindFlowsBySubs("data", FlowRef{}, nt.Opts{"url": "blah.blah"})
+	fns := c.FindFlowsByTriggers("data", FlowRef{}, nt.Opts{"url": "blah.blah"})
 	if len(fns) != 1 {
 		t.Fatal("did not find the flow based on this sub", len(fns))
 	}
@@ -193,7 +193,7 @@ func TestYaml(t *testing.T) {
 		ID:  "build-project",
 		Ver: 1,
 	}
-	fsf, ok := c.FindNodeInFlow(fr, "sub.git-push.good")
+	fsf, ok := c.FindNodeInFlow(fr, "trigger.good")
 	if !ok {
 		t.Fatal("could not find flow")
 	}

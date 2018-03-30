@@ -1,8 +1,8 @@
 package event
 
 import (
-	"strings"
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/floeit/floe/config"
@@ -10,7 +10,7 @@ import (
 	"github.com/floeit/floe/log"
 )
 
-const sysPrefix = "sys."
+const sysPrefix = "sys." // all internal events that nodes can not see
 
 // HostedIDRef is any ID unique within the scope of the host that created it.
 type HostedIDRef struct {
@@ -100,18 +100,14 @@ type Event struct {
 // SetGood sets this event as a good event
 func (e *Event) SetGood() {
 	e.Good = true
-	e.Tag = getTag(e.SourceNode, "good")
+	e.Tag = fmt.Sprintf("%s.%s.good", e.SourceNode.Class, e.SourceNode.ID)
 }
 
-func (e *Event) IsSystem() bool{
+func (e *Event) IsSystem() bool {
 	if len(e.Tag) < 3 {
 		return false
 	}
 	return strings.HasPrefix(e.Tag, sysPrefix)
-}
-
-func getTag(node config.NodeRef, subTag string) string {
-	return fmt.Sprintf("%s.%s.%s", node.Class, node.ID, subTag)
 }
 
 // Queue is not strictly a queue, it just distributes all events to the observers

@@ -3,17 +3,17 @@ package server
 import (
 	"net"
 	"net/http"
-	
+
 	"github.com/julienschmidt/httprouter"
 
+	"github.com/floeit/floe/event"
 	"github.com/floeit/floe/hub"
 	"github.com/floeit/floe/log"
-	"github.com/floeit/floe/event"
 	"github.com/floeit/floe/server/push"
 )
 
 const rootPath = "/build/api"
-	
+
 // LaunchWeb sets up all the http routes runs the server and launches the trigger flows
 // rp is the root path. Returns the address it binds to.
 func LaunchWeb(host, rp string, hub *hub.Hub, q *event.Queue, addrChan chan string) {
@@ -32,17 +32,18 @@ func LaunchWeb(host, rp string, hub *hub.Hub, q *event.Queue, addrChan chan stri
 	r.POST(rp+"/logout", h.mw(logoutHandler, true))
 
 	// --- api ---
-	r.GET(rp+"/flows", h.mw(hndAllFlows, true))      // list all the flows configs
-	r.GET(rp+"/flows/:id", h.mw(hndFlow, true))      // return highest version of the flow
-	r.GET(rp+"/flows/:id/runs", h.mw(hndRuns, true)) // all runs from all hosts for this flow id
+	r.GET(rp+"/flows", h.mw(hndAllFlows, true))          // list all the flows configs
+	r.GET(rp+"/flows/:id", h.mw(hndFlow, true))          // return highest version of the flow config and run summaries from the cluster
+	r.GET(rp+"/flows/:id/runs/:rid", h.mw(hndRun, true)) // returns the identified run detail (may be on another host)
 
 	// --- push endpoints ---
 	h.setupPushes(rp+"/push/", r, hub)
 
 	// --- p2p api ---
-	r.POST(rp+"/p2p/flows/exec", h.mw(hndP2PExecFlow, true)) // internal api to pass a pending todo to activate it on this host
-	r.GET(rp+"/p2p/flows/:id/runs", h.mw(hndP2PRuns, true))  // all runs from this hosts for this flow id
-	r.GET(rp+"/p2p/config", h.mw(confHandler, true))         // return host config and what it knows about other hosts
+	r.POST(rp+"/p2p/flows/exec", h.mw(hndP2PExecFlow, true))    // internal api to pass a pending todo to activate it on this host
+	r.GET(rp+"/p2p/flows/:id/runs", h.mw(hndP2PRuns, true))     // all summary runs from this host for this flow id
+	r.GET(rp+"/p2p/flows/:id/runs/:rid", h.mw(hndP2PRun, true)) // detailed run info from this host for this flow id and run id
+	r.GET(rp+"/p2p/config", h.mw(confHandler, true))            // return host config and what it knows about other hosts
 
 	// --- static files for the spa ---
 	r.ServeFiles("/static/css/*filepath", http.Dir("webapp/css"))

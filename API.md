@@ -21,3 +21,9 @@ content-type: application/json
     "user": "admin",
     "password": "password"
 }
+
+events...
+
+add-todo
+activate
+remove-todo

@@ -7,7 +7,7 @@ export function FlowSingle() {
     var panel;
     var dataReq = function(){
         return {
-            URL: '/flows/' + panel.IDs[0],
+            URL: '/flows/' + panel.IDs[0] + '/runs/' + panel.IDs[1],
         };
     }
     

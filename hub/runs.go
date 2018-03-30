@@ -4,8 +4,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
-
 	"github.com/floeit/floe/config"
 	nt "github.com/floeit/floe/config/nodetype"
 	"github.com/floeit/floe/event"
@@ -63,6 +61,16 @@ type Run struct {
 	ExecNodes  map[string]exec  // the sates of any exec nodes
 }
 
+func newRun(ref event.RunRef) *Run {
+	return &Run{
+		Ref:        ref,
+		StartTime:  time.Now(),
+		MergeNodes: map[string]merge{},
+		DataNodes:  map[string]data{},
+		ExecNodes:  map[string]exec{},
+	}
+}
+
 // updateWithMergeEvent adds the tag to the nodeID and returns current length of tags
 // and a copy of the merge options
 func (r *Run) updateWithMergeEvent(nodeID, tag string, opts nt.Opts) (int, nt.Opts) {
@@ -95,6 +103,7 @@ func (r *Run) updateExecNode(nodeID string, line string) {
 }
 
 // updateDataNode adds the opts form description
+// TODO - this via the store so it can be persisted
 func (r *Run) updateDataNode(nodeID string, opts nt.Opts) {
 	r.Lock()
 	defer r.Unlock()
@@ -134,6 +143,15 @@ type Runs []*Run
 // Save saves the runs
 func (r Runs) Save(key string, s store.Store) error {
 	return s.Save(key, r)
+}
+
+func (r Runs) find(flowID, runID string) *Run {
+	for _, run := range r {
+		if run.Ref.FlowRef.ID == flowID && run.Ref.Run.String() == runID {
+			return run
+		}
+	}
+	return nil
 }
 
 // RunStore stores runs
@@ -198,8 +216,6 @@ func (r *RunStore) end(run *Run, status string, good bool) bool {
 	r.active = r.active[:len(r.active)-1]
 	r.archive = append(r.archive, run)
 
-	spew.Dump(run)
-
 	r.active.Save(activeKey, r.store)
 	r.archive.Save(archiveKey, r.store)
 
@@ -246,13 +262,7 @@ func (r *RunStore) activate(todo *Todo, hostID string) error {
 	// update the runref with this executing host
 	todo.Ref.ExecHost = hostID
 
-	r.active = append(r.active, &Run{
-		Ref:        todo.Ref,
-		StartTime:  time.Now(),
-		MergeNodes: map[string]merge{},
-		DataNodes:  map[string]data{},
-		ExecNodes:  map[string]exec{},
-	})
+	r.active = append(r.active, newRun(todo.Ref))
 
 	return r.active.Save(activeKey, r.store)
 }
@@ -290,8 +300,23 @@ func (r *RunStore) removeTodo(todo Todo) (bool, error) {
 	return false, nil
 }
 
-func (r *RunStore) allRuns(id string) (pending Runs, active Runs, archive Runs) {
+// find finds the run given by flowID and runID if it exists in the todo, active, or archive runs
+func (r *RunStore) find(flowID, runID string) *Run {
+	pending := r.todoToRuns(flowID)
 
+	r.Lock()
+	defer r.Unlock()
+
+	for _, runs := range []Runs{pending, r.active, r.archive} {
+		run := runs.find(flowID, runID)
+		if run != nil {
+			return run
+		}
+	}
+	return nil
+}
+
+func (r *RunStore) todoToRuns(id string) (pending Runs) {
 	r.Lock()
 	defer r.Unlock()
 
@@ -303,6 +328,14 @@ func (r *RunStore) allRuns(id string) (pending Runs, active Runs, archive Runs) 
 			Ref: t.Ref,
 		})
 	}
+	return pending
+}
+
+func (r *RunStore) allRuns(id string) (pending Runs, active Runs, archive Runs) {
+	pending = r.todoToRuns(id)
+
+	r.Lock()
+	defer r.Unlock()
 
 	for _, t := range r.active {
 		if t.Ref.FlowRef.ID != id {

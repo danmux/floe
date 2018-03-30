@@ -37,7 +37,7 @@ func (d Data) PostHandler(queue *event.Queue) httprouter.Handle {
 				FlowRef: o.Ref,
 				// Run // TODO - if a run is given then it is data targetting a data input node - and not a trigger
 			},
-			Tag:  "data",
+			Tag:  "inbound.data",
 			Opts: o.Answers,
 		})
 

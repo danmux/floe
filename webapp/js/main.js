@@ -74,7 +74,9 @@ function main() {
 
             // map the rest event to the panel
             var panel = '';
-            if (evt.Value.Url.indexOf("/flows/") >= 0) {
+            if (evt.Value.Url.indexOf("/runs/") >= 0) {
+                panel = 'flow-single'
+            } else if (evt.Value.Url.indexOf("/flows/") >= 0) {
                 panel = 'flow'
             } else if (evt.Value.Url== "/flows") {
                 panel = 'dash';
