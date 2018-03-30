@@ -37,19 +37,6 @@ type nid interface {
 	id() string
 }
 
-// Node is defined as a proxy interface to assert read only properties of the deserialised
-// config nodes, they are the thing that an event triggers some behavior in.
-type Node interface {
-	FlowRef() FlowRef
-	NodeRef() NodeRef
-	Class() NodeClass
-	Execute(*nt.Workspace, nt.Opts, chan string) (int, nt.Opts, error)
-	Status(status int) (string, bool)
-	TypeOfNode() string
-	Waits() int
-	GetTag(string) string
-}
-
 // NodeClass the type def for the types a Node can be
 type NodeClass string
 
@@ -102,7 +89,7 @@ func zeroNID(n nid) error {
 type node struct {
 	// what flow is this node attached to
 	flowRef    FlowRef
-	class      NodeClass
+	Class      NodeClass
 	Ref        NodeRef
 	ID         string
 	Name       string
@@ -165,10 +152,6 @@ func (t *node) NodeRef() NodeRef {
 	return t.Ref
 }
 
-func (t *node) Class() NodeClass {
-	return t.class
-}
-
 func (t *node) TypeOfNode() string {
 	return t.Type
 }
@@ -178,7 +161,7 @@ func (t *node) Waits() int {
 }
 
 func (t *node) GetTag(subTag string) string {
-	return fmt.Sprintf("%s.%s.%s", t.class, t.Ref.ID, subTag)
+	return fmt.Sprintf("%s.%s.%s", t.Class, t.Ref.ID, subTag)
 }
 
 func (t *node) matchedTriggers(eType string, opts *nt.Opts) bool {
@@ -233,7 +216,7 @@ func (t *node) zero(class NodeClass, flow FlowRef) error {
 		ID:    t.ID,
 	}
 	t.flowRef = flow
-	t.class = class
+	t.Class = class
 
 	n := nt.GetNodeType(t.Type)
 	if n == nil {

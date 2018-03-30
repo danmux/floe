@@ -23,6 +23,24 @@ const (
 	tagGoodTrigger = "trigger.good"      // always issued when a trigger
 )
 
+// node definitions
+type refNode interface {
+	NodeRef() config.NodeRef
+	GetTag(string) string
+}
+
+type exeNode interface {
+	refNode
+	Execute(*nt.Workspace, nt.Opts, chan string) (int, nt.Opts, error)
+	Status(status int) (string, bool)
+}
+
+type mergeNode interface {
+	refNode
+	TypeOfNode() string
+	Waits() int
+}
+
 // Hub links events to the config rules
 type Hub struct {
 	sync.RWMutex
@@ -277,7 +295,9 @@ func (h *Hub) distributeAllPending() error {
 		// as we have some hosts configured - attempt to schedule them
 		flow, ok := h.config.FindFlow(p.Ref.FlowRef, p.InitiatingEvent.Tag, p.InitiatingEvent.Opts)
 		if !ok {
-			h.removeTodo(p)
+			if err := h.removeTodo(p); err != nil {
+				return err
+			}
 			// TODO update status of the run - to indicate error
 			// TODO possibly issue a system event to inform the UI of this failure
 			return fmt.Errorf("pending not found %s, %s removed from todo", p, p.InitiatingEvent.Tag)
@@ -414,7 +434,7 @@ func (h *Hub) dispatchToActive(e event.Event) {
 
 	// Fire all matching nodes
 	for _, n := range found.Nodes {
-		switch n.Class() {
+		switch n.Class {
 		case config.NcTask:
 			switch nt.NType(n.TypeOfNode()) {
 			case nt.NtEnd: // special task type end the run
@@ -435,7 +455,7 @@ func (h *Hub) dispatchToActive(e event.Event) {
 // setFormData - sets the opts form data on the active run it emits no events
 // so will effectively pause the run, until inbound data triggers the event for
 // this data node.
-func (h *Hub) setFormData(run *Run, node config.Node, opts nt.Opts) {
+func (h *Hub) setFormData(run *Run, node exeNode, opts nt.Opts) {
 	// data nodes just do stuff with the inbound opts and the node opts (that define the data fields)
 	_, outOpts, _ := node.Execute(nil, opts, nil)
 	// add the form fields to the flow
@@ -460,7 +480,7 @@ func (h *Hub) publishIfActive(e event.Event) {
 }
 
 // executeNode invokes a task node Execute function for the active run
-func (h *Hub) executeNode(run *Run, node config.Node, e event.Event, singleWs bool) {
+func (h *Hub) executeNode(run *Run, node exeNode, e event.Event, singleWs bool) {
 	runRef := run.Ref
 	log.Debugf("<%s> - exec node - event tag: %s", runRef, e.Tag)
 
@@ -523,7 +543,7 @@ func (h *Hub) executeNode(run *Run, node config.Node, e event.Event, singleWs bo
 }
 
 // mergeEvent deals with events to a merge node
-func (h *Hub) mergeEvent(run *Run, node config.Node, e event.Event) {
+func (h *Hub) mergeEvent(run *Run, node mergeNode, e event.Event) {
 	log.Debugf("<%s> (%s) - merge %s", run.Ref.FlowRef, run.Ref.Run, e.Tag)
 
 	waitsDone, opts := h.runs.updateWithMergeEvent(run, node.NodeRef().ID, e.Tag, e.Opts)

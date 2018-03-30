@@ -31,7 +31,7 @@ type FoundFlow struct {
 	ResourceTags []string
 	HostTags     []string
 
-	Nodes []Node
+	Nodes []*node
 }
 
 // FindFlowsByTriggers finds all flows where its subs match the given params
@@ -61,7 +61,7 @@ func (c *Config) FindFlowsByTriggers(eType string, flow FlowRef, opts nt.Opts) m
 					HostTags:     f.HostTags,
 				}
 			}
-			ff.Nodes = []Node{}
+			ff.Nodes = []*node{}
 			for _, n := range ns {
 				ff.Nodes = append(ff.Nodes, n)
 			}
@@ -119,17 +119,17 @@ func (c *Config) FindNodeInFlow(fRef FlowRef, tag string) (FoundFlow, bool) {
 		ReuseSpace:   f.ReuseSpace,
 		ResourceTags: f.ResourceTags,
 		HostTags:     f.HostTags,
-		Nodes:        []Node{},
+		Nodes:        []*node{},
 	}
 	// normal tasks
 	ns := f.matchTag(NcTask, tag)
 	for _, n := range ns {
-		ff.Nodes = append(ff.Nodes, Node(n))
+		ff.Nodes = append(ff.Nodes, n)
 	}
 	// merge nodes
 	ns = f.matchTag(NcMerge, tag)
 	for _, n := range ns {
-		ff.Nodes = append(ff.Nodes, Node(n))
+		ff.Nodes = append(ff.Nodes, n)
 	}
 	return ff, true
 }
