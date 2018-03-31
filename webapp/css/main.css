@@ -267,6 +267,15 @@ heading {
     margin: 0 0 10px;
 }
 
+triggers {
+    display: block;
+}
+
+.level {
+    display: block;
+    clear: left;
+}
+
 tasks {
     margin: 20px auto;
     width: 50%; 

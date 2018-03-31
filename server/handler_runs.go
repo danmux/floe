@@ -23,17 +23,23 @@ func hndRun(rw http.ResponseWriter, r *http.Request, ctx *context) (int, string,
 
 	// get the config for this run
 	conf := ctx.hub.Config()
-	matchingConf := conf.Flow(run.Ref.FlowRef)
-	if matchingConf == nil {
+	flow := conf.Flow(run.Ref.FlowRef)
+	if flow == nil {
 		return rNotFound, "matching config not found", nil
 	}
 
+	graph, problems := flow.Graph()
+
 	response := struct {
-		Config *config.Flow
-		Run    *client.Run
+		Config   *config.Flow
+		Graph    [][]string
+		Problems []string
+		Run      *client.Run
 	}{
-		Config: matchingConf,
-		Run:    run,
+		Config:   flow,
+		Graph:    graph,
+		Problems: problems,
+		Run:      run,
 	}
 
 	return rOK, "", response

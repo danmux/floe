@@ -220,6 +220,18 @@ func (t *node) zero(defaultClass NodeClass, flow FlowRef) error {
 		ID:    t.ID,
 	}
 
+	// node specific checks
+	switch t.Class {
+	case NcTask:
+		if len(t.Wait) != 0 {
+			return errors.New("task nodes can not have waits")
+		}
+	case NcMerge:
+		if t.Listen != "" {
+			return errors.New("merge nodes can not have listen set")
+		}
+	}
+
 	// not entirely sure what CastOpts was supposed to do
 	// possibly set up default node Opts as specific node related struct fields?
 	// n := nt.GetNodeType(t.Type)

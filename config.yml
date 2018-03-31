@@ -6,6 +6,7 @@ common:
 
 flows:
     - id: build-project              # the name of this flow
+      name: Build Project
       ver: 1
       reuse-space: true               # reuse the workspace (false) - if true /single used 
       resource-tags: [couchbase, nic] # resource labels that any other flows cant share
@@ -70,15 +71,15 @@ flows:
                   prompt: To Branch (or hash)
                   type: string
 
-        - name: complete
-          listen: merge.signed.good
-          type: end                 # getting here means the flow was a success
-
         - name: wait test and sign off
           class: merge
           id: signed
           type: all
           wait: [task.echo.good, task.test.good, task.sign-off.good]
+
+        - name: complete
+          listen: merge.signed.good
+          type: end                 # getting here means the flow was a success 'end' is the special definitive end event
 
     - id: danmux
       ver: 1

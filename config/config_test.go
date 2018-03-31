@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/davecgh/go-spew/spew"
 	nt "github.com/floeit/floe/config/nodetype"
 )
 
@@ -129,16 +128,26 @@ flows:
           opts:
             cmd: "make build"        # the command to execute 
 
+        - name: build-osx
+          listen: task.checkout.good
+          type: exec
+          opts:
+            cmd: "make build"        # the command to execute 
+
+        - id: builds
+          class: merge
+          type: all                  # wait for all events
+          wait: [task.build.good, task.build-osx.good]
+          
         - id: test
-          listen: task.build.good    
+          listen: merge.builds.good    
           type: exec                 # execute a command
           opts:
             cmd: "make test"         # the command to execute 
 
-        - id: test-merge
-          class: merge
-          type: all                  # wait for all events
-          wait: [task.test.good]
+        - name: Complete
+          listen: task.test.good
+          type: end                # getting here means the flow was a success 'end' is the special definitive end event
     
     - id: build-merge
       ver: 1
@@ -216,8 +225,7 @@ func TestYaml(t *testing.T) {
 		t.Error("got wrong node id", ns[0].NodeRef().ID)
 	}
 
-	found, flowExists := c.FindNodeInFlow(fr, "task.test.good")
-	spew.Dump(found)
+	found, flowExists := c.FindNodeInFlow(fr, "task.build.good")
 	if !flowExists {
 		t.Error("did not find merge node")
 	}

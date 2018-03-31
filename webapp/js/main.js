@@ -27,11 +27,11 @@ function main() {
         '/dash': function () { 
             controller.Activate('dash');
         },
-        '/flows/:id': function (par) { 
-            controller.Activate('flow', [par.id]);
+        '/flows/:fid': function (par) { 
+            controller.Activate('flow', [par.fid]);
         },
         '/flows/:fid/runs/:rid': function (par) { 
-            controller.Activate('flow-single', [par.id, par.rid]);
+            controller.Activate('flow-single', [par.fid, par.rid]);
         },
         '/settings': function () { 
             controller.Activate('settings');

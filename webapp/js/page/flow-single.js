@@ -14,17 +14,41 @@ export function FlowSingle() {
     var events = [];
 
     // panel is view - or part of it
-    var panel = new Panel(this, null, tplFlow, '#main', events, dataReq);
+    var panel = new Panel(this, null, graphFlow, '#main', events, dataReq);
 
     this.Map = function(evt) {
         console.log("flow got a call to Map", evt);
-        return evt.Value.Response.Payload.Config;
+        // return evt.Value.Response.Payload.Config;
+        evt.Value.Response.Payload.Parent = '/flows/' + panel.IDs[0];
+        console.log(evt.Value.Response.Payload);
+        return evt.Value.Response.Payload;
     }
 
     var panels = {};
 
     return panel;
 }
+
+var graphFlow = `
+    <div id='flow' class='flow-single'>
+        <summary>
+            <h3><a href='{{=it.Data.Parent}}'> {{=it.Data.Config.Name}}</a></h3>
+        </summary>
+        <tasks>
+        {{~it.Data.Graph :level:index}}
+          <div id='level-{{=index}}' class='level section'>
+          {{~level :trigger:indx}}
+            <box id='trig-{{=trigger}}' class='task'>
+              <h4>{{=trigger}}</h4>
+            </box>
+          {{~}}
+          </div>
+        {{~}}
+        </tasks>
+
+    </div>
+`
+
 
 var tplFlow = `
     <div id='flow' class='flow-single'>
