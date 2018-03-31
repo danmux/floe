@@ -74,8 +74,8 @@ flows:
           listen: merge.signed.good
           type: end                 # getting here means the flow was a success
 
-      merges:
         - name: wait test and sign off
+          class: merge
           id: signed
           type: all
           wait: [task.echo.good, task.test.good, task.sign-off.good]

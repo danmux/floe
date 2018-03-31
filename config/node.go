@@ -45,7 +45,6 @@ const (
 	NcTask    NodeClass = "task"
 	NcMerge   NodeClass = "merge"
 	NcTrigger NodeClass = "trigger"
-	NcPub     NodeClass = "pub"
 )
 
 // NodeRef uniquely identifies a Node across time (versions)
@@ -207,22 +206,26 @@ func (t *node) id() string {
 	return t.ID
 }
 
-func (t *node) zero(class NodeClass, flow FlowRef) error {
+func (t *node) zero(defaultClass NodeClass, flow FlowRef) error {
 	if err := zeroNID(t); err != nil {
 		return err
 	}
+	t.flowRef = flow
+	if t.Class == "" {
+		t.Class = defaultClass
+	}
+
 	t.Ref = NodeRef{
-		Class: class,
+		Class: t.Class,
 		ID:    t.ID,
 	}
-	t.flowRef = flow
-	t.Class = class
 
-	n := nt.GetNodeType(t.Type)
-	if n == nil {
-		return nil
-	}
-
+	// not entirely sure what CastOpts was supposed to do
+	// possibly set up default node Opts as specific node related struct fields?
+	// n := nt.GetNodeType(t.Type)
+	// if n == nil {
+	// 	return nil
+	// }
 	// n.CastOpts(&t.Opts)
 
 	return nil

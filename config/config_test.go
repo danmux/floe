@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/davecgh/go-spew/spew"
 	nt "github.com/floeit/floe/config/nodetype"
 )
 
@@ -128,11 +129,16 @@ flows:
           opts:
             cmd: "make build"        # the command to execute 
 
-        - id: test                
+        - id: test
           listen: task.build.good    
           type: exec                 # execute a command
           opts:
             cmd: "make test"         # the command to execute 
+
+        - id: test-merge
+          class: merge
+          type: all                  # wait for all events
+          wait: [task.test.good]
     
     - id: build-merge
       ver: 1
@@ -152,6 +158,8 @@ flows:
 `)
 
 func TestYaml(t *testing.T) {
+	t.Parallel()
+
 	c, err := ParseYAML(in)
 	if err != nil {
 		t.Fatal(err)
@@ -207,9 +215,20 @@ func TestYaml(t *testing.T) {
 	if ns[0].NodeRef().ID != "checkout" {
 		t.Error("got wrong node id", ns[0].NodeRef().ID)
 	}
+
+	found, flowExists := c.FindNodeInFlow(fr, "task.test.good")
+	spew.Dump(found)
+	if !flowExists {
+		t.Error("did not find merge node")
+	}
+	if len(found.Nodes) != 1 {
+		t.Error("found wrong merge node count", len(found.Nodes))
+	}
 }
 
 func TestYamlTrigger(t *testing.T) {
+	t.Parallel()
+
 	c, err := ParseYAML(in)
 	if err != nil {
 		t.Fatal(err)
@@ -233,6 +252,9 @@ func TestYamlTrigger(t *testing.T) {
 	}
 
 	b, err := json.Marshal(&n.Opts)
+	if err != nil {
+		t.Error(err)
+	}
 
 	if string(b) != `{"Form":{"Fields":[{"Id":"branch","Prompt":"Branch","Type":"string"}],"Title":"Start"}}` {
 		t.Error("json opts are wrong", string(b))

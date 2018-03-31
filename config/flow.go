@@ -43,8 +43,6 @@ type Flow struct {
 	// The Various node types included in this flow
 	Triggers []*node
 	Tasks    []*node
-	Pubs     []*node
-	Merges   []*node
 }
 
 func (f *Flow) matchTriggers(eType string, opts *nt.Opts) []*node {
@@ -57,10 +55,9 @@ func (f *Flow) matchTriggers(eType string, opts *nt.Opts) []*node {
 	return res
 }
 
-func (f *Flow) matchTag(class NodeClass, tag string) []*node {
+func (f *Flow) matchTag(tag string) []*node {
 	res := []*node{}
-	nl := f.classToList(class)
-	for _, s := range nl {
+	for _, s := range f.Tasks {
 		if s.matched(tag) {
 			res = append(res, s)
 		}
@@ -91,19 +88,32 @@ func (f *Flow) zero() error {
 		Ver: f.Ver,
 	}
 
-	for _, class := range []NodeClass{NcMerge, NcPub, NcTrigger, NcTask} {
-		nl := f.classToList(class)
-		ids := map[string]int{}
-		for i, t := range nl {
-			if err := t.zero(class, fr); err != nil {
-				return fmt.Errorf("%s %d - %v", class, i, err)
-			}
-			ids[t.id()]++
+	ids := map[string]int{}
+	for i, t := range f.Triggers {
+		if err := t.zero(NcTrigger, fr); err != nil {
+			return fmt.Errorf("%s %d - %v", NcTrigger, i, err)
 		}
-		for k, c := range ids {
-			if c != 1 {
-				return fmt.Errorf("%d nodes have id: %s", c, k)
-			}
+		ids[t.id()]++
+	}
+	for i, t := range f.Tasks {
+		if err := t.zero(NcTask, fr); err != nil {
+			return fmt.Errorf("%s %d - %v", NcTask, i, err)
+		}
+		ids[t.id()]++
+	}
+
+	// for _, class := range []NodeClass{NcMerge, NcTrigger, NcTask} {
+	// 	nl := f.classToList(class)
+	// 	ids := map[string]int{}
+	// 	for i, t := range nl {
+	// 		if err := t.zero(class, fr); err != nil {
+	// 			return fmt.Errorf("%s %d - %v", class, i, err)
+	// 		}
+	// 		ids[t.id()]++
+	// 	}
+	for k, c := range ids {
+		if c != 1 {
+			return fmt.Errorf("%d nodes have id: %s", c, k)
 		}
 	}
 
@@ -113,32 +123,27 @@ func (f *Flow) zero() error {
 	return nil
 }
 
-func (f *Flow) classToList(class NodeClass) []*node {
-	nl := []*node{}
-	switch class {
-	case NcMerge:
-		nl = f.Merges
-	case NcPub:
-		nl = f.Pubs
-	case NcTrigger:
-		nl = f.Triggers
-	case NcTask:
-		nl = f.Tasks
-	}
-	return nl
-}
+// func (f *Flow) classToList(class NodeClass) []*node {
+// 	nl := []*node{}
+// 	switch class {
+// 	case NcTrigger:
+// 		nl = f.Triggers
+// 	case NcTask:
+// 		for _, n := range f.Tasks {
+// 			if n.Class != class {
+// 				continue
+// 			}
+// 			nl = append(nl, n)
+// 		}
+// 	}
+// 	return nl
+// }
 
 func (f *Flow) fixupOpts() {
 	for _, v := range f.Triggers {
 		v.Opts.Fixup()
 	}
 	for _, v := range f.Tasks {
-		v.Opts.Fixup()
-	}
-	for _, v := range f.Pubs {
-		v.Opts.Fixup()
-	}
-	for _, v := range f.Merges {
 		v.Opts.Fixup()
 	}
 }

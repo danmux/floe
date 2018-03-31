@@ -146,12 +146,12 @@ flows:
                   prompt: To Branch (or hash)
                   type: string
     
-      merges:
+      tasks:
         - name: wait tests
+          class: merge
           type: all
           wait: [task.test.good, task.test2.good]
-    
-      tasks: 
+     
         - name: checkout             # the name of this node 
           listen: trigger.good       # the event tag that triggers this node
           type: git-merge            # the task type 

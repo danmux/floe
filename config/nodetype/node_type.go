@@ -11,7 +11,8 @@ const (
 	NtGitMerge NType = "git-merge"
 )
 
-// NodeType is the interface for an option comparing node
+// NodeType is the interface for a node. All implementations on NodeType are stateless
+// THe Execute method must be a pure(ish) function operating on in and returning an out Opts
 type NodeType interface {
 	Match(Opts, Opts) bool
 	Execute(ws *Workspace, in Opts, output chan string) (int, Opts, error)

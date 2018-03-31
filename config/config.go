@@ -61,10 +61,7 @@ func (c *Config) FindFlowsByTriggers(eType string, flow FlowRef, opts nt.Opts) m
 					HostTags:     f.HostTags,
 				}
 			}
-			ff.Nodes = []*node{}
-			for _, n := range ns {
-				ff.Nodes = append(ff.Nodes, n)
-			}
+			ff.Nodes = ns
 			res[fr] = ff
 		} else {
 			log.Debugf("config - flow:<%s> failed on trigger match", flow)
@@ -114,24 +111,13 @@ func (c *Config) FindNodeInFlow(fRef FlowRef, tag string) (FoundFlow, bool) {
 		return ff, false
 	}
 	// we found the matching flow so can find any matching nodes
-	ff = FoundFlow{
+	return FoundFlow{
 		Ref:          fRef,
 		ReuseSpace:   f.ReuseSpace,
 		ResourceTags: f.ResourceTags,
 		HostTags:     f.HostTags,
-		Nodes:        []*node{},
-	}
-	// normal tasks
-	ns := f.matchTag(NcTask, tag)
-	for _, n := range ns {
-		ff.Nodes = append(ff.Nodes, n)
-	}
-	// merge nodes
-	ns = f.matchTag(NcMerge, tag)
-	for _, n := range ns {
-		ff.Nodes = append(ff.Nodes, n)
-	}
-	return ff, true
+		Nodes:        f.matchTag(tag),
+	}, true
 }
 
 // zero sets up all the default values

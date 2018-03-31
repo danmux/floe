@@ -19,39 +19,23 @@ type task struct {
 	exec func(ws *nt.Workspace, updates chan string)
 }
 
-func (t *task) Execute(ws *nt.Workspace, opts nt.Opts, updates chan string) (int, nt.Opts, error) {
-	if t.exec != nil {
-		t.exec(ws, updates)
-	}
-	return 0, nil, nil
+func (t *task) NodeRef() config.NodeRef {
+	return config.NodeRef{}
 }
 
 func (t *task) Status(status int) (string, bool) {
 	return config.SubTagBad, true
 }
 
-func (t *task) FlowRef() config.FlowRef {
-	return config.FlowRef{}
-}
-
-func (t *task) NodeRef() config.NodeRef {
-	return config.NodeRef{}
-}
-
-func (t *task) Class() config.NodeClass {
-	return config.NcTask
-}
-
-func (t *task) TypeOfNode() string {
-	return "foo"
-}
-
-func (t *task) Waits() int {
-	return 0
-}
-
 func (t *task) GetTag(string) string {
 	return "tag"
+}
+
+func (t *task) Execute(ws *nt.Workspace, opts nt.Opts, updates chan string) (int, nt.Opts, error) {
+	if t.exec != nil {
+		t.exec(ws, updates)
+	}
+	return 0, nil, nil
 }
 
 func TestExecuteNode(t *testing.T) {
@@ -127,15 +111,14 @@ flows:
           opts:
             cmd: "make test 2"       # the command to execute 
 
+        - name: merge-tests
+          class: merge
+          type: all                 # need all wait events to fire 
+          wait: [task.test1.good, task.test2.good]
+
         - name: complete
           listen: merge.merge-tests.good
           type: end                 # getting here means the flow was a success
-        
-      merges:
-        - name: merge-tests
-          type: all                 # need all wait events to fire 
-          wait: [task.test1.good, task.test2.good]
-      
 `)
 
 func waitEvtTimeout(t *testing.T, ch chan event.Event) *event.Event {
@@ -149,6 +132,8 @@ func waitEvtTimeout(t *testing.T, ch chan event.Event) *event.Event {
 }
 
 func TestHub(t *testing.T) {
+	t.Parallel()
+
 	c, _ := config.ParseYAML(in)
 	s := store.NewMemStore()
 	q := &event.Queue{}
@@ -272,6 +257,8 @@ func (o *testObs) Notify(e event.Event) {
 }
 
 func TestExpandPath(t *testing.T) {
+	t.Parallel()
+
 	usr, _ := user.Current()
 	hd := usr.HomeDir
 
@@ -298,11 +285,11 @@ func TestExpandPath(t *testing.T) {
 	}
 
 	ep, _ := expandPath("%tmp/test/bar")
-	fpos := strings.Index(ep, "/floe")
-	if fpos < 5 {
+	fPos := strings.Index(ep, "/floe")
+	if fPos < 5 {
 		t.Error("tmp expansion failed", ep)
 	}
-	if strings.Index(ep, "/test/bar") < fpos {
-		t.Error("tmp expansion prefix... isnt ", ep)
+	if strings.Index(ep, "/test/bar") < fPos {
+		t.Error("tmp expansion prefix... isn't ", ep)
 	}
 }
