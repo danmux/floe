@@ -7,6 +7,7 @@ import (
 	"github.com/floeit/floe/config"
 	nt "github.com/floeit/floe/config/nodetype"
 	"github.com/floeit/floe/event"
+	"github.com/floeit/floe/log"
 	"github.com/floeit/floe/store"
 )
 
@@ -16,17 +17,17 @@ const (
 	archiveKey = "archive-list"
 )
 
-// Todo is a triggered flow that is waiting for a slave
-type Todo struct {
+// Pend is a triggered flow that is waiting for a slave
+type Pend struct {
 	Ref             event.RunRef
 	InitiatingEvent event.Event
 }
 
-func (t Todo) String() string {
+func (t Pend) String() string {
 	return t.Ref.String()
 }
 
-func (t Todo) Equal(u Todo) bool {
+func (t Pend) Equal(u Pend) bool {
 	return t.Ref.Equal(u.Ref)
 }
 
@@ -129,12 +130,17 @@ func (r *Run) end(status string, good bool) {
 // Being added to the Pending list assigned the RunRef
 type pending struct {
 	Counter int64 // The ID counter - TODO load in from the store on startup
-	Todos   []*Todo
+	Pends   []*Pend
 }
 
 // Save saves the pending list
 func (r pending) Save(key string, s store.Store) error {
 	return s.Save(key, r)
+}
+
+// Load loads the pending list
+func (r *pending) Load(key string, s store.Store) error {
+	return s.Load(key, r)
 }
 
 // Runs is a list of Run
@@ -143,6 +149,11 @@ type Runs []*Run
 // Save saves the runs
 func (r Runs) Save(key string, s store.Store) error {
 	return s.Save(key, r)
+}
+
+// Load loads the runs
+func (r *Runs) Load(key string, s store.Store) error {
+	return s.Load(key, r)
 }
 
 func (r Runs) find(flowID, runID string) *Run {
@@ -172,9 +183,21 @@ type RunStore struct {
 }
 
 func newRunStore(store store.Store) *RunStore {
-	return &RunStore{
+	r := &RunStore{
 		store: store,
 	}
+	// load in any lists
+	if err := r.pending.Load(pendingKey, r.store); err != nil {
+		log.Error("can not load pending list", err)
+	}
+	if err := r.active.Load(activeKey, r.store); err != nil {
+		log.Error("can not load active list", err)
+	}
+	if err := r.archive.Load(archiveKey, r.store); err != nil {
+		log.Error("can not load archive list", err)
+	}
+
+	return r
 }
 
 // findActiveRun returns the run from the active list that matches the given ref
@@ -193,8 +216,29 @@ func (r *RunStore) updateWithMergeEvent(run *Run, nodeID, tag string, opts nt.Op
 	i, o := run.updateWithMergeEvent(nodeID, tag, opts)
 	r.Lock()
 	defer r.Unlock()
-	r.active.Save(activeKey, r.store)
+	if err := r.active.Save(activeKey, r.store); err != nil {
+		log.Error("could not save", activeKey, err)
+	}
 	return i, o
+}
+
+// TODO - consider buffering these writes if the updates come in fast
+func (r *RunStore) updateExecNode(run *Run, nodeID string, line string) {
+	run.updateExecNode(nodeID, line)
+	r.Lock()
+	defer r.Unlock()
+	if err := r.active.Save(activeKey, r.store); err != nil {
+		log.Error("could not save exe update", activeKey, err)
+	}
+}
+
+func (r *RunStore) updateDataNode(run *Run, nodeID string, opts nt.Opts) {
+	run.updateDataNode(nodeID, opts)
+	r.Lock()
+	defer r.Unlock()
+	if err := r.active.Save(activeKey, r.store); err != nil {
+		log.Error("could not save data node", activeKey, err)
+	}
 }
 
 // end moves the run from active to archive. As a run may have many events that would end it
@@ -216,8 +260,12 @@ func (r *RunStore) end(run *Run, status string, good bool) bool {
 	r.active = r.active[:len(r.active)-1]
 	r.archive = append(r.archive, run)
 
-	r.active.Save(activeKey, r.store)
-	r.archive.Save(archiveKey, r.store)
+	if err := r.active.Save(activeKey, r.store); err != nil {
+		log.Error("could not save", activeKey, err)
+	}
+	if err := r.archive.Save(archiveKey, r.store); err != nil {
+		log.Error("could not save", archiveKey, err)
+	}
 
 	return true
 }
@@ -231,14 +279,14 @@ func (r *RunStore) addToPending(flow config.FlowRef, hostID string, e event.Even
 		HostID: hostID,
 		ID:     r.pending.Counter,
 	}
-	t := &Todo{
+	t := &Pend{
 		Ref: event.RunRef{
 			FlowRef: flow,
 			Run:     run,
 		},
 		InitiatingEvent: e,
 	}
-	r.pending.Todos = append(r.pending.Todos, t)
+	r.pending.Pends = append(r.pending.Pends, t)
 
 	return t.Ref, r.pending.Save(pendingKey, r.store)
 }
@@ -255,54 +303,54 @@ func (r *RunStore) activeFlows() []config.FlowRef {
 }
 
 // activate adds the active configs to the active list saves it, and returns the run id
-func (r *RunStore) activate(todo *Todo, hostID string) error {
+func (r *RunStore) activate(pend *Pend, hostID string) error {
 	r.Lock()
 	defer r.Unlock()
 
 	// update the runref with this executing host
-	todo.Ref.ExecHost = hostID
+	pend.Ref.ExecHost = hostID
 
-	r.active = append(r.active, newRun(todo.Ref))
+	r.active = append(r.active, newRun(pend.Ref))
 
 	return r.active.Save(activeKey, r.store)
 }
 
-func (r *RunStore) allTodos() []Todo {
+func (r *RunStore) allPends() []Pend {
 	r.Lock()
 	defer r.Unlock()
-	t := make([]Todo, len(r.pending.Todos))
-	for i, todo := range r.pending.Todos {
-		t[i] = *todo
+	t := make([]Pend, len(r.pending.Pends))
+	for i, pend := range r.pending.Pends {
+		t[i] = *pend
 	}
 	return t
 }
 
-// removeTodo returns true if the given todo is removed from the pending list
-func (r *RunStore) removeTodo(todo Todo) (bool, error) {
+// removePend returns true if the given pending run is removed from the pending list
+func (r *RunStore) removePend(pend Pend) (bool, error) {
 	r.Lock()
 	defer r.Unlock()
 
-	for i, td := range r.pending.Todos {
-		if td.Equal(todo) {
+	for i, td := range r.pending.Pends {
+		if td.Equal(pend) {
 			// slide them down
-			copy(r.pending.Todos[i:], r.pending.Todos[i+1:])
+			copy(r.pending.Pends[i:], r.pending.Pends[i+1:])
 			// explicitly drop the reference to the one left at the end
-			r.pending.Todos[len(r.pending.Todos)-1] = nil
+			r.pending.Pends[len(r.pending.Pends)-1] = nil
 			// and remove it from the slice
-			r.pending.Todos = r.pending.Todos[:len(r.pending.Todos)-1]
+			r.pending.Pends = r.pending.Pends[:len(r.pending.Pends)-1]
 
 			// save the whole pending list
 			return true, r.pending.Save(pendingKey, r.store)
 		}
 	}
-	// If the todo is not found then there is nothing to worry about
+	// If the pend is not found then there is nothing to worry about
 	// it is already removed
 	return false, nil
 }
 
-// find finds the run given by flowID and runID if it exists in the todo, active, or archive runs
+// find finds the run given by flowID and runID if it exists in the pending, active, or archive runs
 func (r *RunStore) find(flowID, runID string) *Run {
-	pending := r.todoToRuns(flowID)
+	pending := r.pendToRuns(flowID)
 
 	r.Lock()
 	defer r.Unlock()
@@ -316,11 +364,11 @@ func (r *RunStore) find(flowID, runID string) *Run {
 	return nil
 }
 
-func (r *RunStore) todoToRuns(id string) (pending Runs) {
+func (r *RunStore) pendToRuns(id string) (pending Runs) {
 	r.Lock()
 	defer r.Unlock()
 
-	for _, t := range r.pending.Todos {
+	for _, t := range r.pending.Pends {
 		if t.Ref.FlowRef.ID != id {
 			continue
 		}
@@ -332,7 +380,7 @@ func (r *RunStore) todoToRuns(id string) (pending Runs) {
 }
 
 func (r *RunStore) allRuns(id string) (pending Runs, active Runs, archive Runs) {
-	pending = r.todoToRuns(id)
+	pending = r.pendToRuns(id)
 
 	r.Lock()
 	defer r.Unlock()

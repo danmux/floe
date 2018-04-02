@@ -77,7 +77,7 @@ func (f *FloeHost) GetConfig() HostConfig {
 func (f *FloeHost) AttemptExecute(ref event.RunRef, ie event.Event) bool {
 	w := wrap{}
 
-	todo := struct {
+	pend := struct {
 		Ref             event.RunRef
 		InitiatingEvent event.Event
 	}{
@@ -85,7 +85,7 @@ func (f *FloeHost) AttemptExecute(ref event.RunRef, ie event.Event) bool {
 		InitiatingEvent: ie,
 	}
 
-	code, err := f.post("/flows/exec", todo, &w)
+	code, err := f.post("/flows/exec", pend, &w)
 	if err != nil {
 		log.Error(err)
 		return false

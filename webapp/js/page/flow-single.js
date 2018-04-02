@@ -34,11 +34,19 @@ var graphFlow = `
         <summary>
             <h3><a href='{{=it.Data.Parent}}'> {{=it.Data.Config.Name}}</a></h3>
         </summary>
+        <triggers>
+        {{~it.Data.Config.Triggers :trigger:index}}
+            <box id='trig-{{=trigger.ID}}' class='trigger'>
+                <h4>{{=trigger.Name}}</h4>
+            </box>
+        {{~}}
+        </triggers>
+        <divider></divider>
         <tasks>
         {{~it.Data.Graph :level:index}}
           <div id='level-{{=index}}' class='level section'>
           {{~level :trigger:indx}}
-            <box id='trig-{{=trigger}}' class='task'>
+            <box id='trig-{{=trigger}}' class='task good'>
               <h4>{{=trigger}}</h4>
             </box>
           {{~}}

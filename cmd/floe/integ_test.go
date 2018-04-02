@@ -11,7 +11,6 @@ import (
 
 	"github.com/floeit/floe/config"
 	nt "github.com/floeit/floe/config/nodetype"
-	"github.com/floeit/floe/store"
 	"github.com/floeit/old/log"
 )
 
@@ -201,11 +200,10 @@ flows:
 	basePath := "/build/api"
 	addr := "127.0.0.1:0"
 
-	s := store.NewMemStore()
 	failed := make(chan error)
 	addrChan := make(chan string, 1)
 	go func() {
-		err := start("hi1", "master", "%tmp/floe", addr, adminToken, in, s, addrChan)
+		err := start("hi1", "master", "%tmp/floe", addr, adminToken, in, addrChan)
 		if err != nil {
 			failed <- err
 		}

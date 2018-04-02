@@ -144,7 +144,7 @@ export function Panel(parent, data, template, attach, events, restReq) {
             parent.AfterRender(data); 
         }
 
-        // todo - cache the inner html ?
+        // TODO - cache the inner html ?
     }
 }
 

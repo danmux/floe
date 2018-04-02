@@ -36,18 +36,18 @@ RunRef - An 'adopted' RunRef is a globally unique compound reference that resolv
 Hub  - is the central routing object. It instantiates Runs and executes actions on Nodes in the Run based on its config from any events it observes on its queue.
 Queue - The hub event queue is the central chanel for all changes.
 RunStore - the hub references a run store that can persist the following lists - representing the three states fo a run..
-* Pending list - Runs waiting to be executed, a Run on this list is called a Todo.
+* Pending list - Runs waiting to be executed, a Run on this list is called a Pend.
 * Active List - Runs that are executing, and will be matched to events with matching adopted RunRefs. 
 * Archive List - Runs that are have finished executing.
 
 
 Life cycle of a flow
 --------------------
-When a trigger event arrives on the queue that matches a flow, the event reference will be considered 'un-adopted' this means it has not got a full run reference. A run is created with a globally unique compound reference (now adopted) - this reference (and some other meta data) is added to the pending list of the host that adopted it as a 'Todo' - this may not be the host that executes the run.
+When a trigger event arrives on the queue that matches a flow, the event reference will be considered 'un-adopted' this means it has not got a full run reference. A run is created with a globally unique compound reference (now adopted) - this reference (and some other meta data) is added to the pending list of the host that adopted it as a 'Pend' - this may not be the host that executes the run.
 
-A background process tries to assign Todo's to any host where the HostTags match, and where there are no Runs already matching the ResourceTags asked for - this allows certain nodes to be assigned to certain Runs, and to serialise Runs that need exclusive access to any third party, or other shared resources.
+A background process tries to assign Pend's to any host where the HostTags match, and where there are no Runs already matching the ResourceTags asked for - this allows certain nodes to be assigned to certain Runs, and to serialise Runs that need exclusive access to any third party, or other shared resources.
 
-Once a Todo has been dispatched for execution it is moved out of the adopting Pending list and into the Active List on the executing host.
+Once a Pend has been dispatched for execution it is moved out of the adopting Pending list and into the Active List on the executing host.
 
 When one of the end conditions for a Run is met the Run is moved out of the Active list and into the Archive list on the host that executed the Run.
 

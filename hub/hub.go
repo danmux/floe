@@ -48,7 +48,6 @@ type Hub struct {
 	basePath string         // the configured basePath for the hub
 	hostID   string         // the id fo this host
 	config   *config.Config // the config rules
-	store    store.Store    // the thing to persist any state
 	queue    *event.Queue   // the event q to route all events
 
 	// tags
@@ -59,6 +58,7 @@ type Hub struct {
 
 	// runs contains list of runs ongoing or the archive
 	// this is the only ongoing changing state the hub manages
+	// the runstore is responsible for persisting any state
 	runs *RunStore
 }
 
@@ -68,15 +68,13 @@ func New(host, tags, basePath, adminTok string, c *config.Config, s store.Store,
 	l := strings.Split(tags, ",")
 	tagList := []string{}
 	for _, t := range l {
-		t := strings.TrimSpace(t)
-		tagList = append(tagList, t)
+		tagList = append(tagList, strings.TrimSpace(t))
 	}
 	h := &Hub{
 		hostID:   host,
 		tags:     tagList,
 		basePath: basePath,
 		config:   c,
-		store:    s,
 		queue:    q,
 		runs:     newRunStore(s),
 	}
@@ -137,11 +135,13 @@ func (h *Hub) Config() config.Config {
 	return *h.config
 }
 
-func (h Hub) AllRuns(id string) (pending Runs, active Runs, archive Runs) {
+// AllRuns returns all the runs for this hub.
+func (h *Hub) AllRuns(id string) (pending Runs, active Runs, archive Runs) {
 	return h.runs.allRuns(id)
 }
 
-func (h Hub) FindRun(flowID, runID string) *Run {
+// returns an individual run as given by the flow and run.
+func (h *Hub) FindRun(flowID, runID string) *Run {
 	return h.runs.find(flowID, runID)
 }
 
@@ -153,27 +153,25 @@ func (h *Hub) Queue() *event.Queue {
 // Notify is called whenever an event is sent to the hub. It
 // makes the hub an event.Observer
 func (h *Hub) Notify(e event.Event) {
-	// if the event has not been previously adopted in any pending todo then it is a trigger event
+	// if the event has not been previously adopted in any pending run then it is a trigger event
 	if !e.RunRef.Adopted() {
-		log.Debug("N got trigger ", e.Tag)
 		err := h.pendFlowFromTrigger(e)
 		if err != nil {
 			log.Error(err)
 		}
 		return
 	}
-	log.Debug("N got event ", e.Tag)
 	// otherwise it is a run specific event
 	h.dispatchToActive(e)
 }
 
-func (h *Hub) activate(todo *Todo, hostID string) error {
-	err := h.runs.activate(todo, h.hostID)
+func (h *Hub) activate(pend *Pend, hostID string) error {
+	err := h.runs.activate(pend, h.hostID)
 	if err != nil {
 		return err
 	}
 	h.queue.Publish(event.Event{
-		RunRef: todo.Ref,
+		RunRef: pend.Ref,
 		Tag:    tagStateChange,
 		Opts: nt.Opts{
 			"action": "activate",
@@ -183,22 +181,22 @@ func (h *Hub) activate(todo *Todo, hostID string) error {
 	return nil
 }
 
-// ExecutePending executes a todo on this host - if this host has no conflicts.
+// ExecutePending executes a pending on this host - if this host has no conflicts.
 // This could have been called directly if this is the only host, or could have
 // been called via the server API as this host has been asked to accept the run.
 // The boolean returned represents whether the flow was considered dealt with,
 // meaning an attempt to start executing it occurred.
-func (h *Hub) ExecutePending(todo Todo) (bool, error) {
-	log.Debugf("<%s> - exec - attempt to execute pending type:<%s>", todo, todo.InitiatingEvent.Tag)
+func (h *Hub) ExecutePending(pend Pend) (bool, error) {
+	log.Debugf("<%s> - exec - attempt to execute pending type:<%s>", pend, pend.InitiatingEvent.Tag)
 
-	flow, ok := h.config.FindFlow(todo.Ref.FlowRef, todo.InitiatingEvent.Tag, todo.InitiatingEvent.Opts)
+	flow, ok := h.config.FindFlow(pend.Ref.FlowRef, pend.InitiatingEvent.Tag, pend.InitiatingEvent.Opts)
 	if !ok {
-		return false, fmt.Errorf("pending flow not known %s, %s", todo.Ref.FlowRef, todo.InitiatingEvent.Tag)
+		return false, fmt.Errorf("pending flow not known %s, %s", pend.Ref.FlowRef, pend.InitiatingEvent.Tag)
 	}
 
 	// confirm no currently executing flows have a resource flag conflicts
 	active := h.runs.activeFlows()
-	log.Debugf("<%s> - exec - checking active conflicts with %d active runs", todo, len(active))
+	log.Debugf("<%s> - exec - checking active conflicts with %d active runs", pend, len(active))
 	for _, aRef := range active {
 		fl := h.config.Flow(aRef)
 		if fl == nil {
@@ -207,33 +205,33 @@ func (h *Hub) ExecutePending(todo Todo) (bool, error) {
 		}
 		if anyTags(fl.ResourceTags, flow.ResourceTags) {
 			log.Debugf("<%s> - exec - found resource tag conflict on tags: %v with already active tags: %v",
-				todo, flow.ResourceTags, fl.ResourceTags)
+				pend, flow.ResourceTags, fl.ResourceTags)
 			return false, nil
 		}
 	}
 
 	// setup the workspace config
-	_, err := h.enforceWS(todo.Ref, flow.ReuseSpace)
+	_, err := h.enforceWS(pend.Ref, flow.ReuseSpace)
 	if err != nil {
 		return false, err
 	}
 
 	// add the active flow
-	err = h.activate(&todo, h.hostID)
+	err = h.activate(&pend, h.hostID)
 	if err != nil {
 		return false, err
 	}
 
-	log.Debugf("<%s> - exec - triggering %d nodes", todo, len(flow.Nodes))
+	log.Debugf("<%s> - exec - triggering %d nodes", pend, len(flow.Nodes))
 
 	// and then emit the trigger event that were tripped when this flow was made pending
 	// (more than one trigger at a time is going to be pretty rare)
 	for _, n := range flow.Nodes {
 		h.queue.Publish(event.Event{
-			RunRef:     todo.Ref,
+			RunRef:     pend.Ref,
 			SourceNode: n.NodeRef(),
 			Tag:        tagGoodTrigger,            // all triggers emit the same event
-			Opts:       todo.InitiatingEvent.Opts, // make sure we have the trigger event data
+			Opts:       pend.InitiatingEvent.Opts, // make sure we have the trigger event data
 			Good:       true,                      // all trigger events that start a run must be good
 		})
 	}
@@ -252,18 +250,20 @@ func (h *Hub) serviceLists() {
 	}
 }
 
-func (h *Hub) removeTodo(todo Todo) error {
-	ok, err := h.runs.removeTodo(todo)
+// removePend removes the pend from the pending list.
+// Any error returned will be in the persisting of the pending list.
+func (h *Hub) removePend(pend Pend) error {
+	ok, err := h.runs.removePend(pend)
 	if err != nil {
 		return err
 	}
 	// if this did remove it from the pending list then send the system event
 	if ok {
 		h.queue.Publish(event.Event{
-			RunRef: todo.Ref,
+			RunRef: pend.Ref,
 			Tag:    tagStateChange,
 			Opts: nt.Opts{
-				"action": "remove-todo",
+				"action": "remove-pend",
 			},
 			Good: true,
 		})
@@ -271,10 +271,9 @@ func (h *Hub) removeTodo(todo Todo) error {
 	return nil
 }
 
-// distributeAllPending loops through all pending todos assessing whether they can be run then distributes them.
+// distributeAllPending loops through all pending runs assessing whether they can be run then distributes them.
 func (h *Hub) distributeAllPending() error {
-
-	for _, p := range h.runs.allTodos() {
+	for _, p := range h.runs.allPends() {
 		log.Debugf("<%s> - pending - attempt dispatch", p)
 
 		if len(h.hosts) == 0 {
@@ -287,20 +286,23 @@ func (h *Hub) distributeAllPending() error {
 				log.Debugf("<%s> - pending - could not run job locally yet", p)
 			} else {
 				log.Debugf("<%s> - pending - job started locally", p)
-				h.removeTodo(p)
+				if err := h.removePend(p); err != nil {
+					log.Error("could not save pending removal", err)
+				}
 			}
 			continue
 		}
 
 		// as we have some hosts configured - attempt to schedule them
+		// first find the matching flow
 		flow, ok := h.config.FindFlow(p.Ref.FlowRef, p.InitiatingEvent.Tag, p.InitiatingEvent.Opts)
 		if !ok {
-			if err := h.removeTodo(p); err != nil {
+			if err := h.removePend(p); err != nil {
 				return err
 			}
 			// TODO update status of the run - to indicate error
 			// TODO possibly issue a system event to inform the UI of this failure
-			return fmt.Errorf("pending not found %s, %s removed from todo", p, p.InitiatingEvent.Tag)
+			return fmt.Errorf("pending not found %s, %s removed from pending", p, p.InitiatingEvent.Tag)
 		}
 
 		log.Debugf("<%s> - pending - found flow %s tags: %v", p, flow.Ref, flow.HostTags)
@@ -323,8 +325,10 @@ func (h *Hub) distributeAllPending() error {
 		for _, host := range candidates {
 			if host.AttemptExecute(p.Ref, p.InitiatingEvent) {
 				log.Debugf("<%s> - pending - executed on <%s>", p, host.GetConfig().HostID)
-				// remove from our todo list
-				h.removeTodo(p)
+				// remove from our pending list
+				if err := h.removePend(p); err != nil {
+					log.Error("could not save pending removal", err)
+				}
 				launched = true
 				break
 			}
@@ -334,7 +338,7 @@ func (h *Hub) distributeAllPending() error {
 			log.Debugf("<%s> - pending - no available host yet", p)
 		}
 
-		// TODO check pending queue for any todo that is over age and send alert
+		// TODO check pending queue for any pending run that is over age and send alert
 	}
 	return nil
 }
@@ -349,7 +353,7 @@ func (h *Hub) addToPending(flow config.FlowRef, hostID string, e event.Event) (e
 		RunRef: ref,
 		Tag:    tagStateChange,
 		Opts: nt.Opts{
-			"action": "add-todo",
+			"action": "add-pend",
 		},
 		Good: true,
 	})
@@ -459,7 +463,7 @@ func (h *Hub) setFormData(run *Run, node exeNode, opts nt.Opts) {
 	// data nodes just do stuff with the inbound opts and the node opts (that define the data fields)
 	_, outOpts, _ := node.Execute(nil, opts, nil)
 	// add the form fields to the flow
-	run.updateDataNode(node.NodeRef().ID, outOpts)
+	h.runs.updateDataNode(run, node.NodeRef().ID, outOpts)
 	// and inform whoever that there is data input needed
 	h.queue.Publish(event.Event{
 		RunRef:     run.Ref,
@@ -506,7 +510,7 @@ func (h *Hub) executeNode(run *Run, node exeNode, e event.Event, singleWs bool) 
 			})
 
 			// explicitly update any exec nodes with the ongoing execute
-			run.updateExecNode(node.NodeRef().ID, update)
+			h.runs.updateExecNode(run, node.NodeRef().ID, update)
 		}
 	}()
 
@@ -547,8 +551,7 @@ func (h *Hub) mergeEvent(run *Run, node mergeNode, e event.Event) {
 	log.Debugf("<%s> (%s) - merge %s", run.Ref.FlowRef, run.Ref.Run, e.Tag)
 
 	waitsDone, opts := h.runs.updateWithMergeEvent(run, node.NodeRef().ID, e.Tag, e.Opts)
-	// save the activeRun
-	h.runs.active.Save(activeKey, h.runs.store)
+
 	// is the merge satisfied
 	if (node.TypeOfNode() == "any" && waitsDone == 1) || // only fire an any merge once
 		(node.TypeOfNode() == "all" && waitsDone == node.Waits()) {
@@ -583,10 +586,6 @@ func (h *Hub) endRun(run *Run, source config.NodeRef, opts nt.Opts, status strin
 	h.queue.Publish(e)
 }
 
-// func getTag(node config.Node, subTag string) string {
-// 	return fmt.Sprintf("%s.%s.%s", node.Class(), node.NodeRef().ID, subTag)
-// }
-
 func (h *Hub) setupHosts(adminTok string) {
 	h.Lock()
 	defer h.Unlock()
@@ -597,6 +596,10 @@ func (h *Hub) setupHosts(adminTok string) {
 		addr := hostAddr + h.config.Common.BaseURL
 		h.hosts = append(h.hosts, client.New(addr, adminTok))
 	}
+}
+
+func (h *Hub) loadLists() {
+
 }
 
 func anyTags(set, subset []string) bool {

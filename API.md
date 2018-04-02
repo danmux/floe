@@ -24,6 +24,6 @@ content-type: application/json
 
 events...
 
-add-todo
+add-pend
 activate
-remove-todo
+remove-pend

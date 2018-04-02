@@ -1,13 +1,10 @@
 package hub
 
 import (
-	"os/user"
 	"testing"
 	"time"
 
 	"sync"
-
-	"strings"
 
 	"github.com/floeit/floe/config"
 	nt "github.com/floeit/floe/config/nodetype"
@@ -135,7 +132,10 @@ func TestHub(t *testing.T) {
 	t.Parallel()
 
 	c, _ := config.ParseYAML(in)
-	s := store.NewMemStore()
+	s, err := store.NewLocalStore("%tmp")
+	if err != nil {
+		t.Fatal(err)
+	}
 	q := &event.Queue{}
 
 	// make a new hub
@@ -178,10 +178,10 @@ func TestHub(t *testing.T) {
 	}
 
 	// and confirm the store has no runs still pending
-	pd, _ := s.Load(pendingKey)
-	pend := pd.(pending)
-	if len(pend.Todos) != 0 {
-		t.Error("wrong number of pending runs", len(pend.Todos))
+	pend := &pending{}
+	s.Load(pendingKey, pend)
+	if len(pend.Pends) != 0 {
+		t.Error("wrong number of pending runs", len(pend.Pends))
 	}
 
 	// wait for end of floe event
@@ -194,8 +194,8 @@ func TestHub(t *testing.T) {
 	}
 
 	// and confirm the store has a no runs active
-	pd, _ = s.Load(activeKey)
-	act := pd.(Runs)
+	act := Runs{}
+	s.Load(activeKey, &act)
 	if len(act) != 0 {
 		t.Error("wrong number of active runs after finishing", len(act))
 	}
@@ -254,42 +254,4 @@ type testObs struct {
 
 func (o *testObs) Notify(e event.Event) {
 	o.ch <- e
-}
-
-func TestExpandPath(t *testing.T) {
-	t.Parallel()
-
-	usr, _ := user.Current()
-	hd := usr.HomeDir
-
-	fix := []struct {
-		in  string
-		out string
-		e   bool
-	}{
-		{in: "~/", out: "", e: true},      // too short
-		{in: "~", out: "", e: true},       // too short
-		{in: "~/test", out: hd + "/test"}, // sub ~
-		{in: "/test/~", out: "/test/~"},   // dont ~
-		{in: "test/foo", out: "test/foo"},
-		{in: "/test/foo", out: "/test/foo"},
-	}
-	for i, f := range fix {
-		ep, err := expandPath(f.in)
-		if (err == nil && f.e) || (err != nil && !f.e) {
-			t.Errorf("test %d expected error mismatch", i)
-		}
-		if ep != f.out {
-			t.Errorf("test %d failed, wanted: %s got: %s", i, f.out, ep)
-		}
-	}
-
-	ep, _ := expandPath("%tmp/test/bar")
-	fPos := strings.Index(ep, "/floe")
-	if fPos < 5 {
-		t.Error("tmp expansion failed", ep)
-	}
-	if strings.Index(ep, "/test/bar") < fPos {
-		t.Error("tmp expansion prefix... isn't ", ep)
-	}
 }

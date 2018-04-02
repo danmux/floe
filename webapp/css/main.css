@@ -254,6 +254,17 @@ box.flow detail {
     min-height: 50px;
 }
 
+box.good {
+    border-left: 4px solid #42c88a;
+}
+
+divider {
+    clear: both;
+    border-bottom: 1px solid #ccc;
+    display: block;
+    height: 20px;
+}
+
 subtitle {
     font-size: 8pt;
 }

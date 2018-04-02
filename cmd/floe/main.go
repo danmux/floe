@@ -2,8 +2,10 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 
 	"github.com/floeit/floe/config"
 	"github.com/floeit/floe/event"
@@ -29,19 +31,32 @@ func main() {
 		os.Exit(1)
 	}
 
-	// TODO - implement real store
-	s := store.NewMemStore()
-
-	log.Debug(start(*host, *tags, *root, *bind, *adminToken, cfg, s, nil))
+	log.Debug(start(*host, *tags, *root, *bind, *adminToken, cfg, nil))
 }
 
-func start(host, tags, root, bind, adminToken string, conf []byte, store store.Store, addr chan string) error {
+func start(host, tags, root, bind, adminToken string, conf []byte, addr chan string) error {
+
 	c, err := config.ParseYAML(conf)
 	if err != nil {
 		return err
 	}
+
+	var s store.Store
+	switch c.Common.StoreType {
+	case "", "memory":
+		s = store.NewMemStore()
+	case "local":
+		s, err = store.NewLocalStore(filepath.Join(root, "store"))
+		if err != nil {
+			return err
+		}
+	default:
+		return fmt.Errorf("%s is not a supported store", c.Common.StoreType)
+	}
+	// TODO - implement other stores e.g. s3
+
 	q := &event.Queue{}
-	hub := hub.New(host, tags, root, adminToken, c, store, q)
+	hub := hub.New(host, tags, filepath.Join(root, "spaces"), adminToken, c, s, q)
 	server.AdminToken = adminToken
 
 	server.LaunchWeb(bind, c.Common.BaseURL, hub, q, addr)

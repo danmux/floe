@@ -66,7 +66,7 @@ export function Flow() {
             // state changes
             if (evt.Msg.Tag == "sys.state") {
                 // it was added to pending list
-                if (evt.Msg.Opts.action == "add-todo") {
+                if (evt.Msg.Opts.action == "add-pend") {
                     console.log("adding pending", evt.Msg);
                 }
                 // it was activated - so remove from pending and add to active

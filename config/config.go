@@ -19,8 +19,22 @@ type Config struct {
 type commonConfig struct {
 	// all other floe Hosts
 	Hosts []string
-	// the api base url
+	// the api base url - in case hosting on a sub domain
 	BaseURL string `yaml:"base-url"`
+	// ConfigPath is a path to the config which can be a path to a file in a git repo
+	// e.g. git@github.com:floeit/floe.git/build/FLOE.yaml
+	ConfigPath string `yaml:"config-path"`
+
+	// StoreType define which type of store to use
+	StoreType string `yaml:"store-type"` // memory, local, ec2
+
+	// TODO ec2 - or back to github
+	// Store Root is ec2 bucket path
+	// StoreRoot string `yaml:"store-root"`
+
+	// StoreCredentials is a string in some format or other to provide needed credentials for
+	// specific store type.
+	// StoreCredentials string `yaml:"store-credentials"`
 }
 
 // FoundFlow is a struct containing a cut down set of properties of a Flow.

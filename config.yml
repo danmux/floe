@@ -1,8 +1,9 @@
 common:
     base-url: "/build/api" 
+    store-type: local
     hosts:
         - http://127.0.0.1:8080
-        - http://127.0.0.1:8090
+        # - http://127.0.0.1:8090
 
 flows:
     - id: build-project              # the name of this flow
