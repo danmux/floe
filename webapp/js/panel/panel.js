@@ -4,8 +4,12 @@ import {store} from './store.js';
 
 "use strict";
 
-export function el(sel) {
+export function els(sel) {
     return document.querySelectorAll(sel);
+}
+
+export function el(sel) {
+    return els(sel)[0];
 }
 
 // Panel object parent is provided so we can call back and map the event to the store for this panel.
@@ -114,8 +118,8 @@ export function Panel(parent, data, template, attach, events, restReq) {
 
             resultText = this.tempFn(data);
         }
-        console.log(el(attach));
-        el(attach)[0].innerHTML = resultText; // TODO - trap missing el?
+        
+        el(attach).innerHTML = resultText; // TODO - trap missing el?
 
         // This closes around the loop vars in constructing the events below
         function eventHandler(fn, el) {
@@ -130,11 +134,11 @@ export function Panel(parent, data, template, attach, events, restReq) {
         var elen = events.length;
         for (var e = 0; e < elen; e++) {
             var ev = events[e];
-            var els = el(ev.El);
-            var len = els.length;
+            var elems = els(ev.El);
+            var len = elems.length;
             console.log("adding event:", event, "to:", len, "elems");
             for (var i = 0; i < len; i++) {
-                var elem = els[i];
+                var elem = elems[i];
                 elem.addEventListener(ev.Ev, eventHandler(ev.Fn, elem));
             }
         }

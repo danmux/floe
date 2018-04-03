@@ -1,4 +1,6 @@
 import {Panel} from '../panel/panel.js';
+import {el} from '../panel/panel.js';
+import {AttacheExpander} from '../panel/expander.js';
 
 "use strict";
 
@@ -24,30 +26,57 @@ export function FlowSingle() {
         return evt.Value.Response.Payload;
     }
 
-    var panels = {};
+    // AfterRender is called when the dash hs rendered containers.
+    // we go and add the child summary panels
+    this.AfterRender = function(data) {
+      AttacheExpander(el('triggers'));
+    }
 
     return panel;
 }
 
 var graphFlow = `
     <div id='flow' class='flow-single'>
+        <div class="crumb">
+          <a href='{{=it.Data.Parent}}'>← back to {{=it.Data.FlowName}}</a>
+        </div>
         <summary>
-            <h3><a href='{{=it.Data.Parent}}'> {{=it.Data.Config.Name}}</a></h3>
+            <h3>{{=it.Data.Name}}</a></h3>
         </summary>
         <triggers>
-        {{~it.Data.Config.Triggers :trigger:index}}
-            <box id='trig-{{=trigger.ID}}' class='trigger'>
-                <h4>{{=trigger.Name}}</h4>
-            </box>
-        {{~}}
+          {{~it.Data.Triggers :trigger:index}}
+
+          <box id='trig-{{=trigger.ID}}' class='trigger{{? !trigger.Enabled}} disabled{{?}}'>
+              {{? trigger.Type=='data'}}
+              <div for="{{=trigger.ID}}" class="trig-title expander-ctrl">
+                  <h4>{{=trigger.Name}}</h4><i class='icon-angle-circled-right'></i>
+              </div>
+              {{??}}
+              <div class="trig-title">
+                  <h4>{{=trigger.Name}}</h4>
+              </div>
+              {{?}}
+              {{? trigger.Type=='data'}}
+              <detail id='expander-{{=trigger.ID}}' class='expander'>
+                  {{~trigger.Fields :field:index}}
+                    <div id="field-{{=field.ID}}", class='kvrow'>
+                      <div class='prompt'>{{=field.Prompt}}:</div> 
+                      <div class='value'>{{=field.Value}}</div>
+                    </div>
+                  {{~}}
+              </detail>
+              {{?}}
+          </box>
+
+          {{~}}
         </triggers>
         <divider></divider>
         <tasks>
         {{~it.Data.Graph :level:index}}
           <div id='level-{{=index}}' class='level section'>
-          {{~level :trigger:indx}}
-            <box id='trig-{{=trigger}}' class='task good'>
-              <h4>{{=trigger}}</h4>
+          {{~level :node:indx}}
+            <box id='node-{{=node.ID}}' class='task good'>
+              <h4>{{=node.Name}}</h4>
             </box>
           {{~}}
           </div>

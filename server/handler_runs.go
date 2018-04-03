@@ -11,6 +11,19 @@ import (
 	"github.com/floeit/floe/hub"
 )
 
+type field struct {
+	ID     string
+	Prompt string
+	Value  string
+}
+type runNode struct {
+	ID      string
+	Name    string
+	Type    string
+	Enabled bool
+	Fields  []field
+}
+
 // hndRun answers external call and returns the individual run detail (may come from other host)
 func hndRun(rw http.ResponseWriter, r *http.Request, ctx *context) (int, string, renderable) {
 	id := ctx.ps.ByName("id")
@@ -30,340 +43,69 @@ func hndRun(rw http.ResponseWriter, r *http.Request, ctx *context) (int, string,
 
 	graph, problems := flow.Graph()
 
+	triggers := make([]runNode, len(flow.Triggers))
+
+	for i, t := range flow.Triggers {
+		rn := runNode{
+			ID:   t.ID,
+			Name: t.Name,
+			Type: t.Type,
+		}
+		if t.ID == run.Initiating.SourceNode.ID && t.Type == "data" {
+			form, ok := t.Opts["form"].(map[string]interface{})
+			vals := run.Initiating.Opts
+			if ok {
+				for _, fld := range form["fields"].([]interface{}) {
+					f := fld.(map[string]interface{})
+					id := f["id"].(string)
+					rn.Fields = append(rn.Fields, field{
+						ID:     id,
+						Prompt: f["prompt"].(string),
+						Value:  vals[id].(string),
+					})
+				}
+			}
+			rn.Enabled = true
+		}
+		triggers[i] = rn
+	}
+
 	response := struct {
-		Config   *config.Flow
-		Graph    [][]string
+		FlowName string
+		Name     string
+		Triggers []runNode
+		Graph    [][]runNode
 		Problems []string
-		Run      *client.Run
+		// Run      *client.Run
 	}{
-		Config:   flow,
-		Graph:    graph[1:],
+		FlowName: flow.Name,
+		Name:     flow.Name + " " + run.Ref.Run.String(),
+		Triggers: triggers,
+		Graph:    buildRunResp(graph[1:], flow, run),
 		Problems: problems,
-		Run:      run,
+		// Run:      run,
 	}
 
 	return rOK, "", response
 }
 
-/*
-{
-	"Message": "OK",
-	"Payload": {
-	  "Config": {
-		"ID": "build-project",
-		"Ver": 1,
-		"Name": "Build Project",
-		"ReuseSpace": true,
-		"HostTags": [
-		  "linux",
-		  "go",
-		  "couch"
-		],
-		"ResourceTags": [
-		  "couchbase",
-		  "nic"
-		],
-		"Triggers": [
-		  {
-			"Class": "trigger",
-			"Ref": {
-			  "Class": "trigger",
-			  "ID": "push"
-			},
-			"ID": "push",
-			"Name": "push",
-			"Listen": "",
-			"Wait": null,
-			"Type": "git-push",
-			"Good": null,
-			"IgnoreFail": false,
-			"UseStatus": false,
-			"Opts": {
-			  "url": "blah.blah"
+func buildRunResp(graph [][]string, conf *config.Flow, run *client.Run) [][]runNode {
+	nodes := make([][]runNode, len(graph))
+	for i, gns := range graph {
+		nodes[i] = make([]runNode, len(graph[i]))
+		for j, id := range gns {
+			cn := conf.Node(id)
+			if cn == nil {
+				continue
 			}
-		  },
-		  {
-			"Class": "trigger",
-			"Ref": {
-			  "Class": "trigger",
-			  "ID": "start"
-			},
-			"ID": "start",
-			"Name": "start",
-			"Listen": "",
-			"Wait": null,
-			"Type": "data",
-			"Good": null,
-			"IgnoreFail": false,
-			"UseStatus": false,
-			"Opts": {
-			  "form": {
-				"fields": [
-				  {
-					"id": "from_hash",
-					"prompt": "From Branch (or hash)",
-					"type": "text"
-				  },
-				  {
-					"id": "to_hash",
-					"prompt": "To Branch (or hash)",
-					"type": "text"
-				  }
-				],
-				"title": "Start"
-			  }
+			nodes[i][j] = runNode{
+				ID:   id,
+				Name: cn.Name,
 			}
-		  }
-		],
-		"Tasks": [
-		  {
-			"Class": "task",
-			"Ref": {
-			  "Class": "task",
-			  "ID": "checkout"
-			},
-			"ID": "checkout",
-			"Name": "checkout",
-			"Listen": "trigger.good",
-			"Wait": null,
-			"Type": "git-merge",
-			"Good": [
-			  0
-			],
-			"IgnoreFail": false,
-			"UseStatus": false,
-			"Opts": null
-		  },
-		  {
-			"Class": "task",
-			"Ref": {
-			  "Class": "task",
-			  "ID": "echo"
-			},
-			"ID": "echo",
-			"Name": "echo",
-			"Listen": "task.checkout.good",
-			"Wait": null,
-			"Type": "exec",
-			"Good": null,
-			"IgnoreFail": false,
-			"UseStatus": false,
-			"Opts": {
-			  "cmd": "echo dan",
-			  "file": "BUILD.floe"
-			}
-		  },
-		  {
-			"Class": "task",
-			"Ref": {
-			  "Class": "task",
-			  "ID": "build"
-			},
-			"ID": "build",
-			"Name": "build",
-			"Listen": "task.checkout.good",
-			"Wait": null,
-			"Type": "exec",
-			"Good": null,
-			"IgnoreFail": false,
-			"UseStatus": false,
-			"Opts": {
-			  "cmd": "make build"
-			}
-		  },
-		  {
-			"Class": "task",
-			"Ref": {
-			  "Class": "task",
-			  "ID": "test"
-			},
-			"ID": "test",
-			"Name": "Test",
-			"Listen": "task.build.good",
-			"Wait": null,
-			"Type": "exec",
-			"Good": null,
-			"IgnoreFail": false,
-			"UseStatus": false,
-			"Opts": {
-			  "cmd": "make test"
-			}
-		  },
-		  {
-			"Class": "task",
-			"Ref": {
-			  "Class": "task",
-			  "ID": "sign-off"
-			},
-			"ID": "sign-off",
-			"Name": "Sign Off",
-			"Listen": "task.build.good",
-			"Wait": null,
-			"Type": "data",
-			"Good": null,
-			"IgnoreFail": false,
-			"UseStatus": false,
-			"Opts": {
-			  "form": {
-				"fields": [
-				  {
-					"id": "tests_passed",
-					"prompt": "Did the manual testing pass?",
-					"type": "bool"
-				  },
-				  {
-					"id": "to_hash",
-					"prompt": "To Branch (or hash)",
-					"type": "string"
-				  }
-				],
-				"title": "Sign off Manual Testing"
-			  }
-			}
-		  },
-		  {
-			"Class": "merge",
-			"Ref": {
-			  "Class": "merge",
-			  "ID": "signed"
-			},
-			"ID": "signed",
-			"Name": "wait test and sign off",
-			"Listen": "",
-			"Wait": [
-			  "task.echo.good",
-			  "task.test.good",
-			  "task.sign-off.good"
-			],
-			"Type": "all",
-			"Good": null,
-			"IgnoreFail": false,
-			"UseStatus": false,
-			"Opts": null
-		  },
-		  {
-			"Class": "task",
-			"Ref": {
-			  "Class": "task",
-			  "ID": "complete"
-			},
-			"ID": "complete",
-			"Name": "complete",
-			"Listen": "merge.signed.good",
-			"Wait": null,
-			"Type": "end",
-			"Good": null,
-			"IgnoreFail": false,
-			"UseStatus": false,
-			"Opts": null
-		  }
-		]
-	  },
-	  "Graph": [
-		[
-		  "checkout"
-		],
-		[
-		  "echo",
-		  "build"
-		],
-		[
-		  "test",
-		  "sign-off"
-		],
-		[
-		  "signed"
-		],
-		[
-		  "complete"
-		]
-	  ],
-	  "Problems": null,
-	  "Run": {
-		"Ref": {
-		  "FlowRef": {
-			"ID": "build-project",
-			"Ver": 1
-		  },
-		  "Run": {
-			"HostID": "h1",
-			"ID": 1
-		  },
-		  "ExecHost": "h1"
-		},
-		"ExecHost": "",
-		"StartTime": "2018-04-01T07:58:36.003761394+01:00",
-		"EndTime": "0001-01-01T00:00:00Z",
-		"Ended": false,
-		"Status": "",
-		"Good": false,
-		"MergeNodes": {
-		  "signed": {
-			"Waits": {
-			  "task.echo.good": true,
-			  "task.test.good": true
-			},
-			"Opts": {}
-		  }
-		},
-		"DataNodes": {
-		  "sign-off": {
-			"Enabled": true,
-			"Opts": {
-			  "form": {
-				"fields": [
-				  {
-					"id": "tests_passed",
-					"prompt": "Did the manual testing pass?",
-					"type": "bool"
-				  },
-				  {
-					"id": "to_hash",
-					"prompt": "To Branch (or hash)",
-					"type": "string"
-				  }
-				],
-				"title": "Sign off Manual Testing"
-			  }
-			}
-		  }
-		},
-		"ExecNodes": {
-		  "build": {
-			"Opts": null,
-			"Logs": [
-			  "something after 0 seconds",
-			  "something after 1 seconds",
-			  "something after 2 seconds",
-			  "something after 3 seconds",
-			  "something after 4 seconds"
-			]
-		  },
-		  "echo": {
-			"Opts": null,
-			"Logs": [
-			  "something after 0 seconds",
-			  "something after 1 seconds",
-			  "something after 2 seconds",
-			  "something after 3 seconds",
-			  "something after 4 seconds"
-			]
-		  },
-		  "test": {
-			"Opts": null,
-			"Logs": [
-			  "something after 0 seconds",
-			  "something after 1 seconds",
-			  "something after 2 seconds",
-			  "something after 3 seconds",
-			  "something after 4 seconds"
-			]
-		  }
 		}
-	  }
 	}
-  }
-*/
+	return nodes
+}
 
 // hndP2PRun answers internal calls just for this host and returns the individual run detail
 func hndP2PRun(rw http.ResponseWriter, r *http.Request, ctx *context) (int, string, renderable) {

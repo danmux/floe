@@ -1,7 +1,9 @@
 import {Panel} from '../panel/panel.js';
+import {el} from '../panel/panel.js';
 import {Form} from '../panel/form.js';
 import {RestCall} from '../panel/rest.js';
 import {PrettyDate} from '../panel/util.js';
+import {AttacheExpander} from '../panel/expander.js';
 
 "use strict";
 
@@ -122,51 +124,12 @@ export function Flow() {
         RestCall(panel.evtHub, "POST", "/push/data", payload);
     }
 
-    var trigUp = false;
-    function expandHandler(elem) {
-        var id = elem.getAttribute('for')
-        return function(evt) {
-            evt.preventDefault();
-            evt.stopPropagation();
-
-            var box = document.querySelectorAll('#trig-'+id)[0];
-            var thing = document.querySelectorAll('#trig-form-container-'+id)[0]
-            if (!trigUp) {
-                trigUp = true;
-                box.className='trigger modal';
-                thing.className='trig-form expander';
-                setTimeout(()=>{
-                    thing.className='trig-form expander expand';
-                    elem.className='expander expand'
-                }, 20);
-            } else {
-                box.className='trigger';
-                thing.className='trig-form expander';
-                setTimeout(()=>{
-                    thing.className='trig-form expander hidden';
-                    elem.className='expander'
-                }, 490);
-                trigUp = false;
-            }
-        }
-     }
-
-    function attacheExpander() {
-        var els = document.querySelectorAll('label.expander');
-        var len = els.length;
-        for (var i = 0; i < len; i++) {
-            var elem = els[i];
-            elem.addEventListener('click', expandHandler(elem));
-        }
-    }
-
     // AfterRender is called when the dash hs rendered containers.
     // we go and add the child summary panels
     this.AfterRender = function(data) {
         if (data == undefined) {
             return
         }
-        console.log(data);
         var trigs = data.Data.Config.Triggers;
         for (var t in trigs) {
             var trig = trigs[t];
@@ -177,11 +140,11 @@ export function Flow() {
             // Give the form the trigger id so it can be uniquely directly referenced.
             form.ID = trig.ID;
             console.log(form);
-            var formP = new Form('#trig-form-container-'+trig.ID, form, sendData);
+            var formP = new Form('#expander-'+trig.ID, form, sendData);
             formP.Activate();
         }
 
-        attacheExpander();
+        AttacheExpander(el('.triggers'));
     }
 
     return panel;
@@ -196,6 +159,9 @@ function runsEqual(r1, r2) {
 
 var tplFlow = `
     <div id='flow' class='flow-single'>
+        <div class="crumb">
+          <a href='/dash'>← back to Dashboard</a>
+        </div>
         <summary>
             <h2>{{=it.Data.Config.Name}}</h3>
         </summary>
@@ -206,13 +172,20 @@ var tplFlow = `
             </heading>
             {{~it.Data.Config.Triggers :trigger:index}}
                 <box id='trig-{{=trigger.ID}}' class='trigger'>
-                    <h3>{{=trigger.Name}}</h4>
-                    <detail>
-                        {{? trigger.Type=='data'}}
-                        <label for="{{=trigger.ID}}" class='expander'>Input</label>
-                        <section class='trig-form expander hidden' id='trig-form-container-{{=trigger.ID}}'></section>
-                        {{?}}
+                    {{? trigger.Type=='data'}}
+                    <div for="{{=trigger.ID}}" class="trig-title expander-ctrl">
+                        <h4>{{=trigger.Name}}</h4><i class='icon-angle-circled-right'></i>
+                    </div>
+                    {{??}}
+                    <div class="trig-title">
+                        <h4>{{=trigger.Name}}</h4>
+                    </div>
+                    {{?}}
+                    {{? trigger.Type=='data'}}
+                    <detail id='expander-{{=trigger.ID}}' class='expander'>
+                        <section class='trig-form'></section>
                     </detail>
+                    {{?}}
                 </box>
             {{~}}
         </div>

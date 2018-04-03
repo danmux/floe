@@ -55,6 +55,16 @@ func (f *Flow) matchTriggers(eType string, opts *nt.Opts) []*node {
 	return res
 }
 
+// Node returns the node matching id
+func (f *Flow) Node(id string) *node {
+	for _, s := range f.Tasks {
+		if s.ID == id {
+			return s
+		}
+	}
+	return nil
+}
+
 func (f *Flow) matchTag(tag string) []*node {
 	res := []*node{}
 	for _, s := range f.Tasks {
@@ -122,22 +132,6 @@ func (f *Flow) zero() error {
 
 	return nil
 }
-
-// func (f *Flow) classToList(class NodeClass) []*node {
-// 	nl := []*node{}
-// 	switch class {
-// 	case NcTrigger:
-// 		nl = f.Triggers
-// 	case NcTask:
-// 		for _, n := range f.Tasks {
-// 			if n.Class != class {
-// 				continue
-// 			}
-// 			nl = append(nl, n)
-// 		}
-// 	}
-// 	return nl
-// }
 
 func (f *Flow) fixupOpts() {
 	for _, v := range f.Triggers {

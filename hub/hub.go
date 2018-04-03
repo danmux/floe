@@ -383,7 +383,9 @@ func (h *Hub) pendFlowFromTrigger(e event.Event) error {
 	e.Tag = triggerType
 
 	// add each flow to the pending list
-	for f := range found {
+	for f, ff := range found {
+		// copy the matched node to the source node for the trigger that this event matched
+		e.SourceNode = ff.Nodes[0].Ref
 		ref, err := h.addToPending(f, h.hostID, e)
 		if err != nil {
 			return err

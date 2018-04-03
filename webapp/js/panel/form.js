@@ -11,7 +11,7 @@ export function Form(sel, obj, onSubmit) {
         var data = {};
         for (var f in obj.fields) {
             var field = obj.fields[f];
-            data[field.id] = el('input[name="field-'+field.id+'"]')[0].value;
+            data[field.id] = el('input[name="field-'+field.id+'"]').value;
         }
         // callback with the form data
         onSubmit(data);

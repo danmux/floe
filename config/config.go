@@ -45,7 +45,7 @@ type FoundFlow struct {
 	ResourceTags []string
 	HostTags     []string
 
-	Nodes []*node
+	Nodes []*node // nodes that matched the criteria to have fund the node
 }
 
 // FindFlowsByTriggers finds all flows where its subs match the given params
@@ -64,6 +64,9 @@ func (c *Config) FindFlowsByTriggers(eType string, flow FlowRef, opts nt.Opts) m
 		ns := f.matchTriggers(eType, &opts)
 		// found some matching nodes for this flow
 		if len(ns) > 0 {
+			if len(ns) > 1 {
+				log.Warning("triggered flow has too many triggers, using first", f.ID, f.Ver, len(f.Triggers))
+			}
 			// make sure this flow is in the results
 			fr := ns[0].FlowRef()
 			ff, ok := res[fr]
@@ -75,7 +78,7 @@ func (c *Config) FindFlowsByTriggers(eType string, flow FlowRef, opts nt.Opts) m
 					HostTags:     f.HostTags,
 				}
 			}
-			ff.Nodes = ns
+			ff.Nodes = []*node{ns[0]} // use the first one
 			res[fr] = ff
 		} else {
 			log.Debugf("config - flow:<%s> failed on trigger match", flow)

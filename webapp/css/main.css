@@ -5,6 +5,7 @@ html {
     background-color: #eee;
     font: 1em Helvetica, Helvetica Neue, Arial;
     line-height: 1.3;
+    font-weight: lighter;
 }
 
 h1, h2, h3, h4, h5 {
@@ -164,6 +165,7 @@ nav a:hover {
 /* fonts */
 .icon-cog:before { content: '\e800'; }
 .icon-off:before { content: '\e801'; }
+.icon-angle-circled-right:before { content: '\f138'}
 
 i {
     font-family: "floe";
@@ -183,6 +185,10 @@ box {
    -webkit-box-shadow: 0 0px 1px #aaa;
       -moz-box-shadow: 0 0px 1px #aaa;
            box-shadow: 0 0px 1px #aaa;
+}
+
+.crumb {
+    font-size: 9pt; 
 }
 
 nav {
@@ -207,7 +213,6 @@ box {
     padding: 10px 15px 2px;
     margin: 5px 10px;
     border-radius: 3px;
-    font-weight: lighter;
     min-height: 70px;
     transition: all 0.5s ease-in-out;
 }
@@ -243,7 +248,7 @@ top {
 
 detail {
     display: block;
-    border-top: 1px solid #ddd;
+    /* border-top: 1px solid #ddd; */
 }
 
 box.run detail {
@@ -256,6 +261,11 @@ box.flow detail {
 
 box.good {
     border-left: 4px solid #42c88a;
+}
+
+box.disabled {
+    background-color: #f0f0f0;
+    color: #ccc;
 }
 
 divider {
@@ -280,6 +290,25 @@ heading {
 
 triggers {
     display: block;
+}
+
+box.trigger {
+    min-height: 40px;
+}
+
+.trig-title > h4 {
+    float: left;
+}
+
+.value {
+    background-color: #eee;
+    border-radius: 3px;
+    box-shadow: 0 0px 1px #aaa;
+    padding: 1px 5px;
+}
+
+.kvrow {
+    margin-bottom: 10px;
 }
 
 .level {
@@ -356,49 +385,28 @@ input {
 
 /* Expanding thing */
 
-section.expander  {
-    padding: 5px;
+i.icon-angle-circled-right {
+    margin-top: 4px;
+    color: #888;
+    float: right;
+    font-size: 15pt;
+    transition-duration: 0.5s;
+}
+
+.open {
+    transform: rotate(90deg);
+}
+
+.expander  {
     height: 0px;
     margin-top: 35px;
     overflow: hidden;
     transition: height 0.5s;
 }
 
-section.expand {
+.expand {
     height: 300px;
     overflow: scroll;
-}
-
-label.expander {
-    display: block;
-    padding: 5px;
-    text-align: center;
-    color: #666;
-    float: left;
-}
-
-label.expander:hover {
-    color: #000;
-  }
-
-label.expander:hover {
-    color: #000;
-}
-
-label.expander::before {
-    line-height: 17px;
-    font-size: 16px;
-    content: "+";
-    vertical-align: text-top;
-    display: inline-block;
-    width: 19px;
-    height: 18px;
-    margin-right: 3px;
-    background: radial-gradient(ellipse at center, #CCC 50%, transparent 50%);
-}
-
-label.expand::before {
-    content: "-"
 }
 
 /* ==========================================================================

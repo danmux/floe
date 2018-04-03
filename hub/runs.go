@@ -27,7 +27,7 @@ func (t Pend) String() string {
 	return t.Ref.String()
 }
 
-func (t Pend) Equal(u Pend) bool {
+func (t Pend) equal(u Pend) bool {
 	return t.Ref.Equal(u.Ref)
 }
 
@@ -57,15 +57,17 @@ type Run struct {
 	Ended      bool
 	Status     string
 	Good       bool
+	Initiating event.Event      // the event that started it all
 	MergeNodes map[string]merge // the states of the merge nodes by node id
 	DataNodes  map[string]data  // the sates of any data nodes
 	ExecNodes  map[string]exec  // the sates of any exec nodes
 }
 
-func newRun(ref event.RunRef) *Run {
+func newRun(pend *Pend) *Run {
 	return &Run{
-		Ref:        ref,
+		Ref:        pend.Ref,
 		StartTime:  time.Now(),
+		Initiating: pend.InitiatingEvent,
 		MergeNodes: map[string]merge{},
 		DataNodes:  map[string]data{},
 		ExecNodes:  map[string]exec{},
@@ -302,7 +304,7 @@ func (r *RunStore) activeFlows() []config.FlowRef {
 	return res
 }
 
-// activate adds the active configs to the active list saves it, and returns the run id
+// activate adds the active configs to the active list, saves it, and returns the run id
 func (r *RunStore) activate(pend *Pend, hostID string) error {
 	r.Lock()
 	defer r.Unlock()
@@ -310,7 +312,7 @@ func (r *RunStore) activate(pend *Pend, hostID string) error {
 	// update the runref with this executing host
 	pend.Ref.ExecHost = hostID
 
-	r.active = append(r.active, newRun(pend.Ref))
+	r.active = append(r.active, newRun(pend))
 
 	return r.active.Save(activeKey, r.store)
 }
@@ -331,7 +333,7 @@ func (r *RunStore) removePend(pend Pend) (bool, error) {
 	defer r.Unlock()
 
 	for i, td := range r.pending.Pends {
-		if td.Equal(pend) {
+		if td.equal(pend) {
 			// slide them down
 			copy(r.pending.Pends[i:], r.pending.Pends[i+1:])
 			// explicitly drop the reference to the one left at the end
@@ -373,7 +375,8 @@ func (r *RunStore) pendToRuns(id string) (pending Runs) {
 			continue
 		}
 		pending = append(pending, &Run{
-			Ref: t.Ref,
+			Ref:        t.Ref,
+			Initiating: t.InitiatingEvent,
 		})
 	}
 	return pending

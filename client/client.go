@@ -176,6 +176,7 @@ type Run struct {
 	Ended      bool
 	Status     string
 	Good       bool
+	Initiating event.Event
 	MergeNodes map[string]merge
 	DataNodes  map[string]data
 	ExecNodes  map[string]exec
