@@ -23,6 +23,8 @@ const (
 	tagGoodTrigger = "trigger.good"      // always issued when a trigger
 )
 
+var zt = time.Time{} // zero time
+
 // node definitions
 type refNode interface {
 	NodeRef() config.NodeRef
@@ -108,6 +110,7 @@ func (h *Hub) AllClientRuns(flowID string) client.RunSummaries {
 	return s
 }
 
+// AllClientFindRun queries all hosts for the specified run
 func (h *Hub) AllClientFindRun(flowID, runID string) *client.Run {
 	for _, host := range h.hosts {
 		run := host.FindRun(flowID, runID)
@@ -140,7 +143,7 @@ func (h *Hub) AllRuns(id string) (pending Runs, active Runs, archive Runs) {
 	return h.runs.allRuns(id)
 }
 
-// returns an individual run as given by the flow and run.
+// FindRun returns an individual run as given by the flow and run.
 func (h *Hub) FindRun(flowID, runID string) *Run {
 	return h.runs.find(flowID, runID)
 }
@@ -488,7 +491,8 @@ func (h *Hub) publishIfActive(e event.Event) {
 // executeNode invokes a task node Execute function for the active run
 func (h *Hub) executeNode(run *Run, node exeNode, e event.Event, singleWs bool) {
 	runRef := run.Ref
-	log.Debugf("<%s> - exec node - event tag: %s", runRef, e.Tag)
+	nodeID := node.NodeRef().ID
+	log.Debugf("<%s> - exec node - event tag: %s, node: %s", runRef, e.Tag, nodeID)
 
 	// setup the workspace config
 	ws, err := h.getWorkspace(runRef, singleWs)
@@ -512,10 +516,11 @@ func (h *Hub) executeNode(run *Run, node exeNode, e event.Event, singleWs bool) 
 			})
 
 			// explicitly update any exec nodes with the ongoing execute
-			h.runs.updateExecNode(run, node.NodeRef().ID, update)
+			h.runs.updateExecNode(run, nodeID, zt, zt, false, update)
 		}
 	}()
 
+	h.runs.updateExecNode(run, nodeID, time.Now(), zt, false, "")
 	status, outOpts, err := node.Execute(ws, e.Opts, updates)
 	close(updates)
 
@@ -529,6 +534,7 @@ func (h *Hub) executeNode(run *Run, node exeNode, e event.Event, singleWs bool) 
 			Opts:       outOpts,
 			Good:       false,
 		})
+		h.runs.updateExecNode(run, nodeID, zt, time.Now(), false, "")
 		return
 	}
 
@@ -543,6 +549,8 @@ func (h *Hub) executeNode(run *Run, node exeNode, e event.Event, singleWs bool) 
 	tagbit, good := node.Status(status)
 	ne.Tag = node.GetTag(tagbit)
 	ne.Good = good
+
+	h.runs.updateExecNode(run, nodeID, zt, time.Now(), good, "")
 
 	// and publish it
 	h.publishIfActive(ne)

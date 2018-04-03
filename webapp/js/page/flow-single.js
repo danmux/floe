@@ -1,6 +1,7 @@
 import {Panel} from '../panel/panel.js';
 import {el} from '../panel/panel.js';
 import {AttacheExpander} from '../panel/expander.js';
+import {PrettyDate} from '../panel/util.js';
 
 "use strict";
 
@@ -20,10 +21,28 @@ export function FlowSingle() {
 
     this.Map = function(evt) {
         console.log("flow got a call to Map", evt);
-        // return evt.Value.Response.Payload.Config;
-        evt.Value.Response.Payload.Parent = '/flows/' + panel.IDs[0];
-        console.log(evt.Value.Response.Payload);
-        return evt.Value.Response.Payload;
+        if (evt.Type == 'rest') {
+          var pl = evt.Value.Response.Payload;
+          pl.Parent = '/flows/' + panel.IDs[0];
+          console.log(pl);
+
+          pl.Graph.forEach((r, i) => {
+              r.forEach((nr, ni) => {
+                nr.StartedAgo = PrettyDate(nr.Started);
+                nr.Took = "";
+                if ( nr.Stopped != "0001-01-01T00:00:00Z" ) {
+                    var started = new Date(nr.Started)
+                    var stopped = new Date(nr.Stopped);
+                    nr.Took = "("+toHHMMSS((stopped - started)/1000)+")";
+                }
+                pl.Graph[i][ni] = nr;
+              });
+          });
+
+          console.log(pl);
+
+          return pl;
+        }
     }
 
     // AfterRender is called when the dash hs rendered containers.
@@ -33,6 +52,21 @@ export function FlowSingle() {
     }
 
     return panel;
+}
+
+function toHHMMSS(sec_num) {
+    sec_num = Math.floor(sec_num)
+    var hours   = Math.floor(sec_num / 3600);
+    var minutes = Math.floor((sec_num - (hours * 3600)) / 60);
+    var seconds = sec_num - (hours * 3600) - (minutes * 60);
+
+    
+    if (minutes < 10) {minutes = "0"+minutes;}
+    if (seconds < 10) {seconds = "0"+seconds;}
+    if (hours > 0) {
+        return hours+':'+minutes+':'+seconds;
+    }
+    return minutes+':'+seconds;
 }
 
 var graphFlow = `
@@ -73,191 +107,17 @@ var graphFlow = `
         <divider></divider>
         <tasks>
         {{~it.Data.Graph :level:index}}
-          <div id='level-{{=index}}' class='level section'>
+          <div id='level-{{=index}}' class='level'>
           {{~level :node:indx}}
-            <box id='node-{{=node.ID}}' class='task good'>
+            <box id='node-{{=node.ID}}' class='task {{=node.Result}} {{=node.Status}}'>
               <h4>{{=node.Name}}</h4>
+              <detail>
+                <p class='ago'>{{=node.StartedAgo}}</p><p class='took'>{{=node.Took}}</p>
+              <detail>
             </box>
           {{~}}
           </div>
         {{~}}
         </tasks>
-
     </div>
 `
-
-
-var tplFlow = `
-    <div id='flow' class='flow-single'>
-        <summary>
-            <h3>{{=it.Data.Name}}</h3>
-        </summary>
-        
-        <triggers>
-        {{~it.Data.Triggers :trigger:index}}
-            <box id='trig-{{=trigger.ID}}' class='trigger'>
-                <h4>{{=trigger.Name}}</h4>
-            </box>
-        {{~}}
-        </triggers>
-
-        <tasks>
-        {{~it.Data.Tasks :task:index}}
-            <box id='task-{{=task.ID}}' class='task'>
-                <h4>{{=task.Name}}</h4>
-            </box>
-        {{~}}
-        </tasks>
-
-    </div>
-`
-
-/*
-{
-  "Message": "OK",
-  "Payload": {
-    "Config": {
-      "ID": "build-project",
-      "Ver": 1,
-      "Name": "build project",
-      "ReuseSpace": true,
-      "HostTags": [
-        "linux",
-        "go",
-        "couch"
-      ],
-      "ResourceTags": [
-        "couchbase",
-        "nic"
-      ],
-      "Triggers": [
-        {
-          "Ref": {
-            "Class": "trigger",
-            "ID": "push"
-          },
-          "ID": "push",
-          "Name": "push",
-          "Listen": "",
-          "Wait": null,
-          "Type": "git-push",
-          "Good": null,
-          "IgnoreFail": false,
-          "UseStatus": false,
-          "Opts": {
-            "url": "blah.blah"
-          }
-        },
-        {
-          "Ref": {
-            "Class": "trigger",
-            "ID": "start"
-          },
-          "ID": "start",
-          "Name": "start",
-          "Listen": "",
-          "Wait": null,
-          "Type": "data",
-          "Good": null,
-          "IgnoreFail": false,
-          "UseStatus": false,
-          "Opts": {
-            "form": "-"
-          }
-        }
-      ],
-      "Tasks": [
-        {
-          "Ref": {
-            "Class": "task",
-            "ID": "checkout"
-          },
-          "ID": "checkout",
-          "Name": "checkout",
-          "Listen": "merge.subs.good",
-          "Wait": null,
-          "Type": "git-merge",
-          "Good": [
-            0
-          ],
-          "IgnoreFail": false,
-          "UseStatus": false,
-          "Opts": {}
-        },
-        {
-          "Ref": {
-            "Class": "task",
-            "ID": "build"
-          },
-          "ID": "build",
-          "Name": "build",
-          "Listen": "task.checkout.good",
-          "Wait": null,
-          "Type": "exec",
-          "Good": null,
-          "IgnoreFail": false,
-          "UseStatus": false,
-          "Opts": {
-            "cmd": "make build"
-          }
-        },
-        {
-          "Ref": {
-            "Class": "task",
-            "ID": "test"
-          },
-          "ID": "test",
-          "Name": "test",
-          "Listen": "task.build.good",
-          "Wait": null,
-          "Type": "exec",
-          "Good": null,
-          "IgnoreFail": false,
-          "UseStatus": false,
-          "Opts": {
-            "cmd": "make test"
-          }
-        },
-        {
-          "Ref": {
-            "Class": "task",
-            "ID": "sign-off"
-          },
-          "ID": "sign-off",
-          "Name": "Sign Off",
-          "Listen": "task.build.good",
-          "Wait": null,
-          "Type": "data",
-          "Good": null,
-          "IgnoreFail": false,
-          "UseStatus": false,
-          "Opts": {
-            "form": "-"
-          }
-        }
-      ],
-      "Pubs": null,
-      "Merges": [
-        {
-          "Ref": {
-            "Class": "merge",
-            "ID": "subs"
-          },
-          "ID": "subs",
-          "Name": "subs",
-          "Listen": "",
-          "Wait": [
-            "sub.push.good",
-            "sub.start.good"
-          ],
-          "Type": "any",
-          "Good": null,
-          "IgnoreFail": false,
-          "UseStatus": false,
-          "Opts": {}
-        }
-      ]
-    }
-  }
-}
-*/

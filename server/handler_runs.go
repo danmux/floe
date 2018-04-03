@@ -20,8 +20,14 @@ type runNode struct {
 	ID      string
 	Name    string
 	Type    string
-	Enabled bool
-	Fields  []field
+	Enabled bool    // trigger and data only
+	Fields  []field // trigger and data only
+	Started time.Time
+	Stopped time.Time
+	Status  string   // "", "running", "finished", "waiting"(for data)
+	Result  string   // "success", "failed", "" // only valid when Status="finished"
+	Logs    []string // TODO - paging
+
 }
 
 // hndRun answers external call and returns the individual run detail (may come from other host)
@@ -51,9 +57,10 @@ func hndRun(rw http.ResponseWriter, r *http.Request, ctx *context) (int, string,
 			Name: t.Name,
 			Type: t.Type,
 		}
+		// fill out initiating trigger data - TODO for checkout 'push'
 		if t.ID == run.Initiating.SourceNode.ID && t.Type == "data" {
 			form, ok := t.Opts["form"].(map[string]interface{})
-			vals := run.Initiating.Opts
+			values := run.Initiating.Opts
 			if ok {
 				for _, fld := range form["fields"].([]interface{}) {
 					f := fld.(map[string]interface{})
@@ -61,7 +68,7 @@ func hndRun(rw http.ResponseWriter, r *http.Request, ctx *context) (int, string,
 					rn.Fields = append(rn.Fields, field{
 						ID:     id,
 						Prompt: f["prompt"].(string),
-						Value:  vals[id].(string),
+						Value:  values[id].(string),
 					})
 				}
 			}
@@ -76,14 +83,12 @@ func hndRun(rw http.ResponseWriter, r *http.Request, ctx *context) (int, string,
 		Triggers []runNode
 		Graph    [][]runNode
 		Problems []string
-		// Run      *client.Run
 	}{
 		FlowName: flow.Name,
 		Name:     flow.Name + " " + run.Ref.Run.String(),
 		Triggers: triggers,
 		Graph:    buildRunResp(graph[1:], flow, run),
 		Problems: problems,
-		// Run:      run,
 	}
 
 	return rOK, "", response
@@ -98,10 +103,48 @@ func buildRunResp(graph [][]string, conf *config.Flow, run *client.Run) [][]runN
 			if cn == nil {
 				continue
 			}
-			nodes[i][j] = runNode{
+			rn := runNode{
 				ID:   id,
 				Name: cn.Name,
+				Type: cn.Type,
 			}
+			if cn.Class != "task" {
+				nodes[i][j] = rn
+				continue
+			}
+
+			switch cn.Type {
+			case "data":
+				res := run.DataNodes[id]
+				rn.Enabled = res.Enabled
+				rn.Started = res.Started
+				rn.Stopped = res.Stopped
+				switch {
+				case !rn.Stopped.IsZero():
+					rn.Status = "finished"
+				case !rn.Started.IsZero():
+					rn.Status = "waiting"
+				}
+				// TODO - construct the fields - for entry - or for reporting
+				// using res.Opts and cn
+			default:
+				res := run.ExecNodes[id]
+				rn.Logs = res.Logs
+				rn.Started = res.Started
+				rn.Stopped = res.Stopped
+				switch {
+				case !rn.Stopped.IsZero():
+					rn.Status = "finished"
+					if res.Good {
+						rn.Result = "success"
+					} else {
+						rn.Result = "failed"
+					}
+				case !rn.Started.IsZero():
+					rn.Status = "running"
+				}
+			}
+			nodes[i][j] = rn
 		}
 	}
 	return nodes

@@ -1,17 +1,17 @@
 package server
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"sync"
-	"encoding/json"
 
-	"golang.org/x/net/websocket"
 	"github.com/julienschmidt/httprouter"
+	"golang.org/x/net/websocket"
 
-	"github.com/floeit/floe/log"
 	"github.com/floeit/floe/event"
+	"github.com/floeit/floe/log"
 )
 
 type wsHub struct {
@@ -35,7 +35,7 @@ func (w *wsHub) Notify(e event.Event) {
 		return
 	}
 
-	for ws := range w.cons{
+	for ws := range w.cons {
 		m, err := ws.Write(b)
 		if err != nil {
 			log.Fatal(err)
@@ -52,7 +52,7 @@ func (w *wsHub) add(ws *websocket.Conn) {
 
 	log.Debug("ws - adding new client")
 
-	w.cons[ws]=true
+	w.cons[ws] = true
 }
 
 func (w *wsHub) remove(ws *websocket.Conn) {
@@ -75,7 +75,7 @@ func (w *wsHub) getWsHandler(h *handler) httprouter.Handle {
 
 func (w *wsHub) handler(ws *websocket.Conn) {
 	w.add(ws)
-	defer func(){
+	defer func() {
 		w.remove(ws)
 	}()
 
@@ -87,7 +87,7 @@ func (w *wsHub) handler(ws *websocket.Conn) {
 			if err == io.EOF {
 				log.Debug("websocket - client closed")
 			} else {
-				log.Error("websocket - got an error", err)	
+				log.Error("websocket - got an error", err)
 			}
 			err = ws.Close()
 			if err != nil {
@@ -96,6 +96,6 @@ func (w *wsHub) handler(ws *websocket.Conn) {
 			return
 		}
 
-		fmt.Printf("Receive: %s\n", msg[:n])
+		fmt.Printf("TODO - something with this - Receive: %s\n", msg[:n])
 	}
 }

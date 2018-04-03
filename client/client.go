@@ -158,13 +158,18 @@ type merge struct {
 }
 
 type data struct {
-	Enabled bool    // Enabled is true if the enabling event has occurred
-	Opts    nt.Opts // opts from the data event
+	Enabled bool
+	Started time.Time
+	Stopped time.Time
+	Opts    nt.Opts
 }
 
 type exec struct {
-	Opts nt.Opts  // opts from the exec event
-	Logs []string // any output of the node
+	Started time.Time
+	Stopped time.Time
+	Good    bool
+	Opts    nt.Opts
+	Logs    []string
 }
 
 // Run is a specific invocation of a flow

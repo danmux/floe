@@ -38,13 +38,18 @@ type merge struct {
 }
 
 type data struct {
-	Enabled bool    // Enabled is true if the enabling event has occurred
-	Opts    nt.Opts // opts from the data event
+	Enabled bool      // Enabled is true if the enabling event has occurred
+	Started time.Time // when it became enabled for data
+	Stopped time.Time // when data was fully entered
+	Opts    nt.Opts   // opts from the data event
 }
 
 type exec struct {
-	Opts nt.Opts  // opts from the exec event
-	Logs []string // any output of the node
+	Started time.Time
+	Stopped time.Time
+	Good    bool     // only valid when Status="finished"
+	Opts    nt.Opts  // opts from the exec event
+	Logs    []string // any output of the node
 }
 
 // Run is a specific invocation of a flow
@@ -94,19 +99,29 @@ func (r *Run) updateWithMergeEvent(nodeID, tag string, opts nt.Opts) (int, nt.Op
 }
 
 // updateExecNode adds the output line to the log lines for the nod in this run
-func (r *Run) updateExecNode(nodeID string, line string) {
+func (r *Run) updateExecNode(nodeID string, start, end time.Time, good bool, line string) {
 	r.Lock()
 	defer r.Unlock()
 	m, ok := r.ExecNodes[nodeID]
 	if !ok {
 		m = exec{}
 	}
-	m.Logs = append(m.Logs, line)
+
+	if !start.IsZero() {
+		m.Started = start
+	}
+	if !end.IsZero() {
+		m.Stopped = end
+		m.Good = good
+	}
+
+	if line != "" {
+		m.Logs = append(m.Logs, line)
+	}
 	r.ExecNodes[nodeID] = m
 }
 
 // updateDataNode adds the opts form description
-// TODO - this via the store so it can be persisted
 func (r *Run) updateDataNode(nodeID string, opts nt.Opts) {
 	r.Lock()
 	defer r.Unlock()
@@ -116,6 +131,7 @@ func (r *Run) updateDataNode(nodeID string, opts nt.Opts) {
 	}
 	m.Opts = opts
 	m.Enabled = true
+	m.Started = time.Now() // TODO move this to the hub - when we can handle data input in the run
 	r.DataNodes[nodeID] = m
 }
 
@@ -225,8 +241,8 @@ func (r *RunStore) updateWithMergeEvent(run *Run, nodeID, tag string, opts nt.Op
 }
 
 // TODO - consider buffering these writes if the updates come in fast
-func (r *RunStore) updateExecNode(run *Run, nodeID string, line string) {
-	run.updateExecNode(nodeID, line)
+func (r *RunStore) updateExecNode(run *Run, nodeID string, start, end time.Time, good bool, line string) {
+	run.updateExecNode(nodeID, start, end, good, line)
 	r.Lock()
 	defer r.Unlock()
 	if err := r.active.Save(activeKey, r.store); err != nil {

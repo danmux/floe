@@ -33,20 +33,20 @@ flows:
                   type: text 
             
       tasks: 
-        - name: checkout             # the name of this node 
+        - name: Checkout             # the name of this node 
           type: git-merge            # the task type 
           listen: trigger.good       # the event tag that triggers this node
           good: [0]                  # define what the good statuses are, default [0]
           ignore-fail: false         # if true only emit good
         
-        - name: echo
+        - name: Echo
           type: exec
           listen: task.checkout.good
           opts:
             cmd: "echo dan"
             file: "BUILD.floe"         # the command to execute 
 
-        - name: build                
+        - name: Build                
           type: exec
           listen: task.checkout.good    
           opts:
@@ -72,7 +72,7 @@ flows:
                   prompt: To Branch (or hash)
                   type: string
 
-        - name: wait test and sign off
+        - name: Wait For Tests and Sign Off
           class: merge
           id: signed
           type: all

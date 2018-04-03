@@ -251,7 +251,7 @@ detail {
     /* border-top: 1px solid #ddd; */
 }
 
-box.run detail {
+box.run detail, box.task detail{
     font-size: 8pt;
 }
 
@@ -259,8 +259,16 @@ box.flow detail {
     min-height: 50px;
 }
 
-box.good {
+box.success {
     border-left: 4px solid #42c88a;
+}
+
+box.failed {
+    border-left: 4px solid #d8201a;
+}
+
+box.waiting {
+    border-left: 4px solid #195fd1;
 }
 
 box.disabled {
@@ -273,6 +281,7 @@ divider {
     border-bottom: 1px solid #ccc;
     display: block;
     height: 20px;
+    margin-bottom: 20px
 }
 
 subtitle {
@@ -319,6 +328,14 @@ box.trigger {
 tasks {
     margin: 20px auto;
     width: 50%; 
+}
+
+.ago {
+    float: left;
+}
+
+.took {
+    float: right;
 }
 
 .section {
