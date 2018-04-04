@@ -3,6 +3,8 @@ package push
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
+	"strings"
 
 	"github.com/julienschmidt/httprouter"
 
@@ -12,33 +14,78 @@ import (
 	"github.com/floeit/floe/log"
 )
 
-// data
+// Data is the push data endpoint handler
 type Data struct{}
 
+// RequiresAuth - decides if it needs a token.
 func (d Data) RequiresAuth() bool {
 	return true
 }
 
+// PostHandler handles POST requests
 func (d Data) PostHandler(queue *event.Queue) httprouter.Handle {
 	return func(w http.ResponseWriter, req *http.Request, par httprouter.Params) {
 		log.Debug("got data push request")
+		type form struct {
+			ID     string
+			Values nt.Opts
+		}
 		o := struct {
-			Ref     config.FlowRef
-			Answers nt.Opts
+			Ref  config.FlowRef
+			Run  string
+			Form form
 		}{}
 
 		if !decodeJSONBody(w, req, &o) {
 			return
 		}
 
+		/*
+			{
+			   "Ref":{
+			      "ID":"build-project",
+			      "Ver":1
+			   },
+			   "Run":"h1-7",
+			   "Form":{
+			      "ID":"sign-off",
+			      "Values":{
+			         "tests_passed":"rewqrw",
+			         "to_hash":"rewqre"
+			      }
+			   }
+			}
+		*/
+
+		rr := event.RunRef{
+			FlowRef: o.Ref,
+		}
+
+		sourceNode := config.NodeRef{
+			Class: "exec",
+			ID:    o.Form.ID,
+		}
+
+		// if a run is given then it is data targetting a data input node
+		if o.Run != "" {
+			ps := strings.Split(o.Run, "-")
+			if len(ps) == 2 {
+				id, err := strconv.ParseInt(ps[1], 10, 64)
+				if err != nil {
+					log.Error("could not parse run id", err)
+				} else {
+					rr.Run.HostID = ps[0]
+					rr.Run.ID = id
+				}
+			}
+		}
+
 		// add a data event - including a specific targeted Run if given
 		queue.Publish(event.Event{
-			RunRef: event.RunRef{
-				FlowRef: o.Ref,
-				// Run // TODO - if a run is given then it is data targetting a data input node - and not a trigger
-			},
-			Tag:  "inbound.data",
-			Opts: o.Answers,
+			RunRef:     rr,
+			Tag:        "inbound.data",
+			SourceNode: sourceNode,
+			Opts:       o.Form.Values,
 		})
 
 		jsonResp(w, http.StatusOK, "OK", nil)

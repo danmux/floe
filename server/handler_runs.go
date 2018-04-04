@@ -7,15 +7,17 @@ import (
 
 	"github.com/floeit/floe/client"
 	"github.com/floeit/floe/config"
+	nt "github.com/floeit/floe/config/nodetype"
 	"github.com/floeit/floe/event"
 	"github.com/floeit/floe/hub"
 )
 
 type field struct {
-	ID     string
-	Prompt string
-	Value  string
+	ID     string `json:"id"`
+	Prompt string `json:"prompt"`
+	Value  string `json:"value"`
 }
+
 type runNode struct {
 	ID      string
 	Name    string
@@ -59,19 +61,7 @@ func hndRun(rw http.ResponseWriter, r *http.Request, ctx *context) (int, string,
 		}
 		// fill out initiating trigger data - TODO for checkout 'push'
 		if t.ID == run.Initiating.SourceNode.ID && t.Type == "data" {
-			form, ok := t.Opts["form"].(map[string]interface{})
-			values := run.Initiating.Opts
-			if ok {
-				for _, fld := range form["fields"].([]interface{}) {
-					f := fld.(map[string]interface{})
-					id := f["id"].(string)
-					rn.Fields = append(rn.Fields, field{
-						ID:     id,
-						Prompt: f["prompt"].(string),
-						Value:  values[id].(string),
-					})
-				}
-			}
+			buildFields(&rn, t.Opts, run.Initiating.Opts)
 			rn.Enabled = true
 		}
 		triggers[i] = rn
@@ -92,6 +82,29 @@ func hndRun(rw http.ResponseWriter, r *http.Request, ctx *context) (int, string,
 	}
 
 	return rOK, "", response
+}
+
+// buildFields uses the node config Opts and any current values
+// and creates a set of Fields from it
+func buildFields(rn *runNode, confOpts, values nt.Opts) {
+	form, ok := confOpts["form"].(map[string]interface{})
+	if !ok {
+		return
+	}
+	for _, fld := range form["fields"].([]interface{}) {
+		f := fld.(map[string]interface{})
+		id := f["id"].(string)
+		val := ""
+		vi, ok := values[id]
+		if ok {
+			val = vi.(string)
+		}
+		rn.Fields = append(rn.Fields, field{
+			ID:     id,
+			Prompt: f["prompt"].(string),
+			Value:  val,
+		})
+	}
 }
 
 func buildRunResp(graph [][]string, conf *config.Flow, run *client.Run) [][]runNode {
@@ -125,8 +138,7 @@ func buildRunResp(graph [][]string, conf *config.Flow, run *client.Run) [][]runN
 				case !rn.Started.IsZero():
 					rn.Status = "waiting"
 				}
-				// TODO - construct the fields - for entry - or for reporting
-				// using res.Opts and cn
+				buildFields(&rn, cn.Opts, res.Opts)
 			default:
 				res := run.ExecNodes[id]
 				rn.Logs = res.Logs

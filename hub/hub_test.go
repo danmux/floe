@@ -62,7 +62,9 @@ func TestExecuteNode(t *testing.T) {
 		exec: exec,
 	}
 	e := event.Event{}
-	run := newRun(runRef)
+	run := newRun(&Pend{
+		Ref: runRef,
+	})
 	h.executeNode(run, node, e, false)
 	if !didExec {
 		t.Error("did not execute executor")
@@ -123,12 +125,12 @@ func waitEvtTimeout(t *testing.T, ch chan event.Event) *event.Event {
 	case e := <-ch:
 		return &e
 	case <-time.After(time.Second * 5):
-		t.Fatal("timed out waiting for edn event")
+		t.Fatal("timed out waiting for an event")
 	}
 	return nil
 }
 
-func TestHub(t *testing.T) {
+func TestHubEvents(t *testing.T) {
 	t.Parallel()
 
 	c, _ := config.ParseYAML(in)
@@ -243,6 +245,124 @@ func TestHub(t *testing.T) {
 			if counts[k] != v {
 				t.Errorf("got wrong number of events, %s was %d expected %d", k, counts[k], v)
 			}
+		}
+	}
+}
+
+var inData = []byte(`
+    common:
+        base-url: "/build/api" 
+        
+    flows:
+        - id: build-project              # the name of this flow
+          ver: 1
+    
+          triggers:                      # external events to trigger the flow
+            - name: form                 # name of this subscription
+              type: data                 # the type of this trigger
+              opts:
+                url: blah.blah           # which url to monitor
+                
+          tasks: 	
+            - name: build                
+              listen: trigger.good    
+              type: exec
+              opts:
+                cmd: "make build"        # the command to execute 
+    
+            - name: Sign Off
+              type: data
+              listen: task.build.good    # for a data node this event has to have occured before the data node can accept data
+              opts:
+                form:
+                  title: Sign off Manual Testing
+                  fields:
+                    - id: tests_passed
+                      prompt: Did the manual testing pass?
+                      type: bool
+                    - id: to_hash
+                      prompt: To Branch (or hash)
+                      type: string
+    
+            - name: test1
+              listen: task.sign-off.good    
+              type: exec                 # execute a command
+              opts:
+                cmd: "make test"         # the command to execute 
+    
+            - name: complete
+              listen: task.test1.good
+              type: end                 # getting here means the flow was a success
+    `)
+
+func TestHubData(t *testing.T) {
+	t.Parallel()
+
+	c, err := config.ParseYAML(inData)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s, err := store.NewLocalStore("%tmp")
+	if err != nil {
+		t.Fatal(err)
+	}
+	q := &event.Queue{}
+	// so we can wait for events to occur after the trigger
+	to := &testObs{
+		ch: make(chan event.Event, 2),
+	}
+	q.Register(to)
+
+	// make a new hub
+	New("h2", "master", "~/floe", "admintok", c, s, q)
+
+	// start the flow
+	// add an external event whose opts dont match those needed by git-merge so will error
+	q.Publish(event.Event{
+		Tag: "inbound.data", // will match the trigger type
+		Opts: nt.Opts{
+			"url": "blah.blah",
+		},
+	})
+
+	// see if we can get the needs data event
+	for i := 0; i < 20; i++ {
+		e := waitEvtTimeout(t, to.ch)
+		if e.Tag == "sys.data.required" {
+			break
+		}
+	}
+
+	// add an external event whose opts dont match those needed by git-merge so will error
+	q.Publish(event.Event{
+		Tag: "inbound.data", // will match the data types
+		RunRef: event.RunRef{
+			FlowRef: config.FlowRef{
+				ID:  "build-project",
+				Ver: 1,
+			},
+			Run: event.HostedIDRef{
+				HostID: "h2",
+				ID:     1,
+			},
+		},
+		SourceNode: config.NodeRef{
+			ID: "sign-off",
+		},
+		Opts: nt.Opts{
+			"tests_passed": "true",
+			"to_hash":      "blhahaha",
+		},
+		Good: true,
+	})
+
+	// TODO add test for partial data
+	// TODO add test for making node bad
+
+	for i := 0; i < 20; i++ {
+		e := waitEvtTimeout(t, to.ch)
+		if e.Tag == "sys.end.all" {
+			break
 		}
 	}
 }

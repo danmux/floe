@@ -34,7 +34,7 @@ export function Flow() {
     var panel = new Panel(this, null, tplFlow, '#main', events, dataReq);
  
     this.Map = function(evt, data) {
-        console.log("flow got a call to Map", evt);
+        console.log("flow got a call to Map", evt, data);
 
         if (evt.Type == 'rest') {
             var pl = evt.Value.Response.Payload;
@@ -119,7 +119,7 @@ export function Flow() {
                 ID:  panel.IDs[0],
                 Ver: 1
             },
-            Answers: data
+            Form: data
         }
         RestCall(panel.evtHub, "POST", "/push/data", payload);
     }
@@ -173,17 +173,16 @@ var tplFlow = `
             {{~it.Data.Config.Triggers :trigger:index}}
                 <box id='trig-{{=trigger.ID}}' class='trigger'>
                     {{? trigger.Type=='data'}}
-                    <div for="{{=trigger.ID}}" class="trig-title expander-ctrl">
+                    <div for="{{=trigger.ID}}" class="data-title expander-ctrl">
                         <h4>{{=trigger.Name}}</h4><i class='icon-angle-circled-right'></i>
                     </div>
                     {{??}}
-                    <div class="trig-title">
+                    <div class="data-title">
                         <h4>{{=trigger.Name}}</h4>
                     </div>
                     {{?}}
                     {{? trigger.Type=='data'}}
                     <detail id='expander-{{=trigger.ID}}' class='expander'>
-                        <section class='trig-form'></section>
                     </detail>
                     {{?}}
                 </box>

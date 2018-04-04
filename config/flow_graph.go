@@ -109,6 +109,7 @@ func (f *Flow) Graph() (lvs [][]string, problems []string) {
 		for k := range lm[l] {
 			lv = append(lv, k)
 		}
+		// TODO sort within the level to some repeatable order
 		lvs = append(lvs, lv)
 	}
 

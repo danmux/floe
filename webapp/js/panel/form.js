@@ -8,10 +8,13 @@ export function Form(sel, obj, onSubmit) {
 
     // grab the form values to send to the callback
     var submitClick = function() {
-        var data = {};
+        var data = {
+            ID: obj.ID,
+            Values: {},
+        };
         for (var f in obj.fields) {
             var field = obj.fields[f];
-            data[field.id] = el('input[name="field-'+field.id+'"]').value;
+            data.Values[field.id] = el('input[name="field-'+field.id+'"]').value;
         }
         // callback with the form data
         onSubmit(data);

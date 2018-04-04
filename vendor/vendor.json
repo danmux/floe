@@ -25,6 +25,12 @@
 			"revisionTime": "2017-01-07T02:16:42Z"
 		},
 		{
+			"checksumSHA1": "Yvzge1YQcD/wSDXLD5qNHqmI/0s=",
+			"path": "github.com/mitchellh/mapstructure",
+			"revision": "00c29f56e2386353d58c599509e8dc3801b0d716",
+			"revisionTime": "2018-02-20T23:01:11Z"
+		},
+		{
 			"checksumSHA1": "MWqyOvDMkW+XYe2RJ5mplvut+aE=",
 			"path": "github.com/ugorji/go/codec",
 			"revision": "ded73eae5db7e7a0ef6f55aace87a2873c5d2b74",

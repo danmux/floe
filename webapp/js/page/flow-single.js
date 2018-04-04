@@ -1,5 +1,7 @@
 import {Panel} from '../panel/panel.js';
 import {el} from '../panel/panel.js';
+import {Form} from '../panel/form.js';
+import {RestCall} from '../panel/rest.js';
 import {AttacheExpander} from '../panel/expander.js';
 import {PrettyDate} from '../panel/util.js';
 
@@ -28,9 +30,12 @@ export function FlowSingle() {
 
           pl.Graph.forEach((r, i) => {
               r.forEach((nr, ni) => {
-                nr.StartedAgo = PrettyDate(nr.Started);
+                nr.StartedAgo = "";
+                if (nr.Started != "0001-01-01T00:00:00Z") {
+                    nr.StartedAgo = PrettyDate(nr.Started);
+                }
                 nr.Took = "";
-                if ( nr.Stopped != "0001-01-01T00:00:00Z" ) {
+                if (nr.Stopped != "0001-01-01T00:00:00Z") {
                     var started = new Date(nr.Started)
                     var stopped = new Date(nr.Stopped);
                     nr.Took = "("+toHHMMSS((stopped - started)/1000)+")";
@@ -45,10 +50,84 @@ export function FlowSingle() {
         }
     }
 
+    // TODO - dedupe with flow.js
+    var sendData = function(data) { 
+        var payload = {
+            Ref: {
+                ID:  panel.IDs[0],
+                Ver: 1
+            },
+            Run: panel.IDs[1],
+            Form: data
+        }
+        RestCall(panel.evtHub, "POST", "/push/data", payload);
+    }
+
+    /*
+        Tag: "inbound.data", // will match the data types
+		RunRef: event.RunRef{
+			FlowRef: config.FlowRef{
+				ID:  "build-project",
+				Ver: 1,
+			},
+			Run: event.HostedIDRef{
+				HostID: "h2",
+				ID:     1,
+			},
+		},
+		SourceNode: config.NodeRef{
+			ID: "sign-off",
+		},
+		Opts: nt.Opts{
+			"tests_passed": "true",
+			"to_hash":      "blhahaha",
+		},
+        Good: true,
+        */
+
     // AfterRender is called when the dash hs rendered containers.
     // we go and add the child summary panels
     this.AfterRender = function(data) {
-      AttacheExpander(el('triggers'));
+
+        if (data == undefined) {
+            return
+        }
+        console.log(data);
+        data.Data.Graph.forEach((r, i) => {
+            r.forEach((nr, ni) => {
+                if (nr.Type == "data") {
+                    if (nr.Enabled) {
+                        console.log('draw editable form');
+
+                        var form = {
+                            ID: nr.ID,
+                            fields: nr.Fields,
+                        };
+                        var formP = new Form('#expander-'+nr.ID, form, sendData);
+                        formP.Activate();
+
+                    } else {
+                        console.log('draw uneditable values');
+                    }
+                }
+            });
+        });
+        // var trigs = data.Data.Config.Triggers;
+        // for (var t in trigs) {
+        //     var trig = trigs[t];
+        //     var form = trig.Opts.form;
+        //     if (form == undefined) {
+        //         continue;
+        //     }
+        //     // Give the form the trigger id so it can be uniquely directly referenced.
+        //     form.ID = trig.ID;
+        //     console.log(form);
+        //     var formP = new Form('#expander-'+trig.ID, form, sendData);
+        //     formP.Activate();
+        // }
+
+        AttacheExpander(el('triggers'));
+        AttacheExpander(el('tasks'));
     }
 
     return panel;
@@ -82,20 +161,20 @@ var graphFlow = `
 
           <box id='trig-{{=trigger.ID}}' class='trigger{{? !trigger.Enabled}} disabled{{?}}'>
               {{? trigger.Type=='data'}}
-              <div for="{{=trigger.ID}}" class="trig-title expander-ctrl">
+              <div for="{{=trigger.ID}}" class="data-title expander-ctrl">
                   <h4>{{=trigger.Name}}</h4><i class='icon-angle-circled-right'></i>
               </div>
               {{??}}
-              <div class="trig-title">
+              <div class="data-title">
                   <h4>{{=trigger.Name}}</h4>
               </div>
               {{?}}
               {{? trigger.Type=='data'}}
               <detail id='expander-{{=trigger.ID}}' class='expander'>
                   {{~trigger.Fields :field:index}}
-                    <div id="field-{{=field.ID}}", class='kvrow'>
-                      <div class='prompt'>{{=field.Prompt}}:</div> 
-                      <div class='value'>{{=field.Value}}</div>
+                    <div id="field-{{=field.id}}", class='kvrow'>
+                      <div class='prompt'>{{=field.prompt}}:</div> 
+                      <div class='value'>{{=field.value}}</div>
                     </div>
                   {{~}}
               </detail>
@@ -110,10 +189,19 @@ var graphFlow = `
           <div id='level-{{=index}}' class='level'>
           {{~level :node:indx}}
             <box id='node-{{=node.ID}}' class='task {{=node.Result}} {{=node.Status}}'>
+              {{? node.Type=="data"}}
+              <div for="{{=node.ID}}" class="data-title expander-ctrl">
+                  <h4>{{=node.Name}}</h4><i class='icon-angle-circled-right'></i>
+              </div>
+              <detail id='expander-{{=node.ID}}' class='expander'>
+                 <section class='trig-form'></section>
+              </detail>
+              {{??}}
               <h4>{{=node.Name}}</h4>
               <detail>
                 <p class='ago'>{{=node.StartedAgo}}</p><p class='took'>{{=node.Took}}</p>
               <detail>
+              {{?}}
             </box>
           {{~}}
           </div>

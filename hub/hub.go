@@ -21,6 +21,8 @@ const (
 	tagStateChange = "sys.state"         // a run has transitioned state
 	tagWaitingData = "sys.data.required" // a node in the run needs data input
 	tagGoodTrigger = "trigger.good"      // always issued when a trigger
+
+	inboundPrefix = "inbound" // the tags from any data push events
 )
 
 var zt = time.Time{} // zero time
@@ -367,7 +369,6 @@ func (h *Hub) addToPending(flow config.FlowRef, hostID string, e event.Event) (e
 // pendFlowFromTrigger uses the subscription fired event e to put a FoundFlow
 // on the pending queue, storing the initial event for use as the run is executed.
 func (h *Hub) pendFlowFromTrigger(e event.Event) error {
-	const inboundPrefix = "inbound"
 	if !strings.HasPrefix(e.Tag, inboundPrefix) {
 		return fmt.Errorf("event %s dispatched to triggers does not have inbound tag prefix", e.Tag)
 	}
@@ -413,6 +414,30 @@ func (h *Hub) dispatchToActive(e event.Event) {
 		return
 	}
 
+	// is it an inbound data requests
+	if strings.HasPrefix(e.Tag, inboundPrefix) {
+		// inbound data events sent to an active run must be targetting a specific node.
+		// in which case the event SourceNode is the source that requested the data input, so
+		// is therefore also the target in this case.
+		// the flow is specified, as is the target node
+		flow := h.config.Flow(e.RunRef.FlowRef)
+		if flow == nil {
+			log.Errorf("<%s> - dispatch - no flow for inbound data event flow: %s", e.RunRef, e.RunRef.FlowRef)
+			return
+		}
+		// strip off the inbound prefix
+		e.Tag = e.Tag[len(inboundPrefix)+1:]
+		node := flow.Node(e.SourceNode.ID)
+		if node == nil {
+			log.Errorf("<%s> - dispatch - no node in flow for inbound data event flow: %s, node: %s", e.RunRef, e.RunRef.FlowRef, e.SourceNode.ID)
+			return
+		}
+
+		// tell the node we have some more data
+		h.setFormData(r, node, e.Opts)
+		return
+	}
+
 	// find all specific nodes from the config that listen for this event
 	found, flowExists := h.config.FindNodeInFlow(r.Ref.FlowRef, e.Tag)
 	if !flowExists {
@@ -449,7 +474,7 @@ func (h *Hub) dispatchToActive(e event.Event) {
 			case nt.NtEnd: // special task type end the run
 				h.endRun(r, n.NodeRef(), e.Opts, "complete", e.Good)
 				return
-			case nt.NtData:
+			case nt.NtData: // initial event triggering a data node
 				h.setFormData(r, n, e.Opts)
 			default:
 				// asynchronous execute
@@ -461,22 +486,43 @@ func (h *Hub) dispatchToActive(e event.Event) {
 	}
 }
 
-// setFormData - sets the opts form data on the active run it emits no events
-// so will effectively pause the run, until inbound data triggers the event for
-// this data node.
+// setFormData - sets the opts form data on the active run. If the form is incomplete it
+// emits a system event which no other node should will be listening for so will effectively
+// pause the run, until later when any inbound data triggers the event for this data node.
+// ultimately either explicitly marking the node good or bad, and issuing the appropriate event.
 func (h *Hub) setFormData(run *Run, node exeNode, opts nt.Opts) {
-	// data nodes just do stuff with the inbound opts and the node opts (that define the data fields)
-	_, outOpts, _ := node.Execute(nil, opts, nil)
+
+	// keep the filled in form values separate from the config opts
+	valOpts := nt.Opts{}
+	valOpts["values"] = opts
+
+	// status 0 = good, 1 = bad, 2 = needs more data,
+	status, outOpts, _ := node.Execute(nil, valOpts, nil)
+
 	// add the form fields to the flow
 	h.runs.updateDataNode(run, node.NodeRef().ID, outOpts)
-	// and inform whoever that there is data input needed
-	h.queue.Publish(event.Event{
+
+	ev := event.Event{
 		RunRef:     run.Ref,
 		SourceNode: node.NodeRef(),
-		Tag:        tagWaitingData,
 		Opts:       outOpts,
-		Good:       true,
-	})
+	}
+	switch status {
+	case 0: // form data accepted and marking the node good
+		ev.Tag = node.GetTag("good")
+		ev.Good = true
+		h.queue.Publish(ev)
+	case 1:
+		// form data accepted but mark the node bad
+		ev.Tag = node.GetTag("bad")
+		ev.Good = false
+		h.queue.Publish(ev)
+	case 2:
+		// more data input is needed
+		ev.Tag = tagWaitingData
+		ev.Good = true
+		h.queue.Publish(ev)
+	}
 }
 
 // publishIfActive publishes the event if the run is still active
@@ -606,10 +652,6 @@ func (h *Hub) setupHosts(adminTok string) {
 		addr := hostAddr + h.config.Common.BaseURL
 		h.hosts = append(h.hosts, client.New(addr, adminTok))
 	}
-}
-
-func (h *Hub) loadLists() {
-
 }
 
 func anyTags(set, subset []string) bool {

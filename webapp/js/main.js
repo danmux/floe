@@ -46,6 +46,7 @@ function main() {
     controller.SetListener(function(evt) {
         console.log("controller got an event", evt);
 
+        // rest type events are fired when we get a rest response
         if (evt.Type == 'rest') {
             // Did we try and do a server side call and it was authenticated
             // or an explicit logout was effective, then tell the controller to UnAuthenticate
