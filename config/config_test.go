@@ -195,7 +195,7 @@ func TestYaml(t *testing.T) {
 		break
 	}
 	ns := ff.Nodes
-	if len(ns) != 2 {
+	if len(ns) != 1 {
 		t.Fatal("did not find the nodes based on this sub", len(ns))
 	}
 	if ns[0].FlowRef().ID != "build-project" {

@@ -87,6 +87,7 @@ func hndRun(rw http.ResponseWriter, r *http.Request, ctx *context) (int, string,
 // buildFields uses the node config Opts and any current values
 // and creates a set of Fields from it
 func buildFields(rn *runNode, confOpts, values nt.Opts) {
+	// TODO - consider mapstructure
 	form, ok := confOpts["form"].(map[string]interface{})
 	if !ok {
 		return

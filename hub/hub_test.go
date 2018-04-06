@@ -156,26 +156,26 @@ func TestHubEvents(t *testing.T) {
 		},
 	})
 
-	// get the first 6 events and confirm correct tag order
-	var events [6]*event.Event
-	for i := 0; i < len(events); i++ {
-		e := waitEvtTimeout(t, to.ch)
-		events[e.ID-1] = e
-	}
-
-	tags := []string{
+	// get the first events and confirm correct tag order
+	expectedTags := []string{
 		"inbound.data",
 		"sys.state",
 		"sys.state",
 		"trigger.good",
 		"sys.state",
+		"sys.node.start",
 		"task.checkout.error",
+	}
+	events := make([]*event.Event, len(expectedTags))
+	for i := 0; i < len(events); i++ {
+		e := waitEvtTimeout(t, to.ch)
+		events[e.ID-1] = e
 	}
 
 	for i := 0; i < len(events); i++ {
 		// fmt.Println(events[i].Opts["action"])
-		if events[i].Tag != tags[i] {
-			t.Errorf("got %d tag wrong: wanted:%s got:%s", i, tags[i], events[i].Tag)
+		if events[i].Tag != expectedTags[i] {
+			t.Errorf("got %d tag wrong: wanted:%s got:%s", i, expectedTags[i], events[i].Tag)
 		}
 	}
 

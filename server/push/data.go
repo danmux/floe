@@ -40,23 +40,6 @@ func (d Data) PostHandler(queue *event.Queue) httprouter.Handle {
 			return
 		}
 
-		/*
-			{
-			   "Ref":{
-			      "ID":"build-project",
-			      "Ver":1
-			   },
-			   "Run":"h1-7",
-			   "Form":{
-			      "ID":"sign-off",
-			      "Values":{
-			         "tests_passed":"rewqrw",
-			         "to_hash":"rewqre"
-			      }
-			   }
-			}
-		*/
-
 		rr := event.RunRef{
 			FlowRef: o.Ref,
 		}

@@ -15,6 +15,7 @@ func (e exec) Match(ol, or Opts) bool {
 }
 
 func (e exec) Execute(ws *Workspace, in Opts, output chan string) (int, Opts, error) {
+	// TODO - consider mapstructure
 	cmd, ok := in["cmd"]
 	if !ok {
 		return 255, nil, fmt.Errorf("missing cmd option")

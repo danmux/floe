@@ -52,6 +52,7 @@ func (u *Opts) Fixup() {
 // yamlToJson takes the generic Yaml maps with interface keys
 // and converts them into the json string based keys
 func yamlToJson(in interface{}) interface{} {
+	// TODO - consider mapstructure
 	if m, ok := in.(map[interface{}]interface{}); ok {
 		o := map[string]interface{}{}
 		for k, v := range m {

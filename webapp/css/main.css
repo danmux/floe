@@ -227,7 +227,7 @@ box.run {
     min-height: 30px;
 }
 
-box.run h4{
+box h4{
     font-size: 12pt;
     float: left;
 }
@@ -241,6 +241,11 @@ box.run .label{
     border-radius: 2px;
 }
 
+box .gear {
+    padding-top: 5px;
+    float: right;
+}
+
 top {
     display: block;
     overflow: hidden;
@@ -252,7 +257,12 @@ detail {
 }
 
 box.run detail, box.task detail{
+    clear: both;
     font-size: 8pt;
+}
+
+box.task {
+    border-left: 4px solid #ddd;
 }
 
 box.flow detail {

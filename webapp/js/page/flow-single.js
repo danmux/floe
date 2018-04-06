@@ -21,7 +21,7 @@ export function FlowSingle() {
     // panel is view - or part of it
     var panel = new Panel(this, null, graphFlow, '#main', events, dataReq);
 
-    this.Map = function(evt) {
+    this.Map = function(evt, data) {
         console.log("flow got a call to Map", evt);
         if (evt.Type == 'rest') {
           var pl = evt.Value.Response.Payload;
@@ -32,7 +32,10 @@ export function FlowSingle() {
               r.forEach((nr, ni) => {
                 nr.StartedAgo = "";
                 if (nr.Started != "0001-01-01T00:00:00Z") {
+                    var started = new Date(nr.Started)
                     nr.StartedAgo = PrettyDate(nr.Started);
+                    var now = new Date();
+                    nr.Took = "("+toHHMMSS((now - started)/1000)+")";
                 }
                 nr.Took = "";
                 if (nr.Stopped != "0001-01-01T00:00:00Z") {
@@ -47,6 +50,63 @@ export function FlowSingle() {
           console.log(pl);
 
           return pl;
+        }
+        // ongoing web socket events...
+        if (evt.Type == 'ws') {
+            var runID = evt.Msg.RunRef.Run.HostID + "-" + evt.Msg.RunRef.Run.ID;
+            if (evt.Msg.RunRef.FlowRef.ID != panel.IDs[0] || runID != panel.IDs[1]) {
+                console.log(evt.Msg.RunRef.FlowRef.ID, panel.IDs[0],  runID,  panel.IDs[1]);
+                return;
+            }
+
+            var change = false;
+            // find the node to which this event applies and update it
+            data.Graph.forEach((r, i) => {
+                r.forEach((nr, ni) => {
+                    if (nr.ID != evt.Msg.SourceNode.ID) {
+                        return;
+                    }
+                    change = true;
+                    // state changes
+                    if (evt.Msg.Tag == "sys.node.start") {
+                        console.log("got sys node start or update");
+                        // update the data and return it
+                        var d = new Date();
+                        nr.Started = d.toISOString();
+                        nr.Status = "running";
+                    }
+                    if (evt.Msg.Tag == "sys.node.update") {
+                        nr.Status = "running";
+                    }
+                    if (
+                        evt.Msg.Tag.startsWith("task") ||
+                        evt.Msg.Tag.startsWith("merge")
+                    ) {
+                        console.log("got task or merge event", evt.Msg.Tag);
+                        // task must have finished
+                        var d = new Date();
+                        nr.Stopped = d.toISOString();
+                        nr.Status = "finished";
+                        nr.Result = "success"; // TODO parse result
+                    }
+                    if (nr.Started != "0001-01-01T00:00:00Z") {
+                        nr.StartedAgo = PrettyDate(nr.Started);
+                        var started = new Date(nr.Started);
+                        var toTime = new Date();
+                        if (nr.Stopped != "0001-01-01T00:00:00Z") {
+                            toTime = new Date(nr.Stopped);
+                        }
+                        console.log("tt",toTime);
+                        console.log("st",started);
+                        nr.Took = "("+toHHMMSS((toTime - started)/1000)+")";
+                        console.log(nr.Took);
+                    }
+                    data.Graph[i][ni] = nr;
+                });
+            });            
+            if (change) {
+                return data;
+            }
         }
     }
 
@@ -194,10 +254,10 @@ var graphFlow = `
                   <h4>{{=node.Name}}</h4><i class='icon-angle-circled-right'></i>
               </div>
               <detail id='expander-{{=node.ID}}' class='expander'>
-                 <section class='trig-form'></section>
               </detail>
               {{??}}
               <h4>{{=node.Name}}</h4>
+              {{?node.Status=="running"}}<img class="gear" src="/static/img/gear.svg"><img>{{?}}
               <detail>
                 <p class='ago'>{{=node.StartedAgo}}</p><p class='took'>{{=node.Took}}</p>
               <detail>

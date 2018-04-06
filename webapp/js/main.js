@@ -112,9 +112,16 @@ function main() {
         // web socket received message
         if (evt.Type == "ws") {
             // dash and flow need to know about state changes 
-            if ( (evt.Msg.Tag == "sys.node.update") || (evt.Msg.Tag == "sys.state") || (evt.Msg.Tag =="sys.end.all")) {
-                // controller.NotifyPanel("dash", evt);
-                controller.NotifyPanel("flow", evt);
+            if (
+                evt.Msg.Tag == "sys.node.update" || 
+                evt.Msg.Tag == "sys.state" || 
+                evt.Msg.Tag =="sys.end.all" || 
+                evt.Msg.Tag =="sys.node.start" ||
+                evt.Msg.Tag.startsWith("task") ||
+                evt.Msg.Tag.startsWith("merge")
+            ) {
+                    controller.NotifyPanel("flow", evt);
+                    controller.NotifyPanel("flow-single", evt);
             }
         }
     });

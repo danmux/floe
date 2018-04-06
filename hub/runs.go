@@ -108,10 +108,10 @@ func (r *Run) updateExecNode(nodeID string, start, end time.Time, good bool, lin
 	}
 
 	if !start.IsZero() {
-		m.Started = start
+		m.Started = start.UTC()
 	}
 	if !end.IsZero() {
-		m.Stopped = end
+		m.Stopped = end.UTC()
 		m.Good = good
 	}
 

@@ -18,6 +18,7 @@ import (
 const (
 	tagEndFlow     = "sys.end.all"       // a run has ended
 	tagNodeUpdate  = "sys.node.update"   // an executing node has had an update to its output
+	tagNodeStart   = "sys.node.start"    // an executing node has started its job
 	tagStateChange = "sys.state"         // a run has transitioned state
 	tagWaitingData = "sys.data.required" // a node in the run needs data input
 	tagGoodTrigger = "trigger.good"      // always issued when a trigger
@@ -566,7 +567,16 @@ func (h *Hub) executeNode(run *Run, node exeNode, e event.Event, singleWs bool) 
 		}
 	}()
 
+	// send the node start event
+	h.publishIfActive(event.Event{
+		RunRef:     runRef,
+		SourceNode: node.NodeRef(),
+		Tag:        tagNodeStart,
+	})
+
+	// set the start time for the node
 	h.runs.updateExecNode(run, nodeID, time.Now(), zt, false, "")
+
 	status, outOpts, err := node.Execute(ws, e.Opts, updates)
 	close(updates)
 
