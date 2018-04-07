@@ -25,7 +25,7 @@ export function WsHub() {
     var ws = new WebSocket(wsURL);
     
     ws.onopen = () => {
-        ws.send("Message to send");
+        ws.send("Message to send"); // TODO - do we need any kind of handshake message ?
     };
     
     ws.onmessage = (evt) => { 

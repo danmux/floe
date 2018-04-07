@@ -179,7 +179,7 @@ type Run struct {
 	StartTime  time.Time
 	EndTime    time.Time
 	Ended      bool
-	Status     string
+	Status     string // constructed
 	Good       bool
 	Initiating event.Event
 	MergeNodes map[string]merge

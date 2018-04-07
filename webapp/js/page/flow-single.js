@@ -4,6 +4,8 @@ import {Form} from '../panel/form.js';
 import {RestCall} from '../panel/rest.js';
 import {AttacheExpander} from '../panel/expander.js';
 import {PrettyDate} from '../panel/util.js';
+import {ToHHMMSS} from '../panel/util.js';
+import {EmbellishSummary} from '../page/flow.js';
 
 "use strict";
 
@@ -26,8 +28,7 @@ export function FlowSingle() {
         if (evt.Type == 'rest') {
           var pl = evt.Value.Response.Payload;
           pl.Parent = '/flows/' + panel.IDs[0];
-          console.log(pl);
-
+          pl.Summary = EmbellishSummary(pl.Summary);
           pl.Graph.forEach((r, i) => {
               r.forEach((nr, ni) => {
                 nr.StartedAgo = "";
@@ -35,13 +36,13 @@ export function FlowSingle() {
                     var started = new Date(nr.Started)
                     nr.StartedAgo = PrettyDate(nr.Started);
                     var now = new Date();
-                    nr.Took = "("+toHHMMSS((now - started)/1000)+")";
+                    nr.Took = "("+ToHHMMSS((now - started)/1000)+")";
                 }
                 nr.Took = "";
                 if (nr.Stopped != "0001-01-01T00:00:00Z") {
                     var started = new Date(nr.Started)
                     var stopped = new Date(nr.Stopped);
-                    nr.Took = "("+toHHMMSS((stopped - started)/1000)+")";
+                    nr.Took = "("+ToHHMMSS((stopped - started)/1000)+")";
                 }
                 pl.Graph[i][ni] = nr;
               });
@@ -53,10 +54,26 @@ export function FlowSingle() {
         }
         // ongoing web socket events...
         if (evt.Type == 'ws') {
+            if (data == null) { // no need to update data that has not been initialised yet
+                return;
+            }
             var runID = evt.Msg.RunRef.Run.HostID + "-" + evt.Msg.RunRef.Run.ID;
             if (evt.Msg.RunRef.FlowRef.ID != panel.IDs[0] || runID != panel.IDs[1]) {
                 console.log(evt.Msg.RunRef.FlowRef.ID, panel.IDs[0],  runID,  panel.IDs[1]);
                 return;
+            }
+
+            if (evt.Msg.Tag == "sys.end.all") {
+                data.Summary.Ended = true;
+                var d = new Date();
+                data.Summary.EndTime = d.toISOString();
+                if (evt.Msg.Good) {
+                    data.Summary.Status = "good";
+                } else {
+                    data.Summary.Status = "bad";
+                }
+                data.Summary = EmbellishSummary(data.Summary);
+                return data;
             }
 
             var change = false;
@@ -98,7 +115,7 @@ export function FlowSingle() {
                         }
                         console.log("tt",toTime);
                         console.log("st",started);
-                        nr.Took = "("+toHHMMSS((toTime - started)/1000)+")";
+                        nr.Took = "("+ToHHMMSS((toTime - started)/1000)+")";
                         console.log(nr.Took);
                     }
                     data.Graph[i][ni] = nr;
@@ -193,29 +210,19 @@ export function FlowSingle() {
     return panel;
 }
 
-function toHHMMSS(sec_num) {
-    sec_num = Math.floor(sec_num)
-    var hours   = Math.floor(sec_num / 3600);
-    var minutes = Math.floor((sec_num - (hours * 3600)) / 60);
-    var seconds = sec_num - (hours * 3600) - (minutes * 60);
-
-    
-    if (minutes < 10) {minutes = "0"+minutes;}
-    if (seconds < 10) {seconds = "0"+seconds;}
-    if (hours > 0) {
-        return hours+':'+minutes+':'+seconds;
-    }
-    return minutes+':'+seconds;
-}
-
 var graphFlow = `
     <div id='flow' class='flow-single'>
         <div class="crumb">
           <a href='{{=it.Data.Parent}}'>← back to {{=it.Data.FlowName}}</a>
         </div>
         <summary>
-            <h3>{{=it.Data.Name}}</a></h3>
+            <h2>{{=it.Data.Name}}</h2>
+            <span class="label {{=it.Data.Summary.Status}}">{{=it.Data.Summary.Stat}}</span>
+            <span>{{=it.Data.Summary.StartedAgo}}</span><span>{{=it.Data.Summary.Took}}</span>
         </summary>
+        
+        <divider></divider>
+
         <triggers>
           {{~it.Data.Triggers :trigger:index}}
 
@@ -243,7 +250,9 @@ var graphFlow = `
 
           {{~}}
         </triggers>
+        
         <divider></divider>
+        
         <tasks>
         {{~it.Data.Graph :level:index}}
           <div id='level-{{=index}}' class='level'>

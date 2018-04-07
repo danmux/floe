@@ -72,12 +72,22 @@ func hndRun(rw http.ResponseWriter, r *http.Request, ctx *context) (int, string,
 		Name     string
 		Triggers []runNode
 		Graph    [][]runNode
+		Summary  RunSummary
 		Problems []string
 	}{
 		FlowName: flow.Name,
 		Name:     flow.Name + " " + run.Ref.Run.String(),
 		Triggers: triggers,
 		Graph:    buildRunResp(graph[1:], flow, run),
+		Summary: RunSummary{
+			Ref:       run.Ref,
+			ExecHost:  run.ExecHost,
+			Status:    runStatus(run.StartTime, run.Ended, run.Good),
+			StartTime: run.StartTime,
+			EndTime:   run.EndTime,
+			Ended:     run.Ended,
+			Good:      run.Good,
+		},
 		Problems: problems,
 	}
 
@@ -195,9 +205,10 @@ type RunSummaries struct {
 
 // RunSummary represents the state of a run
 type RunSummary struct {
-	Ref       event.RunRef
-	ExecHost  string // the id of the host who's actually executing this run
-	Status    string
+	Ref      event.RunRef
+	ExecHost string // the id of the host who's actually executing this run
+	Status   string // TODO include if waiting for data
+	// TODO add branch/tag/hash
 	StartTime time.Time
 	EndTime   time.Time
 	Ended     bool
@@ -226,6 +237,21 @@ func fromHubRuns(runs hub.Runs) []RunSummary {
 	return summaries
 }
 
+func runStatus(startTime time.Time, ended, good bool) string {
+	status := "pendind"
+	if !startTime.IsZero() { // if it has a start time
+		status = "running"
+		if ended {
+			if good {
+				status = "good"
+			} else {
+				status = "bad"
+			}
+		}
+	}
+	return status
+}
+
 func fromHubRun(run *hub.Run) RunSummary {
 	return RunSummary{
 		Ref:       run.Ref,
@@ -233,8 +259,9 @@ func fromHubRun(run *hub.Run) RunSummary {
 		StartTime: run.StartTime,
 		EndTime:   run.EndTime,
 		Ended:     run.Ended,
-		Status:    run.Status,
+		Status:    runStatus(run.StartTime, run.Ended, run.Good),
 		Good:      run.Good,
+		// TODO - add branch
 		// TODO - add if waiting for data
 	}
 }

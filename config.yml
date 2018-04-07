@@ -78,8 +78,14 @@ flows:
           type: all
           wait: [task.echo.good, task.test.good, task.sign-off.good]
 
-        - name: complete
+        - name: Final Task
+          type: exec                 # execute a command
           listen: merge.signed.good
+          opts:
+            cmd: "make test"         # the command to execute 
+
+        - name: complete
+          listen: task.final-task.good
           type: end                 # getting here means the flow was a success 'end' is the special definitive end event
 
     - id: danmux

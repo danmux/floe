@@ -444,25 +444,26 @@ func (h *Hub) dispatchToActive(e event.Event) {
 	if !flowExists {
 		log.Errorf("<%s> - dispatch - no flow for event '%s'", e.RunRef, e.Tag)
 		// this is indeed a strange occurrence so this run is considered both bad and incomplete
-		h.endRun(r, e.SourceNode, e.Opts, "incomplete", false)
+		h.endRun(r, e.SourceNode, e.Opts, false)
 		return
 	}
 
-	// We got a matching flow but no nodes matched this event in the flow.
-	// TODO I think we should be able to decide if dangling nodes (events that are not routed)
-	// end the flow - for now - they do - so be sure to route all events
+	// We got a matching flow but no nodes are listening to this event in the flow.
 	if len(found.Nodes) == 0 {
 		if e.Good {
-			// The run ended with a good node, but that was not explicitly routed so the run is considered incomplete.
-			// TODO allow dangling event - so the other events can have a chance to finish.
-			// All good statuses should make it to a next node, so log the warning that this one has not.
-			log.Errorf("<%s> - dispatch - nothing listening to good event '%s' - prematurely end", e.RunRef, e.Tag)
-			h.endRun(r, e.SourceNode, e.Opts, "incomplete", true)
+			// We had a good node that was not explicitly routed. These dangling good events are allowed
+			// so that the other events can have a chance to finish, and hopefully hit the explicit
+			// end node. If not then the run will be considered active until a (TODO) run timeout.
+
+			// All good statuses should really make it to a next node, e.g. a merge node,
+			// so log the that this one has not.
+			log.Debugf("<%s> - dispatch - nothing listening to good event '%s' - prematurely end", e.RunRef, e.Tag)
+			h.endRun(r, e.SourceNode, e.Opts, true)
 		} else {
 			// bad events un routed can implicitly trigger the end of a run,
 			// with the run marked bad
 			log.Debugf("<%s> - dispatch - nothing listening to bad event '%s' (ending flow as bad)", e.RunRef, e.Tag)
-			h.endRun(r, e.SourceNode, e.Opts, "complete", false)
+			h.endRun(r, e.SourceNode, e.Opts, false)
 		}
 		return
 	}
@@ -473,7 +474,7 @@ func (h *Hub) dispatchToActive(e event.Event) {
 		case config.NcTask:
 			switch nt.NType(n.TypeOfNode()) {
 			case nt.NtEnd: // special task type end the run
-				h.endRun(r, n.NodeRef(), e.Opts, "complete", e.Good)
+				h.endRun(r, n.NodeRef(), e.Opts, e.Good)
 				return
 			case nt.NtData: // initial event triggering a data node
 				h.setFormData(r, n, e.Opts)
@@ -634,9 +635,9 @@ func (h *Hub) mergeEvent(run *Run, node mergeNode, e event.Event) {
 }
 
 // endRun marks and saves this run as being complete
-func (h *Hub) endRun(run *Run, source config.NodeRef, opts nt.Opts, status string, good bool) {
-	log.Debugf("<%s> - END RUN (status:%s, good:%v)", run.Ref, status, good)
-	didEndIt := h.runs.end(run, status, good)
+func (h *Hub) endRun(run *Run, source config.NodeRef, opts nt.Opts, good bool) {
+	log.Debugf("<%s> - END RUN (good:%v)", run.Ref, good)
+	didEndIt := h.runs.end(run, good)
 	// if this end call was not the one that actually ended it then dont publish the end event
 	if !didEndIt {
 		return
@@ -648,6 +649,7 @@ func (h *Hub) endRun(run *Run, source config.NodeRef, opts nt.Opts, status strin
 		SourceNode: source,
 		Tag:        tagEndFlow,
 		Opts:       opts,
+		Good:       good,
 	}
 	h.queue.Publish(e)
 }

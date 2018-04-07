@@ -206,6 +206,25 @@ nav {
     width: 40%;
 }
 
+.flow-single h2 {
+    float: left;
+}
+
+.flow-single .sub {
+    clear: both;
+}
+
+.flow-single .label {
+    margin: 6px;
+    float: left;
+}
+
+.flow-single summary span {
+    margin: 6px;
+    padding: 5px;
+    float: left;
+}
+
 box {
     display: block;
     float: left;
@@ -232,13 +251,29 @@ box h4{
     float: left;
 }
 
-box.run .label{
+.label{
     margin: 5px 0;
     padding: 5px;
-    font-size: 8pt;
-    float: right;
+    color: #fff;
     background-color: #999;
     border-radius: 2px;
+}
+
+box .label {
+    font-size: 8pt;
+    float: right;
+}
+
+.label.running {
+    background-color: #195fd1;
+}
+
+.label.good {
+    background-color: #42c88a;
+}
+
+.label.bad {
+    background-color: #d8201a;
 }
 
 box .gear {
@@ -309,6 +344,7 @@ heading {
 
 triggers {
     display: block;
+    clear: both;
 }
 
 box.trigger {

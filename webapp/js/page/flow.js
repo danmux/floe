@@ -3,6 +3,7 @@ import {el} from '../panel/panel.js';
 import {Form} from '../panel/form.js';
 import {RestCall} from '../panel/rest.js';
 import {PrettyDate} from '../panel/util.js';
+import {ToHHMMSS} from '../panel/util.js';
 import {AttacheExpander} from '../panel/expander.js';
 
 "use strict";
@@ -42,47 +43,51 @@ export function Flow() {
             // TODO - update all these dates in the page every 30 seconds
             if (pl.Runs.Archive) {
                 pl.Runs.Archive.forEach((r, i) => {
-                    r.StartedAgo = PrettyDate(r.StartTime);
-                    pl.Runs.Archive[i] = r;
+                    pl.Runs.Archive[i] = EmbellishSummary(r);
                 });
             }
 
             if (pl.Runs.Pending) {
                 pl.Runs.Pending.forEach((r, i) => {
-                    r.StartedAgo = 'waiting...';
-                    pl.Runs.Pending[i] = r;
+                    pl.Runs.Pending[i] = EmbellishSummary(r);
                 });
             }
 
             if (pl.Runs.Active) {
                 pl.Runs.Active.forEach((r, i) => {
-                    r.StartedAgo = PrettyDate(r.StartTime);
-                    pl.Runs.Active[i] = r;
+                    pl.Runs.Active[i] = EmbellishSummary(r);
                 });
             }
-            
             return pl;
         }
 
         if (evt.Type == 'ws') {
+            if (data == null) { // no need to update data that has not been initialised yet
+                return;
+            }
             // state changes
             if (evt.Msg.Tag == "sys.state") {
-                // it was added to pending list
+                // TODO it was added to pending list
                 if (evt.Msg.Opts.action == "add-pend") {
                     console.log("adding pending", evt.Msg);
                 }
-                // it was activated - so remove from pending and add to active
+                // it was activated - so add to active and TODO remove from pending
                 if (evt.Msg.Opts.action == "activate") {
                     console.log("adding active", evt.Msg);
                     console.log(data);
                     if (data.Runs.Active == null) {
                         data.Runs.Active = [];
                     }
+                    var d = new Date();
                     data.Runs.Active.push({
                         Ended: false,
+                        StartTime: d.toISOString(),
+                        EndTime: "0001-01-01T00:00:00Z",
                         Ref: evt.Msg.RunRef,
                         StartedAgo: "just now",
-                        Status: "active"
+                        Status: "running",
+                        Stat: "Active",
+                        Took: "(00:00)"
                     });
                 }
                 return data;
@@ -94,19 +99,36 @@ export function Flow() {
                     data.Runs.Archive = [];
                 }
                 var removeIndex = -1;
-                for (var i = 0; i < data.Runs.Active.length; i++) {
-                    if (runsEqual(evt.Msg.RunRef, data.Runs.Active[i].Ref)) {
+                data.Runs.Active.forEach((r, i) => {
+                    if (runsEqual(evt.Msg.RunRef, r.Ref)) {
                         removeIndex = i
-                        break;
+                        return;
                     }
-                }
+                });
                 if (removeIndex >= 0) {
                     var m = data.Runs.Active[removeIndex];
+                    m.Ended = true;
+                    var d = new Date();
+                    m.EndTime = d.toISOString();
+                    if (evt.Msg.Good) {
+                        m.Status = "good";
+                    } else {
+                        m.Status = "bad";
+                    }
+                    m = EmbellishSummary(m);
                     data.Runs.Active.splice(removeIndex, 1);
                     data.Runs.Archive.unshift(m);
                 }
                 return data;
             }
+            // update some stuff on the active run this event relates to.
+            data.Runs.Active.forEach((r, i) => {
+                if (runsEqual(evt.Msg.RunRef, r.Ref)) {
+                    data.Runs.Active[i] = EmbellishSummary(r);
+                    return;
+                }
+            });
+            return data;
         }
     }
 
@@ -150,6 +172,35 @@ export function Flow() {
     return panel;
 }
 
+export function EmbellishSummary(r) {
+    switch(r.Status) {
+        case "running":
+            r.Stat = "Active"
+            break;
+        case "good":
+            r.Stat = "Success"
+            break;
+        case "bad":
+            r.Stat = "Failed"
+            break;
+        default:
+            r.Stat = "New"
+    };
+
+    r.Took = "";
+    var toTime = new Date();
+    if (r.EndTime != "0001-01-01T00:00:00Z") {
+        toTime = new Date(r.EndTime);
+    }
+    r.StartedAgo = 'waiting...';
+    if (r.StartTime != "0001-01-01T00:00:00Z") {
+        r.StartedAgo = PrettyDate(r.StartTime);
+        var started = new Date(r.StartTime);
+        r.Took = "("+ToHHMMSS((toTime - started)/1000)+")";
+    }
+    return r;
+};
+
 function runsEqual(r1, r2) {
     return r1.FlowRef.ID == r1.FlowRef.ID &&
     r1.FlowRef.Ver == r1.FlowRef.Ver &&
@@ -158,7 +209,7 @@ function runsEqual(r1, r2) {
 }
 
 var tplFlow = `
-    <div id='flow' class='flow-single'>
+    <div id='flow' class='flow'>
         <div class="crumb">
           <a href='/dash'>← back to Dashboard</a>
         </div>
@@ -197,10 +248,10 @@ var tplFlow = `
             <box id='run-{{=run.Ref.Run.HostID}}-{{=run.Ref.Run.ID}}' class='run' data-key='{{=run.Ref.Run.HostID}}-{{=run.Ref.Run.ID}}'>
                 <top>
                     <h4>{{=run.Ref.Run.HostID}}-{{=run.Ref.Run.ID}}</h4>
-                    <span class="label label-danger">New</span>
+                    <span class="label {{=run.Status}}">{{=run.Stat}}</span>
                 </top>
                 <detail>
-                    {{=run.StartedAgo}}
+                    <p class='ago'>{{=run.StartedAgo}}</p><p class='took'>{{=run.Took}}</p>
                 </detail>
             </box>
             {{~}}
@@ -214,10 +265,10 @@ var tplFlow = `
             <box id='run-{{=run.Ref.Run.HostID}}-{{=run.Ref.Run.ID}}' class='run' data-key='{{=run.Ref.Run.HostID}}-{{=run.Ref.Run.ID}}'>
                 <top>
                     <h4>{{=run.Ref.Run.HostID}}-{{=run.Ref.Run.ID}}</h4>
-                    <span class="label label-danger">New</span>
+                    <span class="label {{=run.Status}}">{{=run.Stat}}</span>
                 </top>
                 <detail>
-                    {{=run.StartedAgo}}
+                    <p class='ago'>{{=run.StartedAgo}}</p><p class='took'>{{=run.Took}}</p>
                 </detail>
             </box>
             {{~}}
@@ -231,10 +282,10 @@ var tplFlow = `
             <box id='run-{{=run.Ref.Run.HostID}}-{{=run.Ref.Run.ID}}' class='run' data-key='{{=run.Ref.Run.HostID}}-{{=run.Ref.Run.ID}}'>
                 <top>
                     <h4>{{=run.Ref.Run.HostID}}-{{=run.Ref.Run.ID}}</h4>
-                    <span class="label label-danger">New</span>
+                    <span class="label {{=run.Status}}">{{=run.Stat}}</span>
                 </top>
                 <detail>
-                    {{=run.StartedAgo}}
+                    <p class='ago'>{{=run.StartedAgo}}</p><p class='took'>{{=run.Took}}</p>
                 </detail>
             </box>
             {{~}}

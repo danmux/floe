@@ -56,12 +56,11 @@ type exec struct {
 type Run struct {
 	sync.RWMutex
 	Ref        event.RunRef
-	ExecHost   string // the id of the host who's actually executing this run
-	StartTime  time.Time
-	EndTime    time.Time
-	Ended      bool
-	Status     string
-	Good       bool
+	ExecHost   string           // the id of the host who's actually executing this run
+	StartTime  time.Time        // time the first event triggered
+	EndTime    time.Time        // time the run ended
+	Ended      bool             // Ended true if the run has finished
+	Good       bool             // Good if explicit end node hit with a good event
 	Initiating event.Event      // the event that started it all
 	MergeNodes map[string]merge // the states of the merge nodes by node id
 	DataNodes  map[string]data  // the sates of any data nodes
@@ -135,12 +134,11 @@ func (r *Run) updateDataNode(nodeID string, opts nt.Opts) {
 	r.DataNodes[nodeID] = m
 }
 
-func (r *Run) end(status string, good bool) {
+func (r *Run) end(good bool) {
 	r.Lock()
 	defer r.Unlock()
 	r.EndTime = time.Now()
 	r.Ended = true
-	r.Status = status
 	r.Good = good
 }
 
@@ -261,8 +259,8 @@ func (r *RunStore) updateDataNode(run *Run, nodeID string, opts nt.Opts) {
 
 // end moves the run from active to archive. As a run may have many events that would end it
 // only the first one does the others are ignored. Only the ending run returns true.
-func (r *RunStore) end(run *Run, status string, good bool) bool {
-	run.end(status, good)
+func (r *RunStore) end(run *Run, good bool) bool {
+	run.end(good)
 
 	i, run := r.findActiveRun(run.Ref.Run)
 	if run == nil {
