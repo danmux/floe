@@ -153,8 +153,10 @@ func (f *FloeHost) GetRuns(id string) *RunSummaries {
 
 // a merge record is kept per node id
 type merge struct {
-	Waits map[string]bool // each wait event received
-	Opts  nt.Opts         // merged opts from all events
+	Waits   map[string]bool
+	Started time.Time
+	Stopped time.Time
+	Opts    nt.Opts
 }
 
 type data struct {

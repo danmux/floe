@@ -33,8 +33,10 @@ func (t Pend) equal(u Pend) bool {
 
 // a merge record is kept per node id
 type merge struct {
-	Waits map[string]bool // each wait event received
-	Opts  nt.Opts         // merged opts from all events
+	Waits   map[string]bool // each wait event received
+	Started time.Time       // when the first event arrived
+	Stopped time.Time       // when it fired the next event
+	Opts    nt.Opts         // merged opts from all events
 }
 
 type data struct {
@@ -78,23 +80,32 @@ func newRun(pend *Pend) *Run {
 	}
 }
 
-// updateWithMergeEvent adds the tag to the nodeID and returns current length of tags
+// updateMergeNode adds the tag to the nodeID and returns current length of tags
 // and a copy of the merge options
-func (r *Run) updateWithMergeEvent(nodeID, tag string, opts nt.Opts) (int, nt.Opts) {
+func (r *Run) updateMergeNode(nodeID, tag, typ string, waits int, opts nt.Opts) (map[string]bool, bool, nt.Opts) {
 	r.Lock()
 	defer r.Unlock()
 	m, ok := r.MergeNodes[nodeID]
 	if !ok {
 		m = merge{
-			Waits: map[string]bool{},
-			Opts:  nt.Opts{},
+			Started: time.Now(),
+			Waits:   map[string]bool{},
+			Opts:    nt.Opts{},
 		}
 	}
 	m.Waits[tag] = true
 	m.Opts = nt.MergeOpts(m.Opts, opts)
+
+	fired := false
+	if (typ == "any" && len(m.Waits) == 1) || // only fire an any merge once
+		(typ == "all" && len(m.Waits) == waits) {
+		m.Stopped = time.Now()
+		fired = true
+	}
+
 	r.MergeNodes[nodeID] = m
 
-	return len(m.Waits), nt.MergeOpts(m.Opts, nil) // merge copies the opts
+	return m.Waits, fired, nt.MergeOpts(m.Opts, nil) // merge copies the opts to avoid mutations
 }
 
 // updateExecNode adds the output line to the log lines for the nod in this run
@@ -228,14 +239,14 @@ func (r *RunStore) findActiveRun(ref event.HostedIDRef) (int, *Run) {
 	return -1, nil
 }
 
-func (r *RunStore) updateWithMergeEvent(run *Run, nodeID, tag string, opts nt.Opts) (int, nt.Opts) {
-	i, o := run.updateWithMergeEvent(nodeID, tag, opts)
+func (r *RunStore) updateMergeNode(run *Run, nodeID, tag, typ string, waits int, opts nt.Opts) (map[string]bool, bool, nt.Opts) {
+	waitsDone, fired, o := run.updateMergeNode(nodeID, tag, typ, waits, opts)
 	r.Lock()
 	defer r.Unlock()
 	if err := r.active.Save(activeKey, r.store); err != nil {
 		log.Error("could not save", activeKey, err)
 	}
-	return i, o
+	return waitsDone, fired, o
 }
 
 // TODO - consider buffering these writes if the updates come in fast

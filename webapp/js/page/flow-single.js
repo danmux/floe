@@ -76,6 +76,15 @@ export function FlowSingle() {
                 return data;
             }
 
+            function activeStatus(type) {
+                switch (type) {
+                    case "merge":
+                        return "waiting";
+                    default:
+                        return "running";
+                }
+            };
+            
             var change = false;
             // find the node to which this event applies and update it
             data.Graph.forEach((r, i) => {
@@ -90,10 +99,10 @@ export function FlowSingle() {
                         // update the data and return it
                         var d = new Date();
                         nr.Started = d.toISOString();
-                        nr.Status = "running";
+                        nr.Status = activeStatus(nr.Class);
                     }
                     if (evt.Msg.Tag == "sys.node.update") {
-                        nr.Status = "running";
+                        nr.Status = activeStatus(nr.Class);
                     }
                     if (
                         evt.Msg.Tag.startsWith("task") ||
@@ -258,19 +267,24 @@ var graphFlow = `
           <div id='level-{{=index}}' class='level'>
           {{~level :node:indx}}
             <box id='node-{{=node.ID}}' class='task {{=node.Result}} {{=node.Status}}'>
-              {{? node.Type=="data"}}
               <div for="{{=node.ID}}" class="data-title expander-ctrl">
                   <h4>{{=node.Name}}</h4><i class='icon-angle-circled-right'></i>
+                  {{?node.Status=="running"}}<img class="gear" src="/static/img/gear.svg"><img>{{?}}
               </div>
-              <detail id='expander-{{=node.ID}}' class='expander'>
-              </detail>
+              
+              <detail id='expander-{{=node.ID}}' class='expander{{? node.Type!="data"}} show-some{{?}}'>
+              {{? node.Type=="data"}}
               {{??}}
-              <h4>{{=node.Name}}</h4>
-              {{?node.Status=="running"}}<img class="gear" src="/static/img/gear.svg"><img>{{?}}
-              <detail>
                 <p class='ago'>{{=node.StartedAgo}}</p><p class='took'>{{=node.Took}}</p>
-              <detail>
+                {{? node.Class=="merge"}}
+                <div class='clear'>
+                    {{ for(var prop in node.Waits) { }}
+                    <div>{{=prop}} {{=node.Waits[prop]}}</div>
+                    {{ } }}
+                </div>
+                {{?}}
               {{?}}
+              </detail>
             </box>
           {{~}}
           </div>

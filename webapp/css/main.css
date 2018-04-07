@@ -191,6 +191,10 @@ box {
     font-size: 9pt; 
 }
 
+.clear {
+    clear: both;
+}
+
 nav {
     float: right;
     width: 105px;
@@ -210,10 +214,6 @@ nav {
     float: left;
 }
 
-.flow-single .sub {
-    clear: both;
-}
-
 .flow-single .label {
     margin: 6px;
     float: left;
@@ -228,7 +228,7 @@ nav {
 box {
     display: block;
     float: left;
-    min-width: 200px;
+    min-width: 220px;
     padding: 10px 15px 2px;
     margin: 5px 10px;
     border-radius: 3px;
@@ -247,6 +247,7 @@ box.run {
 }
 
 box h4{
+    max-width: 180px;
     font-size: 12pt;
     float: left;
 }
@@ -291,7 +292,7 @@ detail {
     /* border-top: 1px solid #ddd; */
 }
 
-box.run detail, box.task detail{
+box detail{
     clear: both;
     font-size: 8pt;
 }
@@ -304,7 +305,7 @@ box.flow detail {
     min-height: 50px;
 }
 
-box.success {
+box.success, box.finished{
     border-left: 4px solid #42c88a;
 }
 
@@ -349,10 +350,6 @@ triggers {
 
 box.trigger {
     min-height: 40px;
-}
-
-.data-title > h4 {
-    float: left;
 }
 
 .value {
@@ -461,14 +458,19 @@ i.icon-angle-circled-right {
 }
 
 .expander  {
-    height: 0px;
+    height: auto;
+    max-height: 0;
     margin-top: 35px;
     overflow: hidden;
-    transition: height 0.5s;
+    transition: max-height 0.5s;
+}
+
+.show-some {
+    max-height: 30px;
 }
 
 .expand {
-    height: 300px;
+    max-height: 300px;
     overflow: scroll;
 }
 

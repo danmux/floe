@@ -617,12 +617,20 @@ func (h *Hub) executeNode(run *Run, node exeNode, e event.Event, singleWs bool) 
 func (h *Hub) mergeEvent(run *Run, node mergeNode, e event.Event) {
 	log.Debugf("<%s> (%s) - merge %s", run.Ref.FlowRef, run.Ref.Run, e.Tag)
 
-	waitsDone, opts := h.runs.updateWithMergeEvent(run, node.NodeRef().ID, e.Tag, e.Opts)
+	waitsDone, done, opts := h.runs.updateMergeNode(run, node.NodeRef().ID, e.Tag, node.TypeOfNode(), node.Waits(), e.Opts)
+
+	h.queue.Publish(event.Event{
+		RunRef:     run.Ref,
+		SourceNode: node.NodeRef(),
+		Tag:        tagNodeUpdate,
+		Opts: nt.Opts{
+			"waits": waitsDone,
+		},
+		Good: false,
+	})
 
 	// is the merge satisfied
-	if (node.TypeOfNode() == "any" && waitsDone == 1) || // only fire an any merge once
-		(node.TypeOfNode() == "all" && waitsDone == node.Waits()) {
-
+	if done {
 		e := event.Event{
 			RunRef:     run.Ref,
 			SourceNode: node.NodeRef(),

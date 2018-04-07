@@ -21,15 +21,16 @@ type field struct {
 type runNode struct {
 	ID      string
 	Name    string
+	Class   config.NodeClass
 	Type    string
 	Enabled bool    // trigger and data only
 	Fields  []field // trigger and data only
 	Started time.Time
 	Stopped time.Time
-	Status  string   // "", "running", "finished", "waiting"(for data)
-	Result  string   // "success", "failed", "" // only valid when Status="finished"
-	Logs    []string // TODO - paging
-
+	Status  string          // "", "running", "finished", "waiting"(for data)
+	Result  string          // "success", "failed", "" // only valid when Status="finished"
+	Logs    []string        // TODO - paging
+	Waits   map[string]bool // the events the merge node has seen
 }
 
 // hndRun answers external call and returns the individual run detail (may come from other host)
@@ -128,10 +129,32 @@ func buildRunResp(graph [][]string, conf *config.Flow, run *client.Run) [][]runN
 				continue
 			}
 			rn := runNode{
-				ID:   id,
-				Name: cn.Name,
-				Type: cn.Type,
+				ID:    id,
+				Name:  cn.Name,
+				Class: cn.Class,
+				Type:  cn.Type,
 			}
+
+			if cn.Class == "merge" {
+				res := run.MergeNodes[id]
+				rn.Waits = res.Waits
+				for _, w := range cn.Wait {
+					if _, ok := rn.Waits[w]; !ok {
+						rn.Waits[w] = false
+					}
+				}
+				rn.Started = res.Started
+				rn.Stopped = res.Stopped
+				switch {
+				case !rn.Stopped.IsZero():
+					rn.Status = "finished"
+				case !rn.Started.IsZero():
+					rn.Status = "waiting"
+				}
+				nodes[i][j] = rn
+				continue
+			}
+
 			if cn.Class != "task" {
 				nodes[i][j] = rn
 				continue
@@ -157,7 +180,6 @@ func buildRunResp(graph [][]string, conf *config.Flow, run *client.Run) [][]runN
 				rn.Stopped = res.Stopped
 				switch {
 				case !rn.Stopped.IsZero():
-					rn.Status = "finished"
 					if res.Good {
 						rn.Result = "success"
 					} else {

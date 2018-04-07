@@ -70,6 +70,17 @@ export function Flow() {
                 // TODO it was added to pending list
                 if (evt.Msg.Opts.action == "add-pend") {
                     console.log("adding pending", evt.Msg);
+                    var d = new Date();
+                    data.Runs.Pending.unshift({
+                        Ended: false,
+                        StartTime: "0001-01-01T00:00:00Z",
+                        EndTime: "0001-01-01T00:00:00Z",
+                        Ref: evt.Msg.RunRef,
+                        StartedAgo: "waiting...",
+                        Status: "",
+                        Stat: "New",
+                        Took: ""
+                    });
                 }
                 // it was activated - so add to active and TODO remove from pending
                 if (evt.Msg.Opts.action == "activate") {
@@ -79,7 +90,7 @@ export function Flow() {
                         data.Runs.Active = [];
                     }
                     var d = new Date();
-                    data.Runs.Active.push({
+                    data.Runs.Active.unshift({
                         Ended: false,
                         StartTime: d.toISOString(),
                         EndTime: "0001-01-01T00:00:00Z",
