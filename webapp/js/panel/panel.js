@@ -4,6 +4,8 @@ import {store} from './store.js';
 
 "use strict";
 
+doT.templateSettings.strip = false;
+
 export function els(sel) {
     return document.querySelectorAll(sel);
 }

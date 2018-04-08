@@ -234,7 +234,7 @@ func TestHubEvents(t *testing.T) {
 		"inbound.data":           1,
 		"trigger.good":           1,
 		"task.checkout.good":     1,
-		"sys.node.update":        15,
+		"sys.node.update":        18,
 		"task.test2.good":        1,
 	}
 	select {

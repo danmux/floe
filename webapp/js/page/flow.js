@@ -71,7 +71,7 @@ export function Flow() {
                 if (evt.Msg.Opts.action == "add-pend") {
                     console.log("adding pending", evt.Msg);
                     var d = new Date();
-                    data.Runs.Pending.unshift({
+                    data.Runs.Pending.push({
                         Ended: false,
                         StartTime: "0001-01-01T00:00:00Z",
                         EndTime: "0001-01-01T00:00:00Z",
@@ -177,7 +177,7 @@ export function Flow() {
             formP.Activate();
         }
 
-        AttacheExpander(el('.triggers'));
+        AttacheExpander(panel.IDs[0], el('.triggers'));
     }
 
     return panel;

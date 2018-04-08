@@ -138,6 +138,9 @@ func buildRunResp(graph [][]string, conf *config.Flow, run *client.Run) [][]runN
 			if cn.Class == "merge" {
 				res := run.MergeNodes[id]
 				rn.Waits = res.Waits
+				if rn.Waits == nil {
+					rn.Waits = map[string]bool{}
+				}
 				for _, w := range cn.Wait {
 					if _, ok := rn.Waits[w]; !ok {
 						rn.Waits[w] = false

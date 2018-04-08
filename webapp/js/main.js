@@ -1,5 +1,6 @@
 import {rlite} from './vendor/rlite.js';
 import {Controller} from './panel/controller.js';
+import {el} from './panel/panel.js';
 import {WsHub} from './ws.js';
 
 import {Header} from './page/header.js';
@@ -48,6 +49,17 @@ function main() {
 
         // rest type events are fired when we get a rest response
         if (evt.Type == 'rest') {
+            if (evt.Value.Status >= 500) {
+                console.log("got 5xx");
+                // TODO consider moving to controller - or a specific error panel?
+                var wrap  = el('#err-wrap');
+                wrap.className = "error show";
+                el('#err-msg').innerHTML = "Call to server resulted in: " + evt.Value.Status;
+                el('#err-content').innerHTML = evt.Value.Response;
+                
+                return
+            }
+
             // Did we try and do a server side call and it was authenticated
             // or an explicit logout was effective, then tell the controller to UnAuthenticate
             if ((evt.Value.Status == 401) || (evt.Value.Url == '/logout' && evt.Value.Status == 200)) {
@@ -133,6 +145,5 @@ function main() {
 function notFound() {
     return '<h1>404 Not found :/</h1>';
 }
-
 
 main();

@@ -1,4 +1,5 @@
 import {eventHub} from './event.js';
+import {el} from '../panel/panel.js';
 
 "use strict";
 
@@ -38,6 +39,8 @@ export function Controller(header, panels) {
 
     // Activate deactivates all but the requested panel and activated the named panel.
     this.Activate = function(name, ids) {
+        clearError();
+
         console.log('activating', name, ids);
         console.log('current-page',currentPage);
         
@@ -178,3 +181,9 @@ export function Controller(header, panels) {
     eventHub.Subscribe("controller", this);
 }
 
+function clearError() {
+    var wrap = el('#err-wrap');
+    if (wrap.className == "error show") {
+        wrap.className = "error";
+    }
+}

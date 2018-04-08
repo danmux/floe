@@ -3,6 +3,7 @@ import {el} from '../panel/panel.js';
 import {Form} from '../panel/form.js';
 import {RestCall} from '../panel/rest.js';
 import {AttacheExpander} from '../panel/expander.js';
+import {States} from '../panel/expander.js';
 import {PrettyDate} from '../panel/util.js';
 import {ToHHMMSS} from '../panel/util.js';
 import {EmbellishSummary} from '../page/flow.js';
@@ -17,13 +18,14 @@ export function FlowSingle() {
             URL: '/flows/' + panel.IDs[0] + '/runs/' + panel.IDs[1],
         };
     }
-    
+
     var events = [];
 
     // panel is view - or part of it
     var panel = new Panel(this, null, graphFlow, '#main', events, dataReq);
 
     this.Map = function(evt, data) {
+        var expState = States(panel.IDs[1]);
         console.log("flow got a call to Map", evt);
         if (evt.Type == 'rest') {
           var pl = evt.Value.Response.Payload;
@@ -44,6 +46,7 @@ export function FlowSingle() {
                     var stopped = new Date(nr.Stopped);
                     nr.Took = "("+ToHHMMSS((stopped - started)/1000)+")";
                 }
+                nr.Expanded = expState[nr.ID];
                 pl.Graph[i][ni] = nr;
               });
           });
@@ -103,6 +106,12 @@ export function FlowSingle() {
                     }
                     if (evt.Msg.Tag == "sys.node.update") {
                         nr.Status = activeStatus(nr.Class);
+                        if (nr.Type == "exec") {
+                            if (!nr.Logs) {
+                                nr.Logs = [];
+                            }
+                            nr.Logs.push(evt.Msg.Opts.update);
+                        }
                     }
                     if (
                         evt.Msg.Tag.startsWith("task") ||
@@ -127,6 +136,7 @@ export function FlowSingle() {
                         nr.Took = "("+ToHHMMSS((toTime - started)/1000)+")";
                         console.log(nr.Took);
                     }
+                    nr.Expanded = expState[nr.ID];
                     data.Graph[i][ni] = nr;
                 });
             });            
@@ -149,28 +159,6 @@ export function FlowSingle() {
         RestCall(panel.evtHub, "POST", "/push/data", payload);
     }
 
-    /*
-        Tag: "inbound.data", // will match the data types
-		RunRef: event.RunRef{
-			FlowRef: config.FlowRef{
-				ID:  "build-project",
-				Ver: 1,
-			},
-			Run: event.HostedIDRef{
-				HostID: "h2",
-				ID:     1,
-			},
-		},
-		SourceNode: config.NodeRef{
-			ID: "sign-off",
-		},
-		Opts: nt.Opts{
-			"tests_passed": "true",
-			"to_hash":      "blhahaha",
-		},
-        Good: true,
-        */
-
     // AfterRender is called when the dash hs rendered containers.
     // we go and add the child summary panels
     this.AfterRender = function(data) {
@@ -178,7 +166,7 @@ export function FlowSingle() {
         if (data == undefined) {
             return
         }
-        console.log(data);
+        // add all the forms
         data.Data.Graph.forEach((r, i) => {
             r.forEach((nr, ni) => {
                 if (nr.Type == "data") {
@@ -198,22 +186,9 @@ export function FlowSingle() {
                 }
             });
         });
-        // var trigs = data.Data.Config.Triggers;
-        // for (var t in trigs) {
-        //     var trig = trigs[t];
-        //     var form = trig.Opts.form;
-        //     if (form == undefined) {
-        //         continue;
-        //     }
-        //     // Give the form the trigger id so it can be uniquely directly referenced.
-        //     form.ID = trig.ID;
-        //     console.log(form);
-        //     var formP = new Form('#expander-'+trig.ID, form, sendData);
-        //     formP.Activate();
-        // }
-
-        AttacheExpander(el('triggers'));
-        AttacheExpander(el('tasks'));
+        // make things expandable
+        AttacheExpander(panel.IDs[1], el('triggers'));
+        AttacheExpander(panel.IDs[1], el('tasks'));
     }
 
     return panel;
@@ -267,12 +242,12 @@ var graphFlow = `
           <div id='level-{{=index}}' class='level'>
           {{~level :node:indx}}
             <box id='node-{{=node.ID}}' class='task {{=node.Result}} {{=node.Status}}'>
-              <div for="{{=node.ID}}" class="data-title expander-ctrl">
-                  <h4>{{=node.Name}}</h4><i class='icon-angle-circled-right'></i>
+              <div for='{{=node.ID}}' class='data-title expander-ctrl'>
+                  <h4>{{=node.Name}}</h4><i class='icon-angle-circled-right{{? node.Expanded}} open{{?}}'></i>
                   {{?node.Status=="running"}}<img class="gear" src="/static/img/gear.svg"><img>{{?}}
               </div>
               
-              <detail id='expander-{{=node.ID}}' class='expander{{? node.Type!="data"}} show-some{{?}}'>
+              <detail id='expander-{{=node.ID}}' class='expander{{? node.Type!="data"}} show-some{{?}}{{? node.Expanded}} expand{{?}}'>
               {{? node.Type=="data"}}
               {{??}}
                 <p class='ago'>{{=node.StartedAgo}}</p><p class='took'>{{=node.Took}}</p>
@@ -282,6 +257,11 @@ var graphFlow = `
                     <div>{{=prop}} {{=node.Waits[prop]}}</div>
                     {{ } }}
                 </div>
+                {{??}}
+                    <code>
+{{~node.Logs :line:lindex}}{{=line}}
+{{~}}
+                    </code>
                 {{?}}
               {{?}}
               </detail>

@@ -23,6 +23,8 @@ func (g gitMerge) Execute(ws *Workspace, in Opts, output chan string) (int, Opts
 		return 255, nil, fmt.Errorf("problem getting to_hash string option")
 	}
 
+	output <- "git checkoutt foo and bar and <--- long command line too long really, but good to seee the output"
+
 	log.Debug("GIT merge command thing", from, to)
 	return 0, nil, nil
 }
