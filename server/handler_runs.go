@@ -7,7 +7,6 @@ import (
 
 	"github.com/floeit/floe/client"
 	"github.com/floeit/floe/config"
-	nt "github.com/floeit/floe/config/nodetype"
 	"github.com/floeit/floe/event"
 	"github.com/floeit/floe/hub"
 )
@@ -95,9 +94,35 @@ func hndRun(rw http.ResponseWriter, r *http.Request, ctx *context) (int, string,
 	return rOK, "", response
 }
 
+/*
+(nodetype.Opts) (len=2) {
+ (string) (len=4) "form": (map[string]interface {}) (len=2) {
+  (string) (len=6) "fields": ([]interface {}) (len=2 cap=2) {
+   (map[string]interface {}) (len=4) {
+    (string) (len=2) "id": (string) (len=12) "tests_passed",
+    (string) (len=6) "prompt": (string) (len=28) "Did the manual testing pass?",
+    (string) (len=4) "type": (string) (len=4) "bool",
+    (string) (len=5) "value": (string) (len=3) "fds"
+   },
+   (map[string]interface {}) (len=4) {
+    (string) (len=2) "id": (string) (len=7) "to_hash",
+    (string) (len=6) "prompt": (string) (len=19) "To Branch (or hash)",
+    (string) (len=4) "type": (string) (len=6) "string",
+    (string) (len=5) "value": (string) (len=14) "ttrtrtrtrtrtrt"
+   }
+  },
+  (string) (len=5) "title": (string) (len=23) "Sign off Manual Testing"
+ },
+ (string) (len=6) "values": (map[string]interface {}) (len=2) {
+  (string) (len=7) "to_hash": (string) (len=14) "ttrtrtrtrtrtrt",
+  (string) (len=12) "tests_passed": (string) (len=3) "fds"
+ }
+}
+*/
+
 // buildFields uses the node config Opts and any current values
 // and creates a set of Fields from it
-func buildFields(rn *runNode, confOpts, values nt.Opts) {
+func buildFields(rn *runNode, confOpts, values map[string]interface{}) {
 	// TODO - consider mapstructure
 	form, ok := confOpts["form"].(map[string]interface{})
 	if !ok {
@@ -175,7 +200,11 @@ func buildRunResp(graph [][]string, conf *config.Flow, run *client.Run) [][]runN
 				case !rn.Started.IsZero():
 					rn.Status = "waiting"
 				}
-				buildFields(&rn, cn.Opts, res.Opts)
+				vals := map[string]interface{}{}
+				if v, ok := res.Opts["values"]; ok {
+					vals = v.(map[string]interface{})
+				}
+				buildFields(&rn, cn.Opts, vals)
 			default:
 				res := run.ExecNodes[id]
 				rn.Logs = res.Logs

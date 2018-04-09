@@ -41,13 +41,13 @@ func (d data) Execute(ws *Workspace, in Opts, output chan string) (int, Opts, er
 
 	rCode := 0
 	for i, f := range do.Form.Fields {
-		if v, ok := do.Values[f.ID]; !ok {
+		if v, ok := do.Values[f.ID]; ok {
 			f.Value = v
 			do.Form.Fields[i] = f
 			// TODO add and validate mandatory fields
 			// TODO look for single field representing good or bad
+		} else {
 			rCode = 2
-			break
 		}
 	}
 

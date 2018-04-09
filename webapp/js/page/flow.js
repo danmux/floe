@@ -70,6 +70,9 @@ export function Flow() {
                 // TODO it was added to pending list
                 if (evt.Msg.Opts.action == "add-pend") {
                     console.log("adding pending", evt.Msg);
+                    if (data.Runs.Pending == null) {
+                        data.Runs.Pending = [];
+                    }
                     var d = new Date();
                     data.Runs.Pending.push({
                         Ended: false,
@@ -100,6 +103,17 @@ export function Flow() {
                         Stat: "Active",
                         Took: "(00:00)"
                     });
+                    // take of pending list if on it
+                    var removeIndex = -1;
+                    data.Runs.Pending.forEach((r, i) => {
+                        if (runsEqual(evt.Msg.RunRef, r.Ref)) {
+                            removeIndex = i
+                            return;
+                        }
+                    });
+                    if (removeIndex >= 0) {
+                        data.Runs.Pending.splice(removeIndex, 1);
+                    }
                 }
                 return data;
             }

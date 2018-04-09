@@ -129,6 +129,7 @@ function main() {
                 evt.Msg.Tag == "sys.state" || 
                 evt.Msg.Tag =="sys.end.all" || 
                 evt.Msg.Tag =="sys.node.start" ||
+                evt.Msg.Tag =="sys.data.required" ||
                 evt.Msg.Tag.startsWith("task") ||
                 evt.Msg.Tag.startsWith("merge")
             ) {

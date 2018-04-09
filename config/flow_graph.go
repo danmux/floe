@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 )
 
@@ -109,6 +110,11 @@ func (f *Flow) Graph() (lvs [][]string, problems []string) {
 		for k := range lm[l] {
 			lv = append(lv, k)
 		}
+
+		sort.Slice(lv, func(i, j int) bool {
+			return lv[i] < lv[j]
+		})
+
 		// TODO sort within the level to some repeatable order
 		lvs = append(lvs, lv)
 	}

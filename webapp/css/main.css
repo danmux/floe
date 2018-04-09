@@ -381,7 +381,8 @@ box.trigger {
     border-radius: 3px;
     box-shadow: 0 0px 1px #aaa;
     padding: 1px 5px;
-    min-height: 24px;
+    min-height: 22px;
+    font-size: 12pt;
 }
 
 .kvrow {

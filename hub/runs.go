@@ -132,7 +132,7 @@ func (r *Run) updateExecNode(nodeID string, start, end time.Time, good bool, lin
 }
 
 // updateDataNode adds the opts form description
-func (r *Run) updateDataNode(nodeID string, opts nt.Opts) {
+func (r *Run) updateDataNode(nodeID string, opts nt.Opts, enabled bool) {
 	r.Lock()
 	defer r.Unlock()
 	m, ok := r.DataNodes[nodeID]
@@ -140,7 +140,10 @@ func (r *Run) updateDataNode(nodeID string, opts nt.Opts) {
 		m = data{}
 	}
 	m.Opts = opts
-	m.Enabled = true
+	if enabled == false {
+		m.Stopped = time.Now()
+	}
+	m.Enabled = enabled
 	m.Started = time.Now() // TODO move this to the hub - when we can handle data input in the run
 	r.DataNodes[nodeID] = m
 }
@@ -259,8 +262,8 @@ func (r *RunStore) updateExecNode(run *Run, nodeID string, start, end time.Time,
 	}
 }
 
-func (r *RunStore) updateDataNode(run *Run, nodeID string, opts nt.Opts) {
-	run.updateDataNode(nodeID, opts)
+func (r *RunStore) updateDataNode(run *Run, nodeID string, opts nt.Opts, enabled bool) {
+	run.updateDataNode(nodeID, opts, enabled)
 	r.Lock()
 	defer r.Unlock()
 	if err := r.active.Save(activeKey, r.store); err != nil {

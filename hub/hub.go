@@ -501,8 +501,8 @@ func (h *Hub) setFormData(run *Run, node exeNode, opts nt.Opts) {
 	// status 0 = good, 1 = bad, 2 = needs more data,
 	status, outOpts, _ := node.Execute(nil, valOpts, nil)
 
-	// add the form fields to the flow
-	h.runs.updateDataNode(run, node.NodeRef().ID, outOpts)
+	// add the form fields to the flow. if good or bad then we have enough data for a decision
+	h.runs.updateDataNode(run, node.NodeRef().ID, outOpts, status == 2)
 
 	ev := event.Event{
 		RunRef:     run.Ref,

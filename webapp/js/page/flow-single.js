@@ -92,6 +92,7 @@ export function FlowSingle() {
             // find the node to which this event applies and update it
             data.Graph.forEach((r, i) => {
                 r.forEach((nr, ni) => {
+                    nr.Expanded = expState[nr.ID];
                     if (nr.ID != evt.Msg.SourceNode.ID) {
                         return;
                     }
@@ -113,16 +114,24 @@ export function FlowSingle() {
                             nr.Logs.push(evt.Msg.Opts.update);
                         }
                     }
+                    if (evt.Msg.Tag == "sys.data.required") {
+                        nr.Enabled = true;
+                        nr.Status = "waiting";
+                    }
                     if (
                         evt.Msg.Tag.startsWith("task") ||
                         evt.Msg.Tag.startsWith("merge")
                     ) {
                         console.log("got task or merge event", evt.Msg.Tag);
-                        // task must have finished
+                        // task or data must have finished
                         var d = new Date();
                         nr.Stopped = d.toISOString();
                         nr.Status = "finished";
                         nr.Result = "success"; // TODO parse result
+                        nr.Enabled = false;  // data nodes have submitted their data.
+                        if (nr.Type == "data") {
+                            nr.Fields = evt.Msg.Opts.form.fields;
+                        }
                     }
                     if (nr.Started != "0001-01-01T00:00:00Z") {
                         nr.StartedAgo = PrettyDate(nr.Started);
@@ -136,7 +145,7 @@ export function FlowSingle() {
                         nr.Took = "("+ToHHMMSS((toTime - started)/1000)+")";
                         console.log(nr.Took);
                     }
-                    nr.Expanded = expState[nr.ID];
+                    console.log("expanded", nr.ID, expState[nr.ID]);
                     data.Graph[i][ni] = nr;
                 });
             });            
@@ -159,7 +168,7 @@ export function FlowSingle() {
         RestCall(panel.evtHub, "POST", "/push/data", payload);
     }
 
-    // AfterRender is called when the dash hs rendered containers.
+    // AfterRender is called when the panel rendered something.
     // we go and add the child summary panels
     this.AfterRender = function(data) {
 
@@ -211,16 +220,17 @@ var graphFlow = `
           {{~it.Data.Triggers :trigger:index}}
 
           <box id='trig-{{=trigger.ID}}' class='trigger{{? !trigger.Enabled}} disabled{{?}}'>
-              {{? trigger.Type=='data'}}
+            {{? trigger.Type=='data'}}
               <div for="{{=trigger.ID}}" class="data-title expander-ctrl">
                   <h4>{{=trigger.Name}}</h4><i class='icon-angle-circled-right'></i>
               </div>
-              {{??}}
+            {{??}}
               <div class="data-title">
                   <h4>{{=trigger.Name}}</h4>
               </div>
-              {{?}}
-              {{? trigger.Type=='data'}}
+            {{?}}
+
+            {{? trigger.Type=='data'}}
               <detail id='expander-{{=trigger.ID}}' class='expander'>
                   {{~trigger.Fields :field:index}}
                     <div id="field-{{=field.id}}", class='kvrow'>
@@ -229,7 +239,7 @@ var graphFlow = `
                     </div>
                   {{~}}
               </detail>
-              {{?}}
+            {{?}}
           </box>
 
           {{~}}
@@ -249,6 +259,12 @@ var graphFlow = `
               
               <detail id='expander-{{=node.ID}}' class='expander{{? node.Type!="data"}} show-some{{?}}{{? node.Expanded}} expand{{?}}'>
               {{? node.Type=="data"}}
+                {{~node.Fields :field:findex}}
+                <div id="field-{{=field.id}}", class='kvrow'>
+                    <div class='prompt'>{{=field.prompt}}:</div> 
+                    <div class='value'>{{=field.value}}</div>
+                </div>
+                {{~}}
               {{??}}
                 <p class='ago'>{{=node.StartedAgo}}</p><p class='took'>{{=node.Took}}</p>
                 {{? node.Class=="merge"}}
