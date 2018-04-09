@@ -284,6 +284,12 @@ func (r *RunStore) end(run *Run, good bool) bool {
 	r.Lock()
 	defer r.Unlock()
 
+	// mark all data nodes disabled
+	for k, n := range run.DataNodes {
+		n.Enabled = false
+		run.DataNodes[k] = n
+	}
+
 	// remove from active array dropping reference from underlying array
 	copy(r.active[i:], r.active[i+1:])
 	r.active[len(r.active)-1] = nil

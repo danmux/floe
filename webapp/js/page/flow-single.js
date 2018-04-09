@@ -76,6 +76,15 @@ export function FlowSingle() {
                     data.Summary.Status = "bad";
                 }
                 data.Summary = EmbellishSummary(data.Summary);
+
+                // mark all data nodes disabled
+                data.Graph.forEach((r, i) => {
+                    r.forEach((nr, ni) => {
+                        if (nr.Type == "data") {
+                            nr.Enabled = false;
+                        }
+                    });
+                });
                 return data;
             }
 
@@ -229,10 +238,10 @@ var graphFlow = `
                   <h4>{{=trigger.Name}}</h4>
               </div>
             {{?}}
-
+            
             {{? trigger.Type=='data'}}
               <detail id='expander-{{=trigger.ID}}' class='expander'>
-                  {{~trigger.Fields :field:index}}
+                  {{~trigger.Fields :field:findex}}
                     <div id="field-{{=field.id}}", class='kvrow'>
                       <div class='prompt'>{{=field.prompt}}:</div> 
                       <div class='value'>{{=field.value}}</div>

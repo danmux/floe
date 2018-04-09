@@ -152,3 +152,18 @@ func Fatal(args ...interface{}) {
 	logger.Println(args...)
 	os.Exit(255)
 }
+
+type Log struct{}
+
+func (l Log) Info(vals ...interface{}) {
+	Info(vals...)
+}
+func (l Log) Debug(vals ...interface{}) {
+	Debug(vals...)
+}
+func (l Log) Error(vals ...interface{}) {
+	Error(vals...)
+}
+func (l Log) Infof(format string, args ...interface{}) {
+	Infof(format, args...)
+}

@@ -96,19 +96,19 @@ flows:
           listen: task.checkout.good    
           type: exec
           opts:
-            cmd: "make build"        # the command to execute 
+            cmd: "ls /"        # the command to execute 
 
         - name: test1
           listen: task.build.good    
           type: exec                 # execute a command
           opts:
-            cmd: "make test"         # the command to execute 
+            cmd: "echo test1"         # the command to execute 
 
         - name: test2
           listen: task.build.good    
           type: exec                 # execute a command
           opts:
-            cmd: "make test 2"       # the command to execute 
+            cmd: "echo test2"       # the command to execute 
 
         - name: merge-tests
           class: merge
@@ -242,7 +242,7 @@ func TestHubEvents(t *testing.T) {
 		t.Fatal("timed out")
 	case <-done:
 		for k, v := range expected {
-			if counts[k] != v {
+			if counts[k] < v {
 				t.Errorf("got wrong number of events, %s was %d expected %d", k, counts[k], v)
 			}
 		}
@@ -268,7 +268,7 @@ var inData = []byte(`
               listen: trigger.good    
               type: exec
               opts:
-                cmd: "make build"        # the command to execute 
+                cmd: "ls"        # the command to execute 
     
             - name: Sign Off
               type: data
@@ -288,7 +288,7 @@ var inData = []byte(`
               listen: task.sign-off.good    
               type: exec                 # execute a command
               opts:
-                cmd: "make test"         # the command to execute 
+                cmd: "echo test"         # the command to execute 
     
             - name: complete
               listen: task.test1.good

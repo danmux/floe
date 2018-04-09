@@ -1,9 +1,12 @@
 package nodetype
 
 import (
+	"bufio"
 	"fmt"
-	"time"
+	"io"
+	"strings"
 
+	"github.com/floeit/floe/exe"
 	"github.com/floeit/floe/log"
 )
 
@@ -16,17 +19,44 @@ func (e exec) Match(ol, or Opts) bool {
 
 func (e exec) Execute(ws *Workspace, in Opts, output chan string) (int, Opts, error) {
 	// TODO - consider mapstructure
-	cmd, ok := in["cmd"]
-	if !ok {
+	cmd := ""
+	if c, ok := in["cmd"]; ok {
+		cmd = c.(string)
+	} else {
 		return 255, nil, fmt.Errorf("missing cmd option")
 	}
 
-	log.Debug("COMMAND >", cmd.(string)) // TODO - it
-	for i := 0; i < 5; i++ {
-		time.Sleep(time.Second * 1)
-		output <- fmt.Sprintf("something after %d seconds", i)
+	args := ""
+	if a, ok := in["args"]; ok {
+		args = a.(string)
 	}
-	log.Debug("COMMAND >", cmd.(string), "DONE")
+	// if no explicit args then look at the cmd if it is in the form of "arg cmd.."
+	if args == "" {
+		p := strings.Split(cmd, " ")
+		if len(p) > 1 {
+			args = cmd[len(p[0]):]
+			cmd = p[0]
+		}
+	}
 
-	return 0, Opts{}, nil
+	pr, pw := io.Pipe()
+	stop := make(chan bool, 1)
+
+	go func() {
+		scanner := bufio.NewScanner(pr)
+		for scanner.Scan() {
+			output <- scanner.Text()
+		}
+		if err := scanner.Err(); err != nil {
+			output <- "scanning output failed with: " + err.Error()
+		}
+		close(stop)
+	}()
+
+	status := exe.Run(log.Log{}, cmd, args, ws.BasePath, pw)
+
+	// wait for scanner to complete
+	<-stop
+
+	return status, Opts{}, nil
 }

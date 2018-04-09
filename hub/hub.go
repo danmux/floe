@@ -55,6 +55,9 @@ type Hub struct {
 	config   *config.Config // the config rules
 	queue    *event.Queue   // the event q to route all events
 
+	// any registered timers
+	timers *timers
+
 	// tags
 	tags []string // the tags that
 
@@ -83,8 +86,11 @@ func New(host, tags, basePath, adminTok string, c *config.Config, s store.Store,
 		queue:    q,
 		runs:     newRunStore(s),
 	}
+	h.timers = newTimers(h)
 	// setup hosts
 	h.setupHosts(adminTok)
+	// set up any timed triggers
+	h.timedTriggers()
 	// hub subscribes to its own queue
 	h.queue.Register(h)
 	// start checking the pending queue
@@ -212,6 +218,10 @@ func (h *Hub) ExecutePending(pend Pend) (bool, error) {
 		if anyTags(fl.ResourceTags, flow.ResourceTags) {
 			log.Debugf("<%s> - exec - found resource tag conflict on tags: %v with already active tags: %v",
 				pend, flow.ResourceTags, fl.ResourceTags)
+			return false, nil
+		}
+		if fl.ReuseSpace && flow.ReuseSpace {
+			log.Debugf("<%s> - exec - reuse space is set true and flow is active", pend)
 			return false, nil
 		}
 	}
@@ -368,7 +378,7 @@ func (h *Hub) addToPending(flow config.FlowRef, hostID string, e event.Event) (e
 }
 
 // pendFlowFromTrigger uses the subscription fired event e to put a FoundFlow
-// on the pending queue, storing the initial event for use as the run is executed.
+// on the pending queue if any triggers match, storing the initial event for use as the run is executed.
 func (h *Hub) pendFlowFromTrigger(e event.Event) error {
 	if !strings.HasPrefix(e.Tag, inboundPrefix) {
 		return fmt.Errorf("event %s dispatched to triggers does not have inbound tag prefix", e.Tag)
@@ -591,7 +601,7 @@ func (h *Hub) executeNode(run *Run, node exeNode, e event.Event, singleWs bool) 
 			Opts:       outOpts,
 			Good:       false,
 		})
-		h.runs.updateExecNode(run, nodeID, zt, time.Now(), false, "")
+		h.runs.updateExecNode(run, nodeID, zt, time.Now(), false, err.Error())
 		return
 	}
 
@@ -671,6 +681,16 @@ func (h *Hub) setupHosts(adminTok string) {
 		log.Debug("connecting to host", hostAddr)
 		addr := hostAddr + h.config.Common.BaseURL
 		h.hosts = append(h.hosts, client.New(addr, adminTok))
+	}
+}
+
+func (h *Hub) timedTriggers() {
+	for _, f := range h.config.Flows {
+		for _, t := range f.Triggers {
+			if t.Type == "timer" || t.Type == "repo" {
+				h.timers.register(config.FlowRef{ID: f.ID, Ver: f.Ver}, t.ID, t.Opts)
+			}
+		}
 	}
 }
 

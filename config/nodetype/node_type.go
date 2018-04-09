@@ -7,6 +7,7 @@ type NType string
 const (
 	NtEnd      NType = "end" // the special end node
 	NtData     NType = "data"
+	NtTimer    NType = "timer"
 	NtExec     NType = "exec"
 	NtGitMerge NType = "git-merge"
 )
@@ -20,6 +21,7 @@ type NodeType interface {
 
 var nts = map[NType]NodeType{
 	NtData:     data{},
+	NtTimer:    timer{},
 	NtGitMerge: gitMerge{},
 	NtExec:     exec{},
 }

@@ -48,15 +48,19 @@ function main() {
         console.log("controller got an event", evt);
 
         // rest type events are fired when we get a rest response
-        if (evt.Type == 'rest') {
-            if (evt.Value.Status >= 500) {
-                console.log("got 5xx");
+        if (evt.Type == 'rest' || evt.Type == "top-error") {
+            if (evt.Value.Status >= 500 || evt.Type == "top-error") {
+                console.log("error", evt.Type);
                 // TODO consider moving to controller - or a specific error panel?
                 var wrap  = el('#err-wrap');
                 wrap.className = "error show";
-                el('#err-msg').innerHTML = "Call to server resulted in: " + evt.Value.Status;
-                el('#err-content').innerHTML = evt.Value.Response;
-                
+                if (evt.Value.Status >= 500) {
+                    el('#err-msg').innerHTML = "Call to server resulted in: " + evt.Value.Status;
+                    el('#err-content').innerHTML = evt.Value.Response;
+                } else {
+                    el('#err-msg').innerHTML = "Connectivity problem";
+                    el('#err-content').innerHTML = evt.Value;
+                }
                 return
             }
 

@@ -45,7 +45,7 @@ func (d Data) PostHandler(queue *event.Queue) httprouter.Handle {
 		}
 
 		sourceNode := config.NodeRef{
-			Class: "exec",
+			Class: "exec", // TODO maybe a trigger - so should nt set it
 			ID:    o.Form.ID,
 		}
 

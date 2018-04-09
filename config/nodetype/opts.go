@@ -15,6 +15,22 @@ func (o Opts) string(key string) (string, bool) {
 	return s, true
 }
 
+func (o Opts) int(key string) (int, bool) {
+	si, ok := o[key]
+	if !ok {
+		return 0, false
+	}
+	s, ok := si.(int)
+	if !ok {
+		fs, fok := si.(float64)
+		if !fok {
+			return 0, false
+		}
+		return int(fs), true
+	}
+	return s, true
+}
+
 func (o Opts) cmpString(key string, or Opts) bool {
 	sl, ok := o.string(key)
 	if !ok {

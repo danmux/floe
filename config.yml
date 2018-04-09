@@ -9,16 +9,21 @@ flows:
     - id: build-project              # the name of this flow
       name: Build Project
       ver: 1
-      reuse-space: true               # reuse the workspace (false) - if true /single used 
+      reuse-space: false               # reuse the workspace (false) - if true /single used 
       resource-tags: [couchbase, nic] # resource labels that any other flows cant share
       host-tags: [linux, go, couch]   # all these tags must match the tags on any host for it to be able to run there
 
       triggers:                      # external events to subscribe to
-        - name: push                 # name of this subscription
+        - name: push                 # name of this trigger
           type: git-push             # the type of this trigger
           opts:
             url: blah.blah           # which url to monitor
       
+        - name: Every Minute
+          type: timer                # fires every period seconds
+          opts:
+            period: 60               # how often to fire in seconds
+
         - name: start
           type: data
           opts:
@@ -43,20 +48,23 @@ flows:
           type: exec
           listen: task.checkout.good
           opts:
-            cmd: "echo dan"
+            cmd: "echo"
+            args: "'dan is a goon'"
             file: "BUILD.floe"         # the command to execute 
 
         - name: Build                
           type: exec
           listen: task.checkout.good    
           opts:
-            cmd: "make build"        # the command to execute 
+            cmd: "ls"        # the command to execute 
+            args: "-lrt /"
 
         - name: Test
           type: exec                 # execute a command
           listen: task.build.good    
           opts:
-            cmd: "make test"         # the command to execute 
+            cmd: "sleep"         # the command to execute 
+            args: "10"
 
         - name: Sign Off
           type: data
@@ -82,7 +90,7 @@ flows:
           type: exec                 # execute a command
           listen: merge.signed.good
           opts:
-            cmd: "make test"         # the command to execute 
+            cmd: "ls"         # the command to execute 
 
         - name: complete
           listen: task.final-task.good

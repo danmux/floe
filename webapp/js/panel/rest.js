@@ -41,6 +41,13 @@ export function RestCall(evtHub, method, url, obj) {
         }
     };
 
+    xhr.onerror = (t, e)=>{
+        evtHub.Fire({
+            Type: 'top-error',
+            Value: "No connection"
+        });
+    };
+
     xhr.timeout = 5000; // 5 second timeout
     xhr.send(body);
 }

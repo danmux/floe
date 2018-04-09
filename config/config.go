@@ -89,7 +89,7 @@ func (c *Config) FindFlowsByTriggers(eType string, flow FlowRef, opts nt.Opts) m
 
 // FindFlow finds the specific flow where its subs match the given params
 func (c *Config) FindFlow(f FlowRef, eType string, opts nt.Opts) (FoundFlow, bool) {
-	found := c.FindFlowsByTriggers(eType, FlowRef{}, opts)
+	found := c.FindFlowsByTriggers(eType, f, opts)
 	flow, ok := found[f]
 	return flow, ok
 }

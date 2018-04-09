@@ -164,7 +164,7 @@ func (t *node) GetTag(subTag string) string {
 }
 
 func (t *node) matchedTriggers(eType string, opts *nt.Opts) bool {
-	// subs matches must always have opts
+	// trigger matches must always have opts
 	if opts == nil {
 		return false
 	}
