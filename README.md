@@ -79,6 +79,7 @@ All config has a Common section which has the following top level config items:
 
 
 ### Flow Config
+
 A flow has the following top level config items:
 
 * `id` - string - url friendly ID - computed from the name if not given explicitly.
@@ -87,3 +88,17 @@ A flow has the following top level config items:
 * `reuse-space`	- bool - If true then will use the single workspace and will mutex with other instances of this Flow on the same host.
 * `host-tags` - []string - Tags that must match the tags on the host, useful for assigning specific flows to specific hosts.
 * `resource-tags` - []string - Tags that represent a set of shared resources that should not be accessed by two or more runs. So if any flow has an active run on a host then no other flow can launch a run if the flow has any tags matching the one running.
+
+
+### Triggers
+
+Triggers are the things that start a flow off there are a few types of trigger.
+
+* `data` - Where a web request pushing data to the server may trigger a flow - for example the web interface uses this, to explicitly launch a run.
+* `timer` - A flow can be triggered periodically - as a timer does not contain any repo version info this can only include git 
+
+### Exec Nodes
+
+The most common type of node - executes a command, e.g. runs a mke command or a bash script.
+
+`ignore-fail` - Only ever send the good event, even if the node failed. Can't be used in conjunction with UseStatus.

@@ -227,6 +227,10 @@ func (t *node) zero(defaultClass NodeClass, flow FlowRef) error {
 			return errors.New("task nodes can not have waits")
 		}
 	case NcMerge:
+		// default to waiting for all of them if not specified
+		if t.Type == "" {
+			t.Type = "all"
+		}
 		if t.Listen != "" {
 			return errors.New("merge nodes can not have listen set")
 		}

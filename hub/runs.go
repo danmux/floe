@@ -140,7 +140,7 @@ func (r *Run) updateDataNode(nodeID string, opts nt.Opts, enabled bool) {
 		m = data{}
 	}
 	m.Opts = opts
-	if enabled == false {
+	if !enabled {
 		m.Stopped = time.Now()
 	}
 	m.Enabled = enabled
@@ -154,6 +154,11 @@ func (r *Run) end(good bool) {
 	r.EndTime = time.Now()
 	r.Ended = true
 	r.Good = good
+	// mark all data nodes disabled
+	for k, n := range r.DataNodes {
+		n.Enabled = false
+		r.DataNodes[k] = n
+	}
 }
 
 // Pending is the thing that holds the list of flows waiting to be dispatched.
@@ -283,12 +288,6 @@ func (r *RunStore) end(run *Run, good bool) bool {
 
 	r.Lock()
 	defer r.Unlock()
-
-	// mark all data nodes disabled
-	for k, n := range run.DataNodes {
-		n.Enabled = false
-		run.DataNodes[k] = n
-	}
 
 	// remove from active array dropping reference from underlying array
 	copy(r.active[i:], r.active[i+1:])

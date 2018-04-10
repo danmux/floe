@@ -3,7 +3,9 @@ package exe
 import (
 	"bufio"
 	"io"
+	"os"
 	"os/exec"
+	"strings"
 	"syscall"
 )
 
@@ -41,8 +43,23 @@ func RunOutput(log logger, cmd, args, wd string) ([]string, int) {
 func Run(log logger, cmd, args, wd string, out io.WriteCloser) int {
 
 	log.Infof("Exec Cmd: <%s> Args: <%s> ", cmd, args)
-	argStr := cmd + " " + args
-	eCmd := exec.Command("bash", "-c", argStr)
+
+	if wd != "" {
+		// make sure working directory is in place
+		if err := os.MkdirAll(wd, 0700); err != nil {
+			log.Error(err)
+			return 1
+		}
+	}
+
+	// argStr := cmd + " " + args
+	// eCmd := exec.Command("bash", "-c", argStr)
+
+	var argArr []string
+	if args != "" {
+		argArr = strings.Split(args, " ")
+	}
+	eCmd := exec.Command(cmd, argArr...)
 
 	// this is mandatory
 	eCmd.Dir = wd
@@ -50,7 +67,7 @@ func Run(log logger, cmd, args, wd string, out io.WriteCloser) int {
 
 	// out can be nil - it is only set for the first executing thread
 	if out != nil {
-		out.Write([]byte(wd + "$ " + argStr + "\n\n"))
+		out.Write([]byte(cmd + " " + args + "\n\n"))
 
 		sout, err := eCmd.StdoutPipe()
 		if err != nil {

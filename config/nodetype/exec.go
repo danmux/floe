@@ -19,6 +19,8 @@ func (e exec) Match(ol, or Opts) bool {
 
 func (e exec) Execute(ws *Workspace, in Opts, output chan string) (int, Opts, error) {
 	// TODO - consider mapstructure
+	// support directory to run the command from
+
 	cmd := ""
 	if c, ok := in["cmd"]; ok {
 		cmd = c.(string)
@@ -34,14 +36,21 @@ func (e exec) Execute(ws *Workspace, in Opts, output chan string) (int, Opts, er
 	if args == "" {
 		p := strings.Split(cmd, " ")
 		if len(p) > 1 {
-			args = cmd[len(p[0]):]
+			args = cmd[len(p[0])+1:]
 			cmd = p[0]
 		}
 	}
 
+	status := doRun(cmd, args, ws.BasePath /*todo add subpath*/, output)
+
+	return status, Opts{}, nil
+}
+
+func doRun(cmd, args, path string, output chan string) int {
 	pr, pw := io.Pipe()
 	stop := make(chan bool, 1)
 
+	output <- "in dir: " + path + "\n"
 	go func() {
 		scanner := bufio.NewScanner(pr)
 		for scanner.Scan() {
@@ -53,10 +62,13 @@ func (e exec) Execute(ws *Workspace, in Opts, output chan string) (int, Opts, er
 		close(stop)
 	}()
 
-	status := exe.Run(log.Log{}, cmd, args, ws.BasePath, pw)
+	status := exe.Run(log.Log{}, cmd, args, path, pw)
 
 	// wait for scanner to complete
 	<-stop
+	if status != 0 {
+		output <- fmt.Sprintf("\nexited with status: %d", status)
+	}
 
-	return status, Opts{}, nil
+	return status
 }

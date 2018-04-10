@@ -18,11 +18,6 @@ flows:
           type: git-push             # the type of this trigger
           opts:
             url: blah.blah           # which url to monitor
-      
-        - name: Every Minute
-          type: timer                # fires every period seconds
-          opts:
-            period: 60               # how often to fire in seconds
 
         - name: start
           type: data
@@ -30,11 +25,12 @@ flows:
             form:
               title: Start
               fields:
-                - id: from_hash
-                  prompt: From Branch (or hash)
+                - id: ref
+                  prompt: Ref (branch or hash)
                   type: text
-                - id: to_hash
-                  prompt: To Branch (or hash)
+                  value: master
+                - id: from-ref
+                  prompt: Ref to merge (branch or hash)
                   type: text 
             
       tasks: 
@@ -43,6 +39,9 @@ flows:
           listen: trigger.good       # the event tag that triggers this node
           good: [0]                  # define what the good statuses are, default [0]
           ignore-fail: false         # if true only emit good
+          opts:
+            sub-dir: src/github.com/floeit
+            url: git@github.com:floeit/floe.git
         
         - name: Echo
           type: exec
@@ -106,13 +105,35 @@ flows:
             form:
               title: Start
               fields:
-                - id: branch
-                  prompt: Branch (or hash)
+                - id: ref
+                  prompt: Git Ref (branch or hash etc)
                   type: text
-            
+        
+        - name: Every 5 Minutes
+          type: timer                # fires every period seconds
+          opts:
+            period: 300               # how often to fire in seconds
+
       tasks: 
-        - name: checkout
+        - name: Checkout
           listen: trigger.good
           type: git-checkout
-          good: [0]
-          ignore-fail: false
+          opts:
+            url: git@github.com:floeit/floe.git
+            sub-dir: src/github.com/floeit
+        
+        - name: Go Version
+          listen: trigger.good
+          type: exec
+          opts:
+            cmd: "go version"
+
+        - name: Wait
+          class: merge
+          wait: 
+            - task.go-version.good
+            - task.checkout.good
+
+        - name: done
+          listen: task.wait.good
+          type: end

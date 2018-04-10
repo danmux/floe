@@ -79,7 +79,7 @@ func (m *LocalStore) Save(key string, data interface{}) error {
 	if err != nil {
 		return err
 	}
-	keyPath := filepath.Join(m.root, key)
+	keyPath := filepath.Join(m.root, key) + ".json"
 	return ioutil.WriteFile(keyPath, b, 0644)
 }
 
@@ -87,7 +87,7 @@ func (m *LocalStore) Save(key string, data interface{}) error {
 func (m *LocalStore) Load(key string, thing interface{}) error {
 	m.RLock()
 	defer m.RUnlock()
-	keyPath := filepath.Join(m.root, key)
+	keyPath := filepath.Join(m.root, key) + ".json"
 	b, err := ioutil.ReadFile(keyPath)
 	if err != nil {
 		if _, ok := err.(*os.PathError); ok { // file not found is ok
