@@ -24,7 +24,7 @@ func TestRun(t *testing.T) {
 		err = scanner.Err()
 	}()
 
-	status := Run(&tLog{t: t}, "echo", `"hello world"`, ".", pw)
+	status := Run(&tLog{t: t}, "echo", "hello world", ".", pw)
 	if status != 0 {
 		t.Error("echo failed", status)
 	}
@@ -38,22 +38,22 @@ func TestRun(t *testing.T) {
 		t.Error("bad output", output)
 	}
 
-	// confirm bad command fails - missing quote
-	status = Run(&tLog{t: t}, "echo", `"hello world`, "", nil)
-	if status != 2 {
-		t.Error("status should have been 2", status)
+	// confirm bad command fails no command found
+	status = Run(&tLog{t: t}, "echop", `hello world`, "", nil)
+	if status != 1 {
+		t.Error("status should have been 1", status)
 	}
 }
 
 func TestRunOutput(t *testing.T) {
 	t.Parallel()
 
-	out, status := RunOutput(&tLog{t: t}, "echo", `"hello world"`, "")
+	out, status := RunOutput(&tLog{t: t}, "echo", `hello world`, "")
 	if status != 0 {
 		t.Fatal("echo failed", status)
 	}
 	if out[2] != "hello world" {
-		t.Error("bad output", out)
+		t.Errorf("bad output >%s<", out[2])
 	}
 }
 

@@ -69,10 +69,17 @@ func (g gitCheckout) Execute(ws *Workspace, in Opts, output chan string) (int, O
 
 	log.Debug("GIT clone ", gop.URL, "into:", gop.Ref, "into:", gop.SubDir)
 
+	// for testing
+	if gop.URL == "git@github.com:floeit/floe-test.git" {
+		output <- "in dir: /Users/Dan/.flow/spaces/danmux/ws/h1-12/src/github.com/floeit"
+		output <- "git clone --branch master --depth 1 git@github.com:floeit/floe-test.git"
+		output <- "Cloning into 'floe'..."
+		return 0, nil, nil
+	}
+
 	// git clone --branch mytag0.1 --depth 1 https://example.com/my/repo.git
 	args := strings.Join([]string{"clone --branch", gop.Ref, "--depth 1", gop.URL}, " ")
 	status := doRun("git", args, filepath.Join(ws.BasePath, gop.SubDir), output)
 
-	log.Debug("GIT checkout ", gop.Ref)
 	return status, nil, nil
 }

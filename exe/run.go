@@ -88,7 +88,9 @@ func Run(log logger, cmd, args, wd string, out io.WriteCloser) int {
 	err := eCmd.Start()
 	if err != nil {
 		log.Error(err)
-		out.Write([]byte(err.Error() + "\n\n"))
+		if out != nil {
+			out.Write([]byte(err.Error() + "\n\n"))
+		}
 		return 1
 	}
 

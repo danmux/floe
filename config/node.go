@@ -109,7 +109,11 @@ func (t *node) Execute(ws *nt.Workspace, opts nt.Opts, output chan string) (int,
 		return 255, nil, fmt.Errorf("no node type found: %s", t.Type)
 	}
 	inOpts := nt.MergeOpts(t.Opts, opts)
-	return n.Execute(ws, inOpts, output)
+	status, opts, err := n.Execute(ws, inOpts, output)
+	if err != nil && t.IgnoreFail {
+		err = nil
+	}
+	return status, opts, err
 }
 
 // Status will return the string to use on an event tag and a boolean to

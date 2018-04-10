@@ -87,10 +87,11 @@ flows:
             
       tasks: 
         - name: checkout             # the name of this node 
-          listen: trigger.good   # the event that triggers this node
-          type: git-merge            # the task type 
+          listen: trigger.good       # the event that triggers this node
+          type: git-checkout         # the task type 
           good: [0]                  # define what the good statuses are, default [0]
-          ignore-fail: false         # if true only emit good
+          opts:
+            url: git@github.com:floeit/floe-test.git
         
         - name: build                
           listen: task.checkout.good    
@@ -151,9 +152,6 @@ func TestHubEvents(t *testing.T) {
 	// add an external event whose opts dont match those needed by git-merge so will error
 	q.Publish(event.Event{
 		Tag: "inbound.data", // will match the trigger type
-		Opts: nt.Opts{
-			"url": "blah.blah",
-		},
 	})
 
 	// get the first events and confirm correct tag order
@@ -207,8 +205,7 @@ func TestHubEvents(t *testing.T) {
 	q.Publish(event.Event{
 		Tag: "inbound.data", // will match the trigger type
 		Opts: nt.Opts{
-			"from_hash": "blah.blah",
-			"to_hash":   "blah.blah",
+			"ref": "blah.blah",
 		},
 	})
 

@@ -11,7 +11,7 @@ import (
 
 	"github.com/floeit/floe/config"
 	nt "github.com/floeit/floe/config/nodetype"
-	"github.com/floeit/old/log"
+	"github.com/floeit/floe/log"
 )
 
 const adminToken = "a-test-admin-token"
