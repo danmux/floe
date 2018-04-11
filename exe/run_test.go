@@ -52,6 +52,9 @@ func TestRunOutput(t *testing.T) {
 	if status != 0 {
 		t.Fatal("echo failed", status)
 	}
+	for _, l := range out {
+		t.Log(">>", l)
+	}
 	if out[2] != "hello world" {
 		t.Errorf("bad output >%s<", out[2])
 	}

@@ -33,10 +33,9 @@ func TestExpandPath(t *testing.T) {
 			t.Errorf("test %d failed, wanted: %s got: %s", i, f.out, ep)
 		}
 	}
-
 	ep, _ := Expand("%tmp/test/bar")
 	fPos := strings.Index(ep, "/floe")
-	if fPos < 5 {
+	if fPos < 3 {
 		t.Error("tmp expansion failed", ep)
 	}
 	if strings.Index(ep, "/test/bar") < fPos {
