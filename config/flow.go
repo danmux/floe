@@ -39,6 +39,7 @@ type Flow struct {
 	ReuseSpace   bool     `yaml:"reuse-space"`   // if true then will use the single workspace and will mutex with other instances of this Flow
 	HostTags     []string `yaml:"host-tags"`     // tags that must match the tags on the host
 	ResourceTags []string `yaml:"resource-tags"` // tags that if any flow is running with any matching tags then don't launch
+	Env          []string // key=value environment variables with
 
 	// The Various node types included in this flow
 	Triggers []*node

@@ -1,7 +1,6 @@
 package hub
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/floeit/floe/config"
@@ -29,11 +28,11 @@ func newTimers(h *Hub) *timers {
 
 	go func() {
 		for now := range time.Tick(time.Second) {
-			for id, tim := range t.list {
+			for _, tim := range t.list {
 				if !now.After(tim.next) {
 					continue
 				}
-				fmt.Println("---------------------- ping", id)
+
 				tim.next = now.Add(time.Duration(tim.period) * time.Second)
 
 				e := event.Event{

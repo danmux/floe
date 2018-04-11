@@ -3,7 +3,6 @@ package nodetype
 import (
 	"fmt"
 	"path/filepath"
-	"strings"
 
 	"github.com/floeit/floe/log"
 )
@@ -78,8 +77,8 @@ func (g gitCheckout) Execute(ws *Workspace, in Opts, output chan string) (int, O
 	}
 
 	// git clone --branch mytag0.1 --depth 1 https://example.com/my/repo.git
-	args := strings.Join([]string{"clone --branch", gop.Ref, "--depth 1", gop.URL}, " ")
-	status := doRun("git", args, filepath.Join(ws.BasePath, gop.SubDir), output)
+	args := []string{"clone", "--branch", gop.Ref, "--depth", "1", gop.URL}
+	status := doRun(filepath.Join(ws.BasePath, gop.SubDir), nil, output, "git", args...)
 
 	return status, nil, nil
 }

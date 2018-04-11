@@ -44,6 +44,7 @@ type FoundFlow struct {
 	ReuseSpace   bool
 	ResourceTags []string
 	HostTags     []string
+	Env          []string
 
 	Nodes []*node // nodes that matched the criteria to have fund the node
 }
@@ -76,6 +77,7 @@ func (c *Config) FindFlowsByTriggers(eType string, flow FlowRef, opts nt.Opts) m
 					ReuseSpace:   f.ReuseSpace,
 					ResourceTags: f.ResourceTags,
 					HostTags:     f.HostTags,
+					Env:          f.Env,
 				}
 			}
 			ff.Nodes = []*node{ns[0]} // use the first one

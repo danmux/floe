@@ -65,7 +65,8 @@ func TestExecuteNode(t *testing.T) {
 	run := newRun(&Pend{
 		Ref: runRef,
 	})
-	h.executeNode(run, node, e, false)
+	ws := h.prepare(run.Ref, &e, false, nil)
+	h.executeNode(run, node, e, ws)
 	if !didExec {
 		t.Error("did not execute executor")
 	}
@@ -121,12 +122,12 @@ flows:
           type: end                 # getting here means the flow was a success
 `)
 
-func waitEvtTimeout(t *testing.T, ch chan event.Event) *event.Event {
+func waitEvtTimeout(t *testing.T, ch chan event.Event, msg string) *event.Event {
 	select {
 	case e := <-ch:
 		return &e
 	case <-time.After(time.Second * 5):
-		t.Fatal("timed out waiting for an event")
+		t.Fatal("timed out waiting for an event -", msg)
 	}
 	return nil
 }
@@ -166,12 +167,11 @@ func TestHubEvents(t *testing.T) {
 	}
 	events := make([]*event.Event, len(expectedTags))
 	for i := 0; i < len(events); i++ {
-		e := waitEvtTimeout(t, to.ch)
+		e := waitEvtTimeout(t, to.ch, "test hub event required list")
 		events[e.ID-1] = e
 	}
 
 	for i := 0; i < len(events); i++ {
-		// fmt.Println(events[i].Opts["action"])
 		if events[i].Tag != expectedTags[i] {
 			t.Errorf("got %d tag wrong: wanted:%s got:%s", i, expectedTags[i], events[i].Tag)
 		}
@@ -185,7 +185,7 @@ func TestHubEvents(t *testing.T) {
 	}
 
 	// wait for end of floe event
-	e := waitEvtTimeout(t, to.ch)
+	e := waitEvtTimeout(t, to.ch, "test hub event sys.end")
 	if e.Tag != "sys.end.all" {
 		t.Fatal("should have got the end event", e.Tag)
 	}
@@ -214,7 +214,7 @@ func TestHubEvents(t *testing.T) {
 	// count all events until the end
 	go func() {
 		for {
-			e := waitEvtTimeout(t, to.ch)
+			e := waitEvtTimeout(t, to.ch, "test hub event final end")
 			counts[e.Tag] = counts[e.Tag] + 1
 			if e.Tag == "sys.end.all" {
 				done <- struct{}{}
@@ -324,7 +324,7 @@ func TestHubData(t *testing.T) {
 
 	// see if we can get the needs data event
 	for i := 0; i < 20; i++ {
-		e := waitEvtTimeout(t, to.ch)
+		e := waitEvtTimeout(t, to.ch, "test hub data required")
 		if e.Tag == "sys.data.required" {
 			break
 		}
@@ -357,7 +357,7 @@ func TestHubData(t *testing.T) {
 	// TODO add test for making node bad
 
 	for i := 0; i < 20; i++ {
-		e := waitEvtTimeout(t, to.ch)
+		e := waitEvtTimeout(t, to.ch, "test hub data sys.end")
 		if e.Tag == "sys.end.all" {
 			break
 		}
@@ -371,4 +371,20 @@ type testObs struct {
 
 func (o *testObs) Notify(e event.Event) {
 	o.ch <- e
+}
+
+func TestMergeEnvOpts(t *testing.T) {
+	t.Parallel()
+
+	o := nt.Opts{
+		"env": []string{"OOF=${ws}/oof"},
+	}
+	mergeEnvOpts(o, []string{"DOOF=oops"})
+	env := o["env"].([]string)
+	if env[0] != "DOOF=oops" {
+		t.Error("expand failed", env[0])
+	}
+	if env[1] != "OOF=${ws}/oof" {
+		t.Error("expand failed", env[1])
+	}
 }

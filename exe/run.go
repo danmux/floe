@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"sync"
 	"syscall"
 )
 
@@ -17,32 +18,29 @@ type logger interface {
 }
 
 // Run executes the command in a bash process capturing the output and returning it in the string slice
-func RunOutput(log logger, cmd, args, wd string) ([]string, int) {
-	pr, pw := io.Pipe()
+func RunOutput(log logger, wd, cmd string, args ...string) ([]string, int) {
 	var output []string
 
-	scanDone := make(chan bool, 1)
+	out := make(chan string)
+	rangeDone := make(chan bool)
 	go func() {
-		scanner := bufio.NewScanner(pr)
-		for scanner.Scan() {
-			t := scanner.Text()
+		for t := range out {
 			output = append(output, t)
 		}
-		if err := scanner.Err(); err != nil {
-			output = append(output, "scanning output failed with: "+err.Error())
-		}
-		scanDone <- true
+		rangeDone <- true
 	}()
 
-	status := Run(log, cmd, args, wd, pw)
-	<-scanDone // make sure the scanner has exited
+	status := Run(log, out, nil, wd, cmd, args...)
+
+	<-rangeDone
+
 	return output, status
 }
 
 // Run executes the command in a bash process
-func Run(log logger, cmd, args, wd string, out io.WriteCloser) int {
+func Run(log logger, out chan string, env []string, wd, cmd string, args ...string) int {
 
-	log.Infof("Exec Cmd: <%s> Args: <%s> ", cmd, args)
+	log.Info("Exec Cmd: ", cmd, " Args: ", args)
 
 	if wd != "" {
 		// make sure working directory is in place
@@ -52,53 +50,85 @@ func Run(log logger, cmd, args, wd string, out io.WriteCloser) int {
 		}
 	}
 
-	// argStr := cmd + " " + args
-	// eCmd := exec.Command("bash", "-c", argStr)
+	eCmd := exec.Command(cmd, args...)
 
-	var argArr []string
-	if args != "" {
-		argArr = strings.Split(args, " ")
-	}
-	eCmd := exec.Command(cmd, argArr...)
+	eCmd.Env = os.Environ()
+	eCmd.Env = append(eCmd.Env, env...)
 
 	// this is mandatory
 	eCmd.Dir = wd
 	log.Info("In working directory: ", eCmd.Dir)
 
-	// out can be nil - it is only set for the first executing thread
-	if out != nil {
-		out.Write([]byte(cmd + " " + args + "\n\n"))
+	out <- cmd + " " + strings.Join(args, " ")
+	out <- ""
 
-		sout, err := eCmd.StdoutPipe()
-		if err != nil {
-			log.Info(err)
-			return 1
-		}
-		eout, err := eCmd.StderrPipe()
-		if err != nil {
-			log.Error(err)
-			return 1
-		}
-
-		go io.Copy(out, eout)
-		go io.Copy(out, sout)
-	}
-
-	log.Debug("Exec starting")
-	err := eCmd.Start()
+	sOut, err := eCmd.StdoutPipe()
 	if err != nil {
-		log.Error(err)
-		if out != nil {
-			out.Write([]byte(err.Error() + "\n\n"))
-		}
+		log.Error("getting stdout", err)
 		return 1
 	}
 
+	eOut, err := eCmd.StderrPipe()
+	if err != nil {
+		log.Error("getting stderr", err)
+		return 1
+	}
+
+	// safely aggregate both to a single reader
+	pr, pw := io.Pipe()
+
+	// copy both to out and wait for them to close
+	// start these before starting the cmd, to be sure we capture all output
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		if c, err := io.Copy(pw, eOut); err != nil {
+			log.Error(err, c)
+		}
+		wg.Done()
+	}()
+
+	go func() {
+		if c, err := io.Copy(pw, sOut); err != nil {
+			log.Error(err, c)
+		}
+		wg.Done()
+	}()
+
+	// start scanning from the common pipe
+	scanDone := make(chan bool)
+	go func() {
+		scanner := bufio.NewScanner(pr)
+		for scanner.Scan() {
+			out <- scanner.Text()
+		}
+		if err := scanner.Err(); err != nil {
+			out <- "scanning output failed with: " + err.Error()
+		}
+		scanDone <- true
+	}()
+
+	log.Debug("Exec starting")
+	err = eCmd.Start()
+	if err != nil {
+		log.Error("start failed", err)
+		out <- err.Error()
+		out <- ""
+		close(out)
+		return 1
+	}
+
+	go func() {
+		wg.Wait()
+		pw.Close()
+	}()
+
 	log.Debug("Exec waiting")
 	err = eCmd.Wait()
-	if out != nil {
-		out.Close()
-	}
+
+	// wait for scanner to fully complete
+	<-scanDone
+	close(out)
 
 	log.Debug("exec cmd complete")
 

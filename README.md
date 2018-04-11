@@ -102,3 +102,6 @@ Triggers are the things that start a flow off there are a few types of trigger.
 The most common type of node - executes a command, e.g. runs a mke command or a bash script.
 
 `ignore-fail` - Only ever send the good event, even if the node failed. Can't be used in conjunction with UseStatus.
+`cmd` - Use this if you are running an executable that only depends on the binary
+`shell` - Use this if you are running something that requires the shell, e.g. bash scripts.
+`args` - An array of command line arguments - for simple arguments these can be included space delimited in the `cmd` or `shell` lines, if there are quote enclosed arguments then use this args array.

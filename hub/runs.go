@@ -248,9 +248,10 @@ func (r *RunStore) findActiveRun(ref event.HostedIDRef) (int, *Run) {
 }
 
 func (r *RunStore) updateMergeNode(run *Run, nodeID, tag, typ string, waits int, opts nt.Opts) (map[string]bool, bool, nt.Opts) {
-	waitsDone, fired, o := run.updateMergeNode(nodeID, tag, typ, waits, opts)
 	r.Lock()
 	defer r.Unlock()
+
+	waitsDone, fired, o := run.updateMergeNode(nodeID, tag, typ, waits, opts)
 	if err := r.active.Save(activeKey, r.store); err != nil {
 		log.Error("could not save", activeKey, err)
 	}
@@ -259,9 +260,10 @@ func (r *RunStore) updateMergeNode(run *Run, nodeID, tag, typ string, waits int,
 
 // TODO - consider buffering these writes if the updates come in fast
 func (r *RunStore) updateExecNode(run *Run, nodeID string, start, end time.Time, good bool, line string) {
-	run.updateExecNode(nodeID, start, end, good, line)
 	r.Lock()
 	defer r.Unlock()
+
+	run.updateExecNode(nodeID, start, end, good, line)
 	if err := r.active.Save(activeKey, r.store); err != nil {
 		log.Error("could not save exe update", activeKey, err)
 	}
@@ -279,13 +281,15 @@ func (r *RunStore) updateDataNode(run *Run, nodeID string, opts nt.Opts, enabled
 // end moves the run from active to archive. As a run may have many events that would end it
 // only the first one does the others are ignored. Only the ending run returns true.
 func (r *RunStore) end(run *Run, good bool) bool {
+	// mark the run as ended but in the store lock - incase the store is accessing this run elsewhere
+	r.Lock()
 	run.end(good)
+	r.Unlock()
 
 	i, run := r.findActiveRun(run.Ref.Run)
 	if run == nil {
 		return false
 	}
-
 	r.Lock()
 	defer r.Unlock()
 

@@ -178,10 +178,6 @@ func (h *Hub) Notify(e event.Event) {
 }
 
 func (h *Hub) activate(pend *Pend, hostID string) error {
-	err := h.runs.activate(pend, h.hostID)
-	if err != nil {
-		return err
-	}
 	h.queue.Publish(event.Event{
 		RunRef: pend.Ref,
 		Tag:    tagStateChange,
@@ -190,7 +186,7 @@ func (h *Hub) activate(pend *Pend, hostID string) error {
 		},
 		Good: true,
 	})
-	return nil
+	return h.runs.activate(pend, h.hostID)
 }
 
 // ExecutePending executes a pending on this host - if this host has no conflicts.
@@ -274,6 +270,8 @@ func (h *Hub) removePend(pend Pend) error {
 		return err
 	}
 	// if this did remove it from the pending list then send the system event
+	// the activate event can be used to remove from front end lists
+	// but this event can be fired even if an activate has not been
 	if ok {
 		h.queue.Publish(event.Event{
 			RunRef: pend.Ref,
@@ -313,6 +311,7 @@ func (h *Hub) distributeAllPending() error {
 		// first find the matching flow
 		flow, ok := h.config.FindFlow(p.Ref.FlowRef, p.InitiatingEvent.Tag, p.InitiatingEvent.Opts)
 		if !ok {
+			// TODO - allow ui to delete jobs with no matching flow, rather than silently delete
 			if err := h.removePend(p); err != nil {
 				return err
 			}
@@ -489,8 +488,9 @@ func (h *Hub) dispatchToActive(e event.Event) {
 			case nt.NtData: // initial event triggering a data node
 				h.setFormData(r, n, e.Opts)
 			default:
+				ws := h.prepare(r.Ref, &e, found.ReuseSpace, found.Env)
 				// asynchronous execute
-				go h.executeNode(r, n, e, found.ReuseSpace)
+				go h.executeNode(r, n, e, ws)
 			}
 		case config.NcMerge:
 			h.mergeEvent(r, n, e)
@@ -546,18 +546,40 @@ func (h *Hub) publishIfActive(e event.Event) {
 	h.queue.Publish(e)
 }
 
-// executeNode invokes a task node Execute function for the active run
-func (h *Hub) executeNode(run *Run, node exeNode, e event.Event, singleWs bool) {
-	runRef := run.Ref
-	nodeID := node.NodeRef().ID
-	log.Debugf("<%s> - exec node - event tag: %s, node: %s", runRef, e.Tag, nodeID)
+// env vars from opts are added to the end of env passed in
+func mergeEnvOpts(opts nt.Opts, env []string) {
+	if opts == nil {
+		return
+	}
+	if ev, ok := opts["env"]; ok {
+		e, eok := ev.([]string)
+		if !eok {
+			return
+		}
+		env = append(env, e...)
+	}
+	opts["env"] = env
+}
 
+func (h *Hub) prepare(runRef event.RunRef, e *event.Event, singleWs bool, flowEnv []string) *nt.Workspace {
 	// setup the workspace config
 	ws, err := h.getWorkspace(runRef, singleWs)
 	if err != nil {
 		log.Debugf("<%s> - exec node - error getting workspace %v", runRef, err)
-		return
+		return nil
 	}
+
+	// any event env with the flow level env
+	mergeEnvOpts(e.Opts, flowEnv)
+
+	return ws
+}
+
+// executeNode invokes a task node Execute function for the active run
+func (h *Hub) executeNode(run *Run, node exeNode, e event.Event, ws *nt.Workspace) {
+	runRef := run.Ref
+	nodeID := node.NodeRef().ID
+	log.Debugf("<%s> - exec node - event tag: %s, node: %s", runRef, e.Tag, nodeID)
 
 	// capture and emit all the node updates
 	updates := make(chan string)

@@ -48,22 +48,20 @@ flows:
           listen: task.checkout.good
           opts:
             cmd: "echo"
-            args: "'dan is a goon'"
-            file: "BUILD.floe"         # the command to execute 
+            args: ["dan is a goon"]
 
         - name: Build                
           type: exec
           listen: task.checkout.good    
           opts:
             cmd: "ls"        # the command to execute 
-            args: "-lrt /"
+            args: ["-lrt", "/"]
 
         - name: Test
           type: exec                 # execute a command
           listen: task.build.good    
           opts:
-            cmd: "sleep"         # the command to execute 
-            args: "10"
+            shell: "sleep 10"         # the command to execute 
 
         - name: Sign Off
           type: data
@@ -96,6 +94,9 @@ flows:
           type: end                 # getting here means the flow was a success 'end' is the special definitive end event
 
     - id: danmux
+      env:
+        - GOPATH=${ws}
+        # - PATH=$PATH:${ws}/bin
       ver: 1
       
       triggers:
@@ -105,14 +106,14 @@ flows:
             form:
               title: Start
               fields:
-                - id: ref
+                - id: ref # ref is a magic name that the git-checkout task type will use
                   prompt: Git Ref (branch or hash etc)
                   type: text
         
         - name: Every 5 Minutes
           type: timer                # fires every period seconds
           opts:
-            period: 300               # how often to fire in seconds
+            period: 300              # how often to fire in seconds
 
       tasks: 
         - name: Checkout
