@@ -8,14 +8,17 @@ A workflow engine, well suited to long running business process execution, for e
 * Customer onboarding.
 
 
-Quickstart
-----------
-start two host processes:
+Quick Start
+-----------
+Download or build from scratch `floe` executable.
 
-1. floe -tags=linux,go,couch -admin=123456 -host=h1 -bind=127.0.0.1:8080
+Start two host processes:
 
-2. floe -tags=linux,go,couch -admin=123456 -host=h2 -bind=127.0.0.1:8090
+1. floe -tags=linux,go,couch -admin=123456 -host_name=h1 -pub_bind=127.0.0.1:8080
 
+2. floe -tags=linux,go,couch -admin=123456 -host_name=h2 -pub_bind=127.0.0.1:8090
+
+These commands default to reading in a `default.yml`
 
 web 
 ---
@@ -105,3 +108,26 @@ The most common type of node - executes a command, e.g. runs a mke command or a 
 `cmd` - Use this if you are running an executable that only depends on the binary
 `shell` - Use this if you are running something that requires the shell, e.g. bash scripts.
 `args` - An array of command line arguments - for simple arguments these can be included space delimited in the `cmd` or `shell` lines, if there are quote enclosed arguments then use this args array.
+
+
+Development
+-----------
+The web assets are shipped in the binary as bindata so if you change the web stuff then run `go generate ./server` to regen the `bindata.go`
+
+During dev you can use the `webapp` folder directly by passing in 
+
+TLS Testing
+-----------
+
+Generate a self signed cert and key and add them on the command line
+
+```
+openssl req \
+    -x509 \
+    -nodes \
+    -newkey rsa:2048 \
+    -keyout server.key \
+    -out server.crt \
+    -days 3650 \
+    -subj "/C=GB/ST=London/L=London/O=Global Security/OU=IT Department/CN=*"
+```

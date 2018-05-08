@@ -99,7 +99,6 @@ a:hover {
    ============== */
 
 nav ul {
-    margin: 0;
     padding: 0;
     list-style-type: none;
     display: inline;
@@ -107,7 +106,7 @@ nav ul {
 
 nav ul li {
     display: inline;
-    margin: 0 15px;
+    padding: 0 15px;
 }
 
 nav a {
@@ -115,10 +114,6 @@ nav a {
     padding: 10px 2%;
     text-align: center;
     display: inline-block
-}
-
-nav a:hover {
-    text-decoration: underline;
 }
 
 /* ==============
@@ -178,7 +173,7 @@ code {
     display: block;
     white-space: pre;
     color: lightgray;
-    background-color: #444;
+    background-color: #111;
     margin: 40px 0;
     padding: 10px;
     overflow: scroll;
@@ -192,9 +187,9 @@ code {
 .main aside,
 .login,
 box {
-   -webkit-box-shadow: 0 0px 1px #aaa;
-      -moz-box-shadow: 0 0px 1px #aaa;
-           box-shadow: 0 0px 1px #aaa;
+   -webkit-box-shadow: 0 0 1px #aaa;
+      -moz-box-shadow: 0 0 1px #aaa;
+           box-shadow: 0 0 1px #aaa;
 }
 
 .crumb {
@@ -208,7 +203,7 @@ box {
 .err-msg {
     margin: 10px;
     padding: 5px;
-    box-shadow: 0 0px 1px red;
+    box-shadow: 0 0 1px red;
     background-color: lightcoral;
 }
 .error {
@@ -379,7 +374,7 @@ box.trigger {
 .value {
     background-color: #eee;
     border-radius: 3px;
-    box-shadow: 0 0px 1px #aaa;
+    box-shadow: 0 0 1px #aaa;
     padding: 1px 5px;
     min-height: 22px;
     font-size: 12pt;

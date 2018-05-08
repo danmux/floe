@@ -14,9 +14,19 @@ import (
 
 const rootPath = "/build/api"
 
+type Conf struct {
+	PubBind string
+	PubCert string
+	PubKey  string
+
+	PrvBind string
+	PrvCert string
+	PrvKey  string
+}
+
 // LaunchWeb sets up all the http routes runs the server and launches the trigger flows
 // rp is the root path. Returns the address it binds to.
-func LaunchWeb(host, rp string, hub *hub.Hub, q *event.Queue, addrChan chan string) {
+func LaunchWeb(conf Conf, rp string, hub *hub.Hub, q *event.Queue, addrChan chan string, webDev bool) {
 	if rp == "" {
 		rp = rootPath
 	}
@@ -46,12 +56,17 @@ func LaunchWeb(host, rp string, hub *hub.Hub, q *event.Queue, addrChan chan stri
 	r.GET(rp+"/p2p/config", h.mw(confHandler, true))            // return host config and what it knows about other hosts
 
 	// --- static files for the spa ---
-	r.ServeFiles("/static/css/*filepath", http.Dir("webapp/css"))
-	r.ServeFiles("/static/img/*filepath", http.Dir("webapp/img"))
-	r.ServeFiles("/static/js/*filepath", http.Dir("webapp/js"))
-	r.ServeFiles("/static/font/*filepath", http.Dir("webapp/font"))
-	r.GET("/app/*filepath", singleFile("webapp/index.html"))
-	r.GET("/favicon.ico", singleFile("webapp/favicon.ico"))
+	if webDev { // local development mode
+		serveFiles(r, "/static/*filepath", http.Dir("webapp"))
+		r.GET("/app/*filepath", zipper(singleFile("webapp/index.html")))
+	} else { // release mode
+		serveFiles(r, "/static/*filepath", assetFS())
+		r.GET("/app/*filepath", zipper(assetFile("webapp/index.html")))
+	}
+
+	// serveFiles(r, "/static/img/*filepath", http.Dir("webapp/img"))
+	// serveFiles(r, "/static/js/*filepath", http.Dir("webapp/js"))
+	// serveFiles(r, "/static/font/*filepath", http.Dir("webapp/font"))
 
 	// ws endpoint
 	wsh := newWsHub()
@@ -74,15 +89,28 @@ func LaunchWeb(host, rp string, hub *hub.Hub, q *event.Queue, addrChan chan stri
 
 		// --- the web page stuff ---
 		r.GET("/build/", indexHandler)
-		r.ServeFiles("/build/css/*filepath", http.Dir("public/build/css"))
-		r.ServeFiles("/build/fonts/*filepath", http.Dir("public/build/fonts"))
-		r.ServeFiles("/build/img/*filepath", http.Dir("public/build/img"))
-		r.ServeFiles("/build/js/*filepath", http.Dir("public/build/js"))
+		serveFiles(r, "/build/css/*filepath", http.Dir("public/build/css"))
+		serveFiles(r, "/build/fonts/*filepath", http.Dir("public/build/fonts"))
+		serveFiles(r, "/build/img/*filepath", http.Dir("public/build/img"))
+		serveFiles(r, "/build/js/*filepath", http.Dir("public/build/js"))
 
 	*/
-	log.Debug("attempting to listen on:", host)
 
-	listener, err := net.Listen("tcp", host)
+	// start the private server if one is configured differently to the public server
+	if conf.PrvBind != conf.PubBind && conf.PrvBind != "" {
+		log.Debug("private server listen on:", conf.PrvBind)
+		go launch(conf.PrvBind, conf.PrvCert, conf.PrvKey, r, nil)
+	}
+
+	// start the public server
+	log.Debug("pub server listen on:", conf.PubBind)
+	launch(conf.PubBind, conf.PubCert, conf.PubKey, r, addrChan)
+}
+
+func launch(bind, cert, key string, r http.Handler, addrChan chan string) {
+	log.Debug("attempting to listen on:", bind)
+
+	listener, err := net.Listen("tcp", bind)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -95,14 +123,28 @@ func LaunchWeb(host, rp string, hub *hub.Hub, q *event.Queue, addrChan chan stri
 		}()
 	}
 
-	log.Debug("agent server starting on:", address)
+	log.Debug("starting on:", address)
 
-	log.Fatal(http.Serve(listener, r))
+	if cert != "" {
+		log.Debug("using https")
+		log.Fatal(http.ServeTLS(listener, r, cert, key))
+	} else {
+		log.Debug("using http")
+		log.Fatal(http.Serve(listener, r))
+	}
 }
 
 func singleFile(path string) httprouter.Handle {
 	return func(rw http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 		http.ServeFile(rw, r, path)
+	}
+}
+
+func assetFile(path string) httprouter.Handle {
+	b := MustAsset(path)
+	return func(rw http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+		rw.Header().Set("Content-Type", "text/html; charset=utf-8")
+		rw.Write(b)
 	}
 }
 

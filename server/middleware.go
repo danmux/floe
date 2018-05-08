@@ -1,8 +1,10 @@
 package server
 
 import (
+	"compress/gzip"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"runtime/debug"
@@ -81,66 +83,66 @@ type handler struct {
 }
 
 // the boolean return is set true if the caller should produce its own response
-func authRequest(rw http.ResponseWriter, r *http.Request) *session{
+func authRequest(rw http.ResponseWriter, r *http.Request) *session {
 	var code int
 	var sesh *session
-	
-		tok := r.Header.Get("X-Floe-Auth")
-		if tok == "" {
-			log.Debug("checking cookie")
-			c, err := r.Cookie(cookieName)
-			if err != nil {
-				log.Warning("cookie problem", err)
-			} else {
-				tok = c.Value
-			}
-		}
 
-		if tok == "" {
+	tok := r.Header.Get("X-Floe-Auth")
+	if tok == "" {
+		log.Debug("checking cookie")
+		c, err := r.Cookie(cookieName)
+		if err != nil {
+			log.Warning("cookie problem", err)
+		} else {
+			tok = c.Value
+		}
+	}
+
+	if tok == "" {
+		code = rUnauth
+		jsonResp(rw, code, wrapper{Message: "missing session"})
+		return nil
+	}
+
+	log.Debug("checking token", tok, AdminToken)
+
+	// default to this agent for testing admin token
+	if tok == AdminToken {
+		log.Debug("found admin token", tok)
+		sesh = &session{
+			token:      tok,
+			lastActive: time.Now(),
+			user:       "Admin",
+		}
+	}
+
+	if sesh == nil {
+		sesh = goodToken(tok)
+		if sesh == nil {
 			code = rUnauth
-			jsonResp(rw, code, wrapper{Message: "missing session"})
+			jsonResp(rw, code, wrapper{Message: "invalid session"})
 			return nil
 		}
+	}
 
-		log.Debug("checking token", tok, AdminToken)
+	// refresh cookie
+	setCookie(rw, tok)
 
-		// default to this agent for testing admin token
-		if tok == AdminToken {
-			log.Debug("found admin token", tok)
-			sesh = &session{
-				token:      tok,
-				lastActive: time.Now(),
-				user:       "Admin",
-			}
-		}
-
-		if sesh == nil {
-			sesh = goodToken(tok)
-			if sesh == nil {
-				code = rUnauth
-				jsonResp(rw, code, wrapper{Message: "invalid session"})
-				return nil
-			}
-		}
-
-		// refresh cookie
-		setCookie(rw, tok)
-	
 	return sesh
 }
 
 func (h handler) mw(f contextFunc, auth bool) func(rw http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-	return func(rw http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-		
+	fn := func(rw http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+
 		var code int
 		start := time.Now()
 		log.Debugf("req: %s %s", r.Method, r.URL.String())
 		defer func() {
 			log.Debugf("rsp: %v %s %d %s", time.Since(start), r.Method, code, r.URL.String())
 		}()
-	
+
 		cors(rw, r)
-	
+
 		// handler nil is the options catch all so the cors response above is all we need
 		if f == nil {
 			code = rOK
@@ -148,11 +150,11 @@ func (h handler) mw(f contextFunc, auth bool) func(rw http.ResponseWriter, r *ht
 			return
 		}
 
-		// authenticate session is needed 
+		// authenticate session is needed
 		var sesh *session
 		if auth {
-			sesh = authRequest(rw, r) 
-			if sesh == nil{
+			sesh = authRequest(rw, r)
+			if sesh == nil {
 				return
 			}
 		}
@@ -180,6 +182,45 @@ func (h handler) mw(f contextFunc, auth bool) func(rw http.ResponseWriter, r *ht
 
 		jsonResp(rw, code, reply)
 	}
+
+	return zipper(fn)
+}
+
+type gzipResponseWriter struct {
+	io.Writer
+	http.ResponseWriter
+}
+
+func (w gzipResponseWriter) Write(b []byte) (int, error) {
+	return w.Writer.Write(b)
+}
+
+func zipper(fn func(rw http.ResponseWriter, r *http.Request, ps httprouter.Params)) func(rw http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	return func(rw http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+		if !strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
+			fn(rw, r, ps)
+			return
+		}
+		rw.Header().Set("Vary", "Accept-Encoding")
+		rw.Header().Set("Content-Encoding", "gzip")
+		gz := gzip.NewWriter(rw)
+		defer gz.Close()
+		gzr := gzipResponseWriter{Writer: gz, ResponseWriter: rw}
+		fn(gzr, r, ps)
+	}
+}
+
+func serveFiles(r *httprouter.Router, path string, root http.FileSystem) {
+	if len(path) < 10 || path[len(path)-10:] != "/*filepath" {
+		panic("path must end with /*filepath in path '" + path + "'")
+	}
+
+	fileServer := http.FileServer(root)
+
+	r.GET(path, zipper(func(w http.ResponseWriter, req *http.Request, ps httprouter.Params) {
+		req.URL.Path = ps.ByName("filepath")
+		fileServer.ServeHTTP(w, req)
+	}))
 }
 
 // setupTriggers goes through all the known trigger types to set up the associated routes

@@ -203,7 +203,16 @@ flows:
 	failed := make(chan error)
 	addrChan := make(chan string, 1)
 	go func() {
-		err := start("hi1", "master", "%tmp/floe", addr, adminToken, in, addrChan)
+		c := srvConf{
+			Root:       "%tmp/floe",
+			HostName:   "hi1",
+			AdminToken: adminToken,
+			Tags:       "master",
+			WebDev:     true,
+		}
+		c.PubBind = addr
+
+		err := start(c, in, addrChan)
 		if err != nil {
 			failed <- err
 		}
