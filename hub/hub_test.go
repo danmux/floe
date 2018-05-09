@@ -54,7 +54,7 @@ func TestExecuteNode(t *testing.T) {
 	didExec := false
 	exec := func(ws *nt.Workspace, updates chan string) {
 		didExec = true
-		if ws.BasePath != "/foo/bar/testflow/ws/h1-5" {
+		if ws.BasePath != "/foo/bar/spaces/testflow/ws/h1-5" {
 			t.Errorf("base path is wrong <%s>", ws.BasePath)
 		}
 	}

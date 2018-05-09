@@ -78,7 +78,7 @@ func start(sc srvConf, conf []byte, addr chan string) error {
 	// TODO - implement other stores e.g. s3
 
 	q := &event.Queue{}
-	hub := hub.New(sc.HostName, sc.Tags, filepath.Join(sc.Root, "spaces"), sc.AdminToken, c, s, q)
+	hub := hub.New(sc.HostName, sc.Tags, sc.Root, sc.AdminToken, c, s, q)
 	server.AdminToken = sc.AdminToken
 
 	server.LaunchWeb(sc.Conf, c.Common.BaseURL, hub, q, addr, sc.WebDev)

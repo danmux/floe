@@ -11,6 +11,7 @@ const (
 	NtData        NType = "data"
 	NtTimer       NType = "timer"
 	NtExec        NType = "exec"
+	NtFetch       NType = "fetch"
 	NtGitMerge    NType = "git-merge"
 	NtGitCheckout NType = "git-checkout"
 )
@@ -26,6 +27,7 @@ var nts = map[NType]NodeType{
 	NtData:        data{},
 	NtTimer:       timer{},
 	NtExec:        exec{},
+	NtFetch:       fetch{},
 	NtGitMerge:    gitMerge{},
 	NtGitCheckout: gitCheckout{},
 }

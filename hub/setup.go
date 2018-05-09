@@ -11,7 +11,7 @@ import (
 
 // enforceWS make sure there is a matching file system location and returns the workspace object
 // shared will use the 'single' workspace
-func (h Hub) enforceWS(runRef event.RunRef, single bool) (*nt.Workspace, error) {
+func (h *Hub) enforceWS(runRef event.RunRef, single bool) (*nt.Workspace, error) {
 	ws, err := h.getWorkspace(runRef, single)
 	if err != nil {
 		return nil, err
@@ -20,18 +20,18 @@ func (h Hub) enforceWS(runRef event.RunRef, single bool) (*nt.Workspace, error) 
 	if err != nil {
 		return nil, err
 	}
-	err = os.MkdirAll(ws.BasePath, 0755)
+	err = os.MkdirAll(ws.BasePath, 0700)
 	return ws, err
 }
 
 // getWorkspace returns the appropriate Workspace struct for this flow
-func (h Hub) getWorkspace(runRef event.RunRef, single bool) (*nt.Workspace, error) {
+func (h *Hub) getWorkspace(runRef event.RunRef, single bool) (*nt.Workspace, error) {
 	ebp, err := path.Expand(h.basePath)
 	if err != nil {
 		return nil, err
 	}
 
-	path := filepath.Join(ebp, runRef.FlowRef.ID)
+	path := filepath.Join(ebp, "spaces", runRef.FlowRef.ID)
 	if single {
 		path = filepath.Join(path, "ws", "single")
 	} else {
@@ -39,6 +39,7 @@ func (h Hub) getWorkspace(runRef event.RunRef, single bool) (*nt.Workspace, erro
 	}
 	// setup the workspace config
 	return &nt.Workspace{
-		BasePath: path,
+		BasePath:   path,
+		FetchCache: filepath.Join(h.basePath, "fetch_cache"),
 	}, nil
 }

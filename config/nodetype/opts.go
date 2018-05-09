@@ -1,8 +1,9 @@
 package nodetype
 
-// Workspace is anything specific to a workspace for a single run
+// Workspace is anything specific to a workspace for a single run or any locations common between runs
 type Workspace struct {
-	BasePath string
+	BasePath   string //
+	FetchCache string
 }
 
 // Opts are the options on the node type that will be compared to those on the event

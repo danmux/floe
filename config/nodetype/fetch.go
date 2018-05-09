@@ -1,0 +1,121 @@
+package nodetype
+
+import (
+	"crypto/md5"
+	"crypto/sha1"
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
+	"hash"
+	"strings"
+	"time"
+
+	"github.com/cavaliercoder/grab"
+)
+
+type fetchOpts struct {
+	URL          string `json:"url"`           // url of the file to download
+	Checksum     string `json:"checksum"`      // the checksum (and typically filename)
+	ChecksumAlgo string `json:"checksum-algo"` // the checksum algorithm
+	Location     string `json:"location"`      // where to download
+}
+
+// fetch downloads stuff if it is not in the cache
+type fetch struct{}
+
+func (g fetch) Match(ol, or Opts) bool {
+	return true
+}
+
+func (g fetch) Execute(ws *Workspace, in Opts, output chan string) (int, Opts, error) {
+
+	fop := fetchOpts{}
+	err := decode(in, &fop)
+	if err != nil {
+		return 255, nil, err
+	}
+
+	if fop.URL == "" {
+		return 255, nil, fmt.Errorf("problem getting fetch url option")
+	}
+	if fop.Checksum == "" {
+		output <- "(N.B. fetch without a checksum can not be trusted)"
+	}
+	if fop.Location == "" {
+		fop.Location = "${ws}"
+	}
+	fop.Location = strings.Replace(fop.Location, "${ws}", ws.BasePath, -1)
+
+	client := grab.NewClient()
+	req, err := grab.NewRequest(ws.FetchCache, fop.URL)
+	if err != nil {
+		output <- fmt.Sprintf("Error setting up the download %v", err)
+		return 255, nil, err
+	}
+
+	// set up any checksum
+	if len(fop.Checksum) > 0 {
+		// is it in the sum filename format ...
+		// ba411cafee2f0f702572369da0b765e2  bodhi-4.1.0-64.iso
+		parts := strings.Split(fop.Checksum, " ")
+		if len(parts) > 1 {
+			fop.Checksum = parts[0]
+		}
+		checksum, err := hex.DecodeString(fop.Checksum)
+		if err != nil {
+			output <- fmt.Sprintf("Error decoding hex checksum: %s", fop.Checksum)
+			return 255, nil, err
+		}
+
+		var h hash.Hash
+		switch fop.ChecksumAlgo {
+		case "sha256":
+			h = sha256.New()
+		case "sha1":
+			h = sha1.New()
+		case "md5":
+			h = md5.New()
+		}
+		req.SetChecksum(h, checksum, true)
+	}
+
+	started := time.Now()
+	// start download
+	output <- fmt.Sprintf("Downloading %v...", req.URL())
+	resp := client.Do(req)
+	output <- fmt.Sprintf("  %v", resp.HTTPResponse.Status)
+
+	// start UI loop
+	t := time.NewTicker(300 * time.Millisecond)
+	defer t.Stop()
+
+Loop:
+	for {
+		select {
+		case <-t.C:
+			output <- fmt.Sprintf("  %v / %v bytes (%.2f%%)", resp.BytesComplete(), resp.Size, 100*resp.Progress())
+		case <-resp.Done:
+			break Loop
+		}
+	}
+
+	// check for errors
+	if err := resp.Err(); err != nil {
+		output <- fmt.Sprintf("Download failed: %v", err)
+	} else {
+		output <- fmt.Sprintf("  %v / %v bytes (%.2f%%) in %v", resp.BytesComplete(), resp.Size, 100*resp.Progress(), time.Since(started))
+		output <- fmt.Sprintf("Download saved to %v", resp.Filename)
+	}
+
+	// TODO - copy to Location
+
+	// Output:
+	// Downloading http://www.golang-book.com/public/pdf/gobook.pdf...
+	//   200 OK
+	//   transferred 42970 / 2893557 bytes (1.49%)
+	//   transferred 1207474 / 2893557 bytes (41.73%)
+	//   transferred 2758210 / 2893557 bytes (95.32%)
+	// Download saved to ./gobook.pdf
+
+	return 0, nil, nil
+}

@@ -2,6 +2,12 @@
 
 
 [[projects]]
+  name = "github.com/cavaliercoder/grab"
+  packages = ["."]
+  revision = "3b6830dae49bc01e25b4676dae3a2a06c1b1485e"
+  version = "v2.0.0"
+
+[[projects]]
   branch = "master"
   name = "github.com/elazarl/go-bindata-assetfs"
   packages = ["."]
@@ -31,6 +37,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "18f8d3fe6c804ad48a9d864812f1c3706c8be45fcab5fdd959ea72455cf130d6"
+  inputs-digest = "4ee82558b9c3bb55cca0c779c370f6c82ae833efd96c557556a249b979e967e2"
   solver-name = "gps-cdcl"
   solver-version = 1

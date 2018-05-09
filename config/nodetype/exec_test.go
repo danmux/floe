@@ -1,6 +1,7 @@
 package nodetype
 
 import (
+	"io/ioutil"
 	"strings"
 	"testing"
 )
@@ -50,6 +51,14 @@ func TestCmdAndArgs(t *testing.T) {
 }
 
 func TestEnvVars(t *testing.T) {
+	opts := Opts{
+		"shell": "export",
+		"env":   []string{"DAN=fart"},
+	}
+	testNode(t, "exe env vars", exec{}, opts, []string{`DAN="fart"`, `FLOEWS="."`})
+}
+
+func testNode(t *testing.T, msg string, nt NodeType, opts Opts, expected []string) bool {
 	op := make(chan string)
 	var out []string
 	captured := make(chan bool)
@@ -60,19 +69,21 @@ func TestEnvVars(t *testing.T) {
 		captured <- true
 	}()
 
-	e := exec{}
-	e.Execute(&Workspace{
-		BasePath: ".",
-	}, Opts{
-		"shell": "export",
-		"env":   []string{"DAN=fart"},
-	}, op)
+	tmp, err := ioutil.TempDir("", "floe-test")
+	if err != nil {
+		t.Fatal("can't create tmp dir")
+	}
+
+	nt.Execute(&Workspace{
+		BasePath:   ".",
+		FetchCache: tmp,
+	}, opts, op)
 
 	close(op)
 
 	<-captured
 
-	expected := []string{`DAN="fart"`, `FLOEWS="."`}
+	prob := false
 	for _, x := range expected {
 		found := false
 		for _, l := range out {
@@ -82,12 +93,18 @@ func TestEnvVars(t *testing.T) {
 			}
 		}
 		if !found {
-			t.Error("did not find env var:", x)
-			for _, o := range out {
-				println(o)
-			}
+			prob = true
+			t.Error(msg, "did not find expected:", x)
 		}
 	}
+	// output the output if there was a problem
+	if prob {
+		t.Log("cache is at:", tmp)
+		for _, o := range out {
+			t.Log(o)
+		}
+	}
+	return prob
 }
 
 func TestExpandEnvOpts(t *testing.T) {
