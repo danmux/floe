@@ -3,7 +3,7 @@ package path
 import (
 	"errors"
 	"io/ioutil"
-	"os/user"
+	"os"
 	"path/filepath"
 	"strings"
 )
@@ -21,16 +21,15 @@ func Expand(w string) (string, error) {
 		r = string(filepath.Separator)
 	}
 
-	usr, err := user.Current()
-	if err != nil {
-		return "", err
-	}
-	hd := usr.HomeDir
+	hd := os.Getenv("HOME")
 
 	// expand ~
 	if b[0] == "~" {
 		if b[1] == "" { // disallow "~/"
 			return "", errors.New("root of user folder not allowed")
+		}
+		if hd == "" {
+			return "", errors.New("~ not expanded as HOME env var not set")
 		}
 		b[0] = hd
 	}
