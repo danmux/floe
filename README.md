@@ -131,3 +131,30 @@ openssl req \
     -days 3650 \
     -subj "/C=GB/ST=London/L=London/O=Global Security/OU=IT Department/CN=*"
 ```
+
+Working on a new Flow
+---------------------
+Working on a new flow outside of the development environment, for example if you have just downloaded `floe` or even if you have built in your go environment and want to test a flow isolated from the dev env.
+
+### 1. From a local folder.
+Launch the floe you have downloaded or built but point it at a config and root folder somewhere else. 
+
+`floe -tags=linux,go,couch -admin=123456 -host_name=h1 -conf=/somepath/testfloe/config.yml -root=/somepath/testfloe/testfloe/ws -pub_bind=127.0.0.1:8080`
+
+In this case you 
+
+Deploying to AWS
+----------------
+There is an image available that can bootstrap a floe instance `ami-006defacf6ec36202`. This image contains the Letsencrypt certbot, supervisord, git and floe.
+
+Floe can bind its web handlers to the public and private ip's and run TLS on each independently. For instance if you are not terminating your inbound requests on a TLS enabled balancer or reverse proxy then you can bind floe to the external IP and serve TLS on that, whilst serving plain http for the floe to floe cluster.
+
+Running floe directly on the vm means you dont benefit from the fully hermetic approach of using an ephemeral container, but floe can be used to create hermetic builds with some care and set up; the flow itself can download and install tooling into the workspace and use only these tools, of course this has an overhead, and you may want to make the tools you need to download available in S3, however many tools are well cached by amazon.
+
+Whist floe attempts to only set env vars within the scope of its sub processes, there is nothing in particular to stop you writing scripts or programs that alter the global environment. Similarly all file activity is generally expected to be within the run workspace, but you could alter global shared storage in your flow. Given all that you may still be happy that you ave built a well controlled image that already has the tools at known versions, and you are happy that your builds are repeatable and that no action of previous builds are mutating any installed components or otherwise altering the environment, and are therefore effectively safe enough.
+
+There is an example `start.sh` script with typical command line options. You can use this as an example of how to launch `floe` in your own vm.
+
+
+
+
