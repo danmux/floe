@@ -19,8 +19,10 @@ const (
 
 // Pend is a triggered flow that is waiting for a slave
 type Pend struct {
-	Ref             event.RunRef
-	InitiatingEvent event.Event
+	Ref           event.RunRef   // unique reference for this run
+	Flow          *config.Flow   // Flow config as the pend was created
+	TriggeredNode config.NodeRef // which node in the flow that triggered the creation
+	Opts          nt.Opts        // the options that were relevant when the pend was created
 }
 
 func (t Pend) String() string {
@@ -58,12 +60,12 @@ type exec struct {
 type Run struct {
 	sync.RWMutex
 	Ref        event.RunRef
+	Flow       *config.Flow     // the config this flow should use
 	ExecHost   string           // the id of the host who's actually executing this run
 	StartTime  time.Time        // time the first event triggered
 	EndTime    time.Time        // time the run ended
 	Ended      bool             // Ended true if the run has finished
 	Good       bool             // Good if explicit end node hit with a good event
-	Initiating event.Event      // the event that started it all
 	MergeNodes map[string]merge // the states of the merge nodes by node id
 	DataNodes  map[string]data  // the sates of any data nodes
 	ExecNodes  map[string]exec  // the sates of any exec nodes
@@ -72,8 +74,8 @@ type Run struct {
 func newRun(pend *Pend) *Run {
 	return &Run{
 		Ref:        pend.Ref,
+		Flow:       pend.Flow,
 		StartTime:  time.Now(),
-		Initiating: pend.InitiatingEvent,
 		MergeNodes: map[string]merge{},
 		DataNodes:  map[string]data{},
 		ExecNodes:  map[string]exec{},
@@ -310,7 +312,7 @@ func (r *RunStore) end(run *Run, good bool) bool {
 }
 
 // addToPending adds the active configs to pending list, and returns the run id
-func (r *RunStore) addToPending(flow config.FlowRef, hostID string, e event.Event) (event.RunRef, error) {
+func (r *RunStore) addToPending(flow *config.Flow, hostID string, e event.Event) (event.RunRef, error) {
 	r.Lock()
 	defer r.Unlock()
 	r.pending.Counter++
@@ -320,10 +322,12 @@ func (r *RunStore) addToPending(flow config.FlowRef, hostID string, e event.Even
 	}
 	t := &Pend{
 		Ref: event.RunRef{
-			FlowRef: flow,
+			FlowRef: config.FlowRef{ID: flow.ID, Ver: flow.Ver},
 			Run:     run,
 		},
-		InitiatingEvent: e,
+		Flow:          flow,
+		TriggeredNode: e.SourceNode,
+		Opts:          e.Opts,
 	}
 	r.pending.Pends = append(r.pending.Pends, t)
 
@@ -412,8 +416,7 @@ func (r *RunStore) pendToRuns(id string) (pending Runs) {
 			continue
 		}
 		pending = append(pending, &Run{
-			Ref:        t.Ref,
-			Initiating: t.InitiatingEvent,
+			Ref: t.Ref,
 		})
 	}
 	return pending

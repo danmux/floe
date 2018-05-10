@@ -24,7 +24,7 @@ var flow = &Flow{
 
 func TestZero(t *testing.T) {
 
-	err := flow.zero()
+	err := flow.Zero()
 	if err != nil {
 		t.Error(err)
 	}
@@ -46,17 +46,17 @@ func TestZero(t *testing.T) {
 
 func TestMatchTag(t *testing.T) {
 
-	err := flow.zero()
+	err := flow.Zero()
 	if err != nil {
 		t.Error(err)
 	}
 
-	matches := flow.matchTag("trigger.good")
+	matches := flow.MatchTag("trigger.good")
 	if len(matches) != 1 {
 		t.Error("did not find task node")
 	}
 
-	matches = flow.matchTag("task.first.good")
+	matches = flow.MatchTag("task.first.good")
 	if len(matches) != 1 {
 		t.Error("did not find merge node")
 	}

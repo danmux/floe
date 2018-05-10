@@ -65,7 +65,7 @@ func TestExecuteNode(t *testing.T) {
 	run := newRun(&Pend{
 		Ref: runRef,
 	})
-	ws := h.prepare(run.Ref, &e, false, nil)
+	ws := h.prepareForExec(run.Ref, &e, false, nil)
 	h.executeNode(run, node, e, ws)
 	if !didExec {
 		t.Error("did not execute executor")

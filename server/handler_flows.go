@@ -40,12 +40,12 @@ func hndFlow(rw http.ResponseWriter, r *http.Request, ctx *context) (int, string
 // hndP2PExecFlow is the handler for the internal call to execute the flow on this node
 func hndP2PExecFlow(rw http.ResponseWriter, r *http.Request, ctx *context) (int, string, renderable) {
 
-	t := hub.Pend{}
-	if ok, code, msg := decodeBody(rw, r, &t); !ok {
+	pend := hub.Pend{}
+	if ok, code, msg := decodeBody(rw, r, &pend); !ok {
 		return code, msg, nil
 	}
 
-	ok, err := ctx.hub.ExecutePending(t)
+	ok, err := ctx.hub.ExecutePending(pend)
 	if err != nil {
 		return rErr, err.Error(), nil
 	}

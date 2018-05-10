@@ -30,14 +30,15 @@ Floe Terminology
 ----------------
 Flows are coordinated by nodes issuing events to which other nodes `listen`.
 
-`Host` - Any named running Floe service, could be many on single compute unit (vm, container), or one each.
+`Host` - Any named running `floe` service, it could be many such processes on single compute unit (vm, container), or one each.
 
-`Flow` - A description of a set of Nodes linked by events. A specific instance of an flow is a `Run`
+`Flow` - A description of a set of `nodes` linked by events. A specific instance of an flow is a `Run`
 
 `Node` - A config item that can respond to and issue events. A Node is part of a flow. Certain Nodes can Execute actions.
+
 The types of Node are. 
 
-* `Triggers` - These are http or polling nodes that respond to http requests or changes in a polled entity.
+* `Triggers` - These start a run for their flow, and are http or polling nodes that respond to http requests or changes in a polled entity.
 * `Tasks` - Nodes that on responding to an event execute some action, and then emit an event.
 * `Merges` - A node that waits for `all` or `one` of a number of events before issuing its event.
 
@@ -45,28 +46,32 @@ The types of Node are.
 
 `RunRef` - An 'adopted' RunRef is a globally unique compound reference that resolves to a specific Run.
 
-`Hub`  - is the central routing object. It instantiates Runs and executes actions on Nodes in the Run based on its config from any events it observes on its queue.
+`Hub`  - Is the central routing object. It instantiates Runs and executes actions on Nodes in the Run based on its config from any events it observes on its queue.
 
 `Event` - Events are issued after a node has completed its duties. Other nodes are configured to listen for events. Certain other events are emitted that announce other state changes. Events are propagated to any clients connected via web sockets.
 
 `Queue` - The hub event queue is the central chanel for all events.
 
-`RunStore` - the hub references a run store that can persist the following lists - representing the three states fo a run..
-* Pending list - Runs waiting to be executed, a Run on this list is called a Pend.
-* Active List - Runs that are executing, and will be matched to events with matching adopted RunRefs. 
-* Archive List - Runs that are have finished executing.
-
+`RunStore` - the hub references a run store that can persist the following lists - representing the three states of a run..
+* `Pending` - Runs waiting to be executed, a Run on this list is called a Pend.
+* `Active` - Runs that are executing, and will be matched to events with matching adopted RunRefs. 
+* `Archive` - Runs that are have finished executing.
 
 Life cycle of a flow
 --------------------
-When a trigger event arrives on the queue that matches a flow, the event reference will be considered 'un-adopted' this means it has not got a full run reference. A pending run is created with a globally unique compound reference (now adopted) - this reference (and some other meta data) is added to the pending list of the host that adopted it as a 'Pend' - this may not be the host that executes the run later.
+When a trigger event arrives on the queue that matches a flow, the event reference will be considered 'un-adopted' this means it has not got a full run reference. A pending run is created with a globally unique compound reference (now adopted) - this reference (and some other meta data) is added to the pending list of the host that adopted it as a 'Pend' - this may not be the host that executes the run later. (These were called TODO's but that has a very particular meaning!)
 
-A background process tries to assign Pend's to any host where the HostTags match, and where there are no Runs already matching the ResourceTags asked for - this allows certain nodes to be assigned to certain Runs, and to serialise Runs that need exclusive access to any third party, or other shared resources.
+A background process tries to assign Pend's to any host where the `HostTags` match, and where there are no Runs already matching the `ResourceTags` asked for - this allows certain nodes to be assigned to certain Runs, and to serialise Runs that need exclusive access to any third party, or other shared resources.
 
 Once a Pend has been dispatched for execution it is moved out of the adopting Pending list and into the Active List on the executing host.
 
 When one of the end conditions for a Run is met the Run is moved out of the Active list and into the Archive list on the host that executed the Run.
 
+All of this is dealt with in the `Hub` the files are divided into three:
+
+* `hub_setup.go` - The Hub definition and initial setup code.
+* `hub_pend.go` - Code that handle events that trigger a pending run, and dispatches them to available hosts.
+* `hub_exec.go` - Code that accepts a pending run and activates it, directs events to task nodes, and Executes tasks.
 
 Config
 ------
@@ -91,7 +96,10 @@ A flow has the following top level config items:
 * `reuse-space`	- bool - If true then will use the single workspace and will mutex with other instances of this Flow on the same host.
 * `host-tags` - []string - Tags that must match the tags on the host, useful for assigning specific flows to specific hosts.
 * `resource-tags` - []string - Tags that represent a set of shared resources that should not be accessed by two or more runs. So if any flow has an active run on a host then no other flow can launch a run if the flow has any tags matching the one running.
-
+* `flow-file` - string - the reference to a file that can be loaded as the pending run is generated, this file will override the config of the floe - so can be used like a jenkinsfile, three types of reference can be used...
+    * `file` - load it from the local file system. e.g. `floes/floe.yaml`
+    * `git` - do the shallowest clone of the repo specified and grab the content e.g. `git@github.com:floeit/floe.git/build/FLOE.yaml` in this case if the opts contain a ref then the ref (git ref - e.g. tag, branch etc.) will be used
+    *  `fetch` - Fetch a file via http(s) e.g. `https://raw.githubusercontent.com/floeit/floe/redesign/confog.yaml`
 
 ### Triggers
 
@@ -109,16 +117,14 @@ The most common type of node - executes a command, e.g. runs a mke command or a 
 `shell` - Use this if you are running something that requires the shell, e.g. bash scripts.
 `args` - An array of command line arguments - for simple arguments these can be included space delimited in the `cmd` or `shell` lines, if there are quote enclosed arguments then use this args array.
 
-
 Development
 -----------
-The web assets are shipped in the binary as bindata so if you change the web stuff then run `go generate ./server` to regen the `bindata.go`
+The web assets are shipped in the binary as 'bindata' so if you change the web stuff then run `go generate ./server` to regenerate the `bindata.go`
 
-During dev you can use the `webapp` folder directly by passing in 
+During dev you can use the `webapp` folder directly by passing in `-dev=true`
 
 TLS Testing
 -----------
-
 Generate a self signed cert and key and add them on the command line
 
 ```
@@ -141,7 +147,7 @@ Launch the floe you have downloaded or built but point it at a config and root f
 
 `floe -tags=linux,go,couch -admin=123456 -host_name=h1 -conf=/somepath/testfloe/config.yml -root=/somepath/testfloe/testfloe/ws -pub_bind=127.0.0.1:8080`
 
-In this case you 
+TODO 
 
 Deploying to AWS
 ----------------

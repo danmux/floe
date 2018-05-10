@@ -21,9 +21,6 @@ type commonConfig struct {
 	Hosts []string
 	// the api base url - in case hosting on a sub domain
 	BaseURL string `yaml:"base-url"`
-	// ConfigPath is a path to the config which can be a path to a file in a git repo
-	// e.g. git@github.com:floeit/floe.git/build/FLOE.yaml
-	ConfigPath string `yaml:"config-path"`
 
 	// StoreType define which type of store to use
 	StoreType string `yaml:"store-type"` // memory, local, ec2
@@ -37,16 +34,17 @@ type commonConfig struct {
 	// StoreCredentials string `yaml:"store-credentials"`
 }
 
-// FoundFlow is a struct containing a cut down set of properties of a Flow.
+// FoundFlow is a struct containing a Flow and trigger that matched this flow.
 // It can be used to decide on the best host to use to run this Flow.
 type FoundFlow struct {
-	Ref          FlowRef
-	ReuseSpace   bool
-	ResourceTags []string
-	HostTags     []string
-	Env          []string
-
-	Nodes []*node // nodes that matched the criteria to have fund the node
+	// Ref constructed from the Flow
+	Ref FlowRef
+	// Matched is whatever node cause this flow to be found. It is either the trigger node that
+	// matched the criteria to have found the flow and node, or a list of nodes that matched the
+	// event that
+	Matched []*node
+	// the full Flow definition
+	*Flow
 }
 
 // FindFlowsByTriggers finds all flows where its subs match the given params
@@ -73,14 +71,11 @@ func (c *Config) FindFlowsByTriggers(eType string, flow FlowRef, opts nt.Opts) m
 			ff, ok := res[fr]
 			if !ok {
 				ff = FoundFlow{
-					Ref:          fr,
-					ReuseSpace:   f.ReuseSpace,
-					ResourceTags: f.ResourceTags,
-					HostTags:     f.HostTags,
-					Env:          f.Env,
+					Ref:  fr,
+					Flow: f,
 				}
 			}
-			ff.Nodes = []*node{ns[0]} // use the first one
+			ff.Matched = []*node{ns[0]} // there should only really be one hence use the first one
 			res[fr] = ff
 		} else {
 			log.Debugf("config - flow:<%s> failed on trigger match", flow)
@@ -131,18 +126,16 @@ func (c *Config) FindNodeInFlow(fRef FlowRef, tag string) (FoundFlow, bool) {
 	}
 	// we found the matching flow so can find any matching nodes
 	return FoundFlow{
-		Ref:          fRef,
-		ReuseSpace:   f.ReuseSpace,
-		ResourceTags: f.ResourceTags,
-		HostTags:     f.HostTags,
-		Nodes:        f.matchTag(tag),
+		Ref:     fRef,
+		Flow:    f,
+		Matched: f.MatchTag(tag),
 	}, true
 }
 
 // zero sets up all the default values
 func (c *Config) zero() error {
 	for i, f := range c.Flows {
-		if err := f.zero(); err != nil {
+		if err := f.Zero(); err != nil {
 			return fmt.Errorf("flow %d - %v", i, err)
 		}
 	}

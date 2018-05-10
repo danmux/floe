@@ -94,9 +94,6 @@ flows:
           type: end                 # getting here means the flow was a success 'end' is the special definitive end event
 
     - id: danmux
-      env:
-        - GOPATH=${ws}
-        # - PATH=$PATH:${ws}/bin
       ver: 1
       
       triggers:
@@ -115,26 +112,4 @@ flows:
           opts:
             period: 300              # how often to fire in seconds
 
-      tasks: 
-        - name: Checkout
-          listen: trigger.good
-          type: git-checkout
-          opts:
-            url: git@github.com:floeit/floe.git
-            sub-dir: src/github.com/floeit
-        
-        - name: Go Version
-          listen: trigger.good
-          type: exec
-          opts:
-            cmd: "go version"
-
-        - name: Wait
-          class: merge
-          wait: 
-            - task.go-version.good
-            - task.checkout.good
-
-        - name: done
-          listen: task.wait.good
-          type: end
+      flow-file: floe.yml

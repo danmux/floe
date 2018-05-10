@@ -194,7 +194,7 @@ func TestYaml(t *testing.T) {
 	for _, ff = range fns {
 		break
 	}
-	ns := ff.Nodes
+	ns := ff.Matched
 	if len(ns) != 1 {
 		t.Fatal("did not find the nodes based on this sub", len(ns))
 	}
@@ -214,7 +214,7 @@ func TestYaml(t *testing.T) {
 	if !ok {
 		t.Fatal("could not find flow")
 	}
-	ns = fsf.Nodes
+	ns = fsf.Matched
 	if ns[0].NodeRef().Class != NcTask {
 		t.Error("got wrong node class")
 	}
@@ -229,8 +229,8 @@ func TestYaml(t *testing.T) {
 	if !flowExists {
 		t.Error("did not find merge node")
 	}
-	if len(found.Nodes) != 1 {
-		t.Error("found wrong merge node count", len(found.Nodes))
+	if len(found.Matched) != 1 {
+		t.Error("found wrong merge node count", len(found.Matched))
 	}
 }
 

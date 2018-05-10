@@ -82,7 +82,7 @@ type Event struct {
 	SourceNode config.NodeRef
 
 	// Tag is the label that helps route the event.
-	// it will match Type for sub events, and Listen for others.
+	// it will match node.Type for trigger nodes, and node.Listen for task and merge nodes.
 	Tag string
 
 	// Good specifically when this is classed as a good event

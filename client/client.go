@@ -74,16 +74,8 @@ func (f *FloeHost) GetConfig() HostConfig {
 
 // AttemptExecute tries to execute the flow matching the flowref and instigating event.
 // Returns true if the host accepted the run.
-func (f *FloeHost) AttemptExecute(ref event.RunRef, ie event.Event) bool {
+func (f *FloeHost) AttemptExecute(pend interface{}) bool {
 	w := wrap{}
-
-	pend := struct {
-		Ref             event.RunRef
-		InitiatingEvent event.Event
-	}{
-		Ref:             ref,
-		InitiatingEvent: ie,
-	}
 
 	code, err := f.post("/flows/exec", pend, &w)
 	if err != nil {

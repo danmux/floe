@@ -14,7 +14,6 @@ type timer struct {
 	nodeID string
 	period int // time between triggers in seconds
 	next   time.Time
-	opts   nt.Opts
 }
 
 type timers struct {
@@ -50,7 +49,12 @@ func newTimers(h *Hub) *timers {
 					},
 				}
 
-				ref, err := h.addToPending(tim.flow, h.hostID, e)
+				flow := h.config.Flow(tim.flow)
+				if flow == nil {
+					log.Errorf("<%s> - timer trigger no longer has a flow in config", e.RunRef)
+					continue
+				}
+				ref, err := h.addToPending(flow, h.hostID, e)
 				if err != nil {
 					log.Errorf("<%s> - from timer trigger did not add to pending: %s", e.RunRef, err)
 				}
