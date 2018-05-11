@@ -20,7 +20,6 @@ func (h *Hub) ExecutePending(pend Pend) (bool, error) {
 
 	// use the flow definition as used when the pending run was created
 	flow := pend.Flow
-	flow.Zero()
 
 	// confirm no currently executing flows have a resource flag conflicts
 	active := h.runs.activeFlows()
@@ -160,13 +159,14 @@ func (h *Hub) dispatchToActive(e event.Event) {
 
 	// Fire all matching nodes
 	for _, n := range matched {
+		log.Debugf("<%s> - dispatch - '%s' matched %s", e.RunRef, e.Tag, n.Ref)
 		switch n.Class {
 		case config.NcTask:
 			switch nt.NType(n.TypeOfNode()) {
 			case nt.NtEnd: // special task type end the run
 				h.endRun(r, n.NodeRef(), e.Opts, e.Good)
 				return
-			case nt.NtData: // initial event triggering a data node
+			case nt.NtData: // initial event triggering a data node (not targeted at specific node)
 				h.setFormData(r, n, e.Opts)
 			default:
 				ws := h.prepareForExec(r.Ref, &e, r.Flow.ReuseSpace, r.Flow.Env)
@@ -206,6 +206,13 @@ func mergeEnvOpts(opts nt.Opts, env []string) {
 		env = append(env, e...)
 	}
 	opts["env"] = env
+}
+
+// exeNode defines the interface for a executable node
+type exeNode interface {
+	refNode
+	Execute(*nt.Workspace, nt.Opts, chan string) (int, nt.Opts, error)
+	Status(status int) (string, bool)
 }
 
 // executeNode invokes a task node Execute function for the active run issuing node execute update events
@@ -285,11 +292,22 @@ func (h *Hub) executeNode(run *Run, node exeNode, e event.Event, ws *nt.Workspac
 // Ultimately either explicitly marking the node good or bad, and issuing the appropriate event.
 func (h *Hub) setFormData(run *Run, node exeNode, opts nt.Opts) {
 	// keep the filled in form values separate from the config opts
-	valOpts := nt.Opts{}
-	valOpts["values"] = opts
+	// only use map[string]string opts
+	vals := nt.Opts{}
+	for k, v := range opts {
+		if s, ok := v.(string); ok {
+			vals[k] = s
+		}
+	}
+	valOpts := nt.Opts{
+		"values": vals,
+	}
 
 	// status 0 = good, 1 = bad, 2 = needs more data,
-	status, outOpts, _ := node.Execute(nil, valOpts, nil)
+	status, outOpts, err := node.Execute(nil, valOpts, nil)
+	if err != nil {
+		log.Errorf("<%s> - set form data (%s) - execute produced error: %v", run.Ref, node.NodeRef(), err)
+	}
 
 	// add the form fields to the flow. if good or bad then we have enough data for a decision
 	h.runs.updateDataNode(run, node.NodeRef().ID, outOpts, status == 2)

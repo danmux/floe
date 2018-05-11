@@ -55,8 +55,7 @@ func (g fetch) Execute(ws *Workspace, in Opts, output chan string) (int, Opts, e
 
 	// set up any checksum
 	if len(fop.Checksum) > 0 {
-		// is it in the sum filename format ...
-		// ba411cafee2f0f702572369da0b765e2  bodhi-4.1.0-64.iso
+		// is it in the sum filename format e.g. ba411cafee2f0f702572369da0b765e2  bodhi-4.1.0-64.iso
 		parts := strings.Split(fop.Checksum, " ")
 		if len(parts) > 1 {
 			fop.Checksum = parts[0]

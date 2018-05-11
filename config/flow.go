@@ -2,8 +2,11 @@ package config
 
 import (
 	"fmt"
+	"io/ioutil"
+	"strings"
 
 	nt "github.com/floeit/floe/config/nodetype"
+	yaml "gopkg.in/yaml.v2"
 )
 
 // FlowRef is a reference that uniquely identifies a flow
@@ -56,16 +59,6 @@ type Flow struct {
 	Tasks []*node
 }
 
-func (f *Flow) matchTriggers(eType string, opts *nt.Opts) []*node {
-	res := []*node{}
-	for _, s := range f.Triggers {
-		if s.matchedTriggers(eType, opts) {
-			res = append(res, s)
-		}
-	}
-	return res
-}
-
 // Node returns the node matching id
 func (f *Flow) Node(id string) *node {
 	for _, s := range f.Tasks {
@@ -87,20 +80,69 @@ func (f *Flow) MatchTag(tag string) []*node {
 	return res
 }
 
-func (f *Flow) setName(n string) {
-	f.Name = n
-}
-func (f *Flow) setID(i string) {
-	f.ID = i
-}
-func (f *Flow) name() string {
-	return f.Name
-}
-func (f *Flow) id() string {
-	return f.ID
+// Load looks at the FlowFile setting and loads in the flow from that reference
+// overriding any pre-existing settings
+func (f *Flow) Load(cacheDir string) (err error) {
+	if f.FlowFile == "" {
+		return nil
+	}
+	var content []byte
+	switch getRefType(f.FlowFile) {
+	case "local":
+		content, err = ioutil.ReadFile(f.FlowFile)
+	default:
+		return fmt.Errorf("unrecognised floe file type: <%s>", f.FlowFile)
+	}
+	if err != nil {
+		return err
+	}
+
+	newFlow := &Flow{}
+	err = yaml.Unmarshal(content, &newFlow)
+	if err != nil {
+		return err
+	}
+	err = newFlow.zero()
+	if err != nil {
+		return err
+	}
+	if len(newFlow.Name) != 0 {
+		f.Name = newFlow.Name
+	}
+	f.ReuseSpace = newFlow.ReuseSpace
+	if len(newFlow.HostTags) != 0 {
+		f.HostTags = newFlow.HostTags
+	}
+	if len(newFlow.ResourceTags) != 0 {
+		f.ResourceTags = newFlow.ResourceTags
+	}
+	if len(newFlow.Env) != 0 {
+		f.Env = newFlow.Env
+	}
+	if len(newFlow.Tasks) != 0 {
+		f.Tasks = newFlow.Tasks
+	}
+	// Pointless overriding triggers - as they are what caused this load
+	return nil
 }
 
-func (f *Flow) Zero() error {
+// getRefType returns the reference type:
+// "web" - it is fetchable from the web,
+// "git" - it can be got from a repo,
+// "local" - it can be got from the local files system
+func getRefType(fileRef string) string {
+	if strings.Contains(fileRef, "git@") {
+		return "git"
+	}
+	if strings.HasPrefix(fileRef, "http") {
+		return "web"
+	}
+	return "local"
+}
+
+// zero checks and corrects ids and changes the options format from yaml default to
+// one compatible with json serialising
+func (f *Flow) zero() error {
 	if err := zeroNID(f); err != nil {
 		return err
 	}
@@ -144,4 +186,31 @@ func (f *Flow) fixupOpts() {
 	for _, v := range f.Tasks {
 		v.Opts.Fixup()
 	}
+}
+
+func (f *Flow) matchTriggers(eType string, opts *nt.Opts) []*node {
+	res := []*node{}
+	for _, s := range f.Triggers {
+		if s.matchedTriggers(eType, opts) {
+			res = append(res, s)
+		}
+	}
+	return res
+}
+
+// methods that implement nid so the flow can be zeroNid'd
+func (f *Flow) setName(n string) {
+	f.Name = n
+}
+
+func (f *Flow) setID(i string) {
+	f.ID = i
+}
+
+func (f *Flow) name() string {
+	return f.Name
+}
+
+func (f *Flow) id() string {
+	return f.ID
 }

@@ -31,7 +31,6 @@ type field struct {
 // good or bad.
 // returns status 0 = form requirements met, 1 = an error (error will be set), 2 = needs more data
 func (d data) Execute(ws *Workspace, in Opts, output chan string) (int, Opts, error) {
-
 	do := dataOpts{}
 
 	err := mapstructure.Decode(in, &do)

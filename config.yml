@@ -112,4 +112,4 @@ flows:
           opts:
             period: 300              # how often to fire in seconds
 
-      flow-file: floe.yml
+      flow-file: floe.yml            # get the actual flow from this file

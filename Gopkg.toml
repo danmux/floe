@@ -38,5 +38,5 @@
   unused-packages = true
 
 [[constraint]]
+  branch = "master"
   name = "github.com/cavaliercoder/grab"
-  version = "2.0.0"

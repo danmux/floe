@@ -25,6 +25,7 @@ func (h HostedIDRef) String() string {
 	return fmt.Sprintf("%s-%d", h.HostID, h.ID)
 }
 
+// Equal returns true if h and g are considered equal
 func (h HostedIDRef) Equal(g HostedIDRef) bool {
 	return h.HostID == g.HostID && h.ID == g.ID
 }
@@ -97,12 +98,25 @@ type Event struct {
 	Opts nt.Opts
 }
 
+// copy makes a copy without sharing the underlying Opts aps.
+// Any pointers in the opts map (there should not be) will share memory
+func (e Event) copy() Event {
+	newE := e
+	// break the common map memory link
+	newE.Opts = nt.Opts{}
+	for k, v := range e.Opts {
+		newE.Opts[k] = v
+	}
+	return newE
+}
+
 // SetGood sets this event as a good event
 func (e *Event) SetGood() {
 	e.Good = true
 	e.Tag = fmt.Sprintf("%s.%s.good", e.SourceNode.Class, e.SourceNode.ID)
 }
 
+// IsSystem returns true if the event is a internal system event
 func (e *Event) IsSystem() bool {
 	if len(e.Tag) < 3 {
 		return false
@@ -126,13 +140,6 @@ func (q *Queue) Register(o Observer) {
 
 // Publish sends an event to all the observers
 func (q *Queue) Publish(e Event) {
-
-	// for helpfulness indicate if this event was issued by an already adopted flow
-	isTrig := " (trigger)"
-	if e.RunRef.Adopted() {
-		isTrig = ""
-	}
-
 	q.Lock()
 	// grab the next event ID
 	q.idCounter++
@@ -142,10 +149,19 @@ func (q *Queue) Publish(e Event) {
 	}
 	q.Unlock()
 
-	log.Debugf("<%s-ev:%d> - queue publish type:<%s>%s from: %s", e.RunRef, e.ID, e.Tag, isTrig, e.SourceNode)
+	// node updates can be noisy - an event is issued for every line of output
+	if e.Tag != "sys.node.update" {
+		// for helpfulness indicate if this event was issued by an already adopted flow
+		isTrig := " (trigger)"
+		if e.RunRef.Adopted() {
+			isTrig = ""
+		}
+		log.Debugf("<%s-ev:%d> - queue publish type:<%s>%s from: %s", e.RunRef, e.ID, e.Tag, isTrig, e.SourceNode)
+	}
 
 	// and notify all observers - in background goroutines
 	for _, o := range q.observers {
-		go o.Notify(e)
+		// send separate copies to each observer to avoid any races
+		go o.Notify(e.copy())
 	}
 }

@@ -112,18 +112,18 @@ func TestPlay(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(2)
 	go func() {
-		c, err := io.Copy(pw, sout)
-		if err != nil {
-			t.Error(err)
+		c, e := io.Copy(pw, sout)
+		if e != nil {
+			t.Error(e)
 		}
 		println(c)
 		wg.Done()
 	}()
 
 	go func() {
-		c, err := io.Copy(pw, serr)
-		if err != nil {
-			t.Error(err)
+		c, e := io.Copy(pw, serr)
+		if e != nil {
+			t.Error(e)
 		}
 		println(c)
 		wg.Done()
@@ -141,8 +141,8 @@ func TestPlay(t *testing.T) {
 			t := scanner.Text()
 			output = append(output, t)
 		}
-		if err := scanner.Err(); err != nil {
-			output = append(output, "scanning output failed with: "+err.Error())
+		if e := scanner.Err(); e != nil {
+			output = append(output, "scanning output failed with: "+e.Error())
 		}
 		scanDone <- true
 	}()

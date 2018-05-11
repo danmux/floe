@@ -19,7 +19,7 @@ import (
 // serviceLists attempts to dispatch pending flows
 // TODO and times outs any active flows that are past their deadline
 func (h *Hub) serviceLists() {
-	for range time.Tick(time.Second) {
+	for range time.Tick(time.Second * 5) {
 		err := h.distributeAllPending()
 		if err != nil {
 			log.Error(err)
@@ -53,6 +53,9 @@ func (h *Hub) distributeAllPending() error {
 		candidates := []*client.FloeHost{}
 		for _, host := range h.hosts {
 			cfg := host.GetConfig()
+			if cfg.HostID == "" {
+				continue // we have not communicated with the other host yet
+			}
 			log.Debugf("<%s> - pending - testing host %s with host tags: %v", p, cfg.HostID, cfg.Tags)
 			if cfg.TagsMatch(p.Flow.HostTags) {
 				log.Debugf("<%s> - pending - found matching host %s with host tags: %v", p, cfg.HostID, cfg.Tags)
@@ -85,8 +88,8 @@ func (h *Hub) distributeAllPending() error {
 	return nil
 }
 
-// pendFlowFromTrigger uses the subscription fired event e to put a FoundFlow
-// on the pending queue if any triggers match, storing the initial event for use as the run is executed.
+// pendFlowFromTrigger uses the subscription fired event e to put any flows on the pending queue
+// for any matching triggers.
 func (h *Hub) pendFlowFromTrigger(e event.Event) error {
 	if !strings.HasPrefix(e.Tag, inboundPrefix) {
 		return fmt.Errorf("event %s dispatched to triggers does not have inbound tag prefix", e.Tag)
@@ -96,20 +99,26 @@ func (h *Hub) pendFlowFromTrigger(e event.Event) error {
 	log.Debugf("attempt to trigger type:<%s> (specified flow: %v)", triggerType, e.RunRef.FlowRef)
 
 	// find any Flows with subs matching this event
-	found := h.config.FindFlowsByTriggers(triggerType, e.RunRef.FlowRef, e.Opts)
-	if len(found) == 0 {
+	foundFlows := h.config.FindFlowsByTriggers(triggerType, e.RunRef.FlowRef, e.Opts)
+	if len(foundFlows) == 0 {
 		log.Debugf("no matching flow for type:'%s' (specified flow: %v)", triggerType, e.RunRef.FlowRef)
 		return nil
 	}
 
-	// the event tag should now match the trigger type
-	e.Tag = triggerType
-
 	// add each flow to the pending list
-	for _, ff := range found {
-		// copy the matched node to the source node for the trigger that this event matched
-		e.SourceNode = ff.Matched[0].Ref
-		ref, err := h.addToPending(ff.Flow, h.hostID, e)
+	for _, ff := range foundFlows {
+		// make sure the flow has loaded in any references
+		if ff.FlowFile != "" {
+			log.Debugf("<%s> - getting flow from file '%s'", ff.Ref, ff.FlowFile)
+			err := ff.Load(h.cachePath)
+			if err != nil {
+				log.Errorf("<%s> - could not load in the flow from FlowFile: '%s'", ff.Ref, ff.FlowFile)
+				continue
+			}
+		}
+
+		// add the flow to the pending list making note of the node and opts that triggered it
+		ref, err := h.addToPending(ff.Flow, h.hostID, ff.Matched[0].Ref, e.Opts)
 		if err != nil {
 			return err
 		}
@@ -119,8 +128,8 @@ func (h *Hub) pendFlowFromTrigger(e event.Event) error {
 }
 
 // addToPending adds a flow to the list of pending runs and publishes appropriate system state change event.
-func (h *Hub) addToPending(flow *config.Flow, hostID string, e event.Event) (event.RunRef, error) {
-	ref, err := h.runs.addToPending(flow, hostID, e)
+func (h *Hub) addToPending(flow *config.Flow, hostID string, trig config.NodeRef, opts nt.Opts) (event.RunRef, error) {
+	ref, err := h.runs.addToPending(flow, hostID, trig, opts)
 	if err != nil {
 		return ref, err
 	}

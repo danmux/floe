@@ -312,7 +312,7 @@ func (r *RunStore) end(run *Run, good bool) bool {
 }
 
 // addToPending adds the active configs to pending list, and returns the run id
-func (r *RunStore) addToPending(flow *config.Flow, hostID string, e event.Event) (event.RunRef, error) {
+func (r *RunStore) addToPending(flow *config.Flow, hostID string, trig config.NodeRef, opts nt.Opts) (event.RunRef, error) {
 	r.Lock()
 	defer r.Unlock()
 	r.pending.Counter++
@@ -326,8 +326,8 @@ func (r *RunStore) addToPending(flow *config.Flow, hostID string, e event.Event)
 			Run:     run,
 		},
 		Flow:          flow,
-		TriggeredNode: e.SourceNode,
-		Opts:          e.Opts,
+		TriggeredNode: trig,
+		Opts:          opts,
 	}
 	r.pending.Pends = append(r.pending.Pends, t)
 

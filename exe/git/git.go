@@ -10,29 +10,29 @@ type logger interface {
 	Info(...interface{})
 	Debug(...interface{})
 	Error(...interface{})
-	Infof(format string, args ...interface{})
 }
 
-type GitHashes struct {
-	RepoUrl string
+// Hashes stores the result of a GitLS
+type Hashes struct {
+	RepoURL string
 	Hashes  map[string]string
 }
 
-func GitLs(log logger, url string) (*GitHashes, bool) {
-
+// Ls list a remote repo
+func Ls(log logger, url string) (*Hashes, bool) {
 	gitOut, status := exe.RunOutput(log, "git", "ls-remote "+url, "")
 	if status != 0 {
 		return nil, false
 	}
-	latestHash := &GitHashes{
-		RepoUrl: url,
+	latestHash := &Hashes{
+		RepoURL: url,
 	}
 
 	parseGitResponse(gitOut, latestHash)
 	return latestHash, true
 }
 
-func parseGitResponse(lines []string, hashes *GitHashes) {
+func parseGitResponse(lines []string, hashes *Hashes) {
 	// map the lines by branch
 	hashes.Hashes = map[string]string{}
 	for _, l := range lines[2:] { // from 2 onwards 1 = command 0 = empty

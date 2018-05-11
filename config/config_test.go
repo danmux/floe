@@ -206,15 +206,7 @@ func TestYaml(t *testing.T) {
 	}
 
 	// test finding a node in the known flow
-	fr := FlowRef{
-		ID:  "build-project",
-		Ver: 1,
-	}
-	fsf, ok := c.FindNodeInFlow(fr, "trigger.good")
-	if !ok {
-		t.Fatal("could not find flow")
-	}
-	ns = fsf.Matched
+	ns = ff.Flow.MatchTag("trigger.good")
 	if ns[0].NodeRef().Class != NcTask {
 		t.Error("got wrong node class")
 	}
@@ -225,12 +217,9 @@ func TestYaml(t *testing.T) {
 		t.Error("got wrong node id", ns[0].NodeRef().ID)
 	}
 
-	found, flowExists := c.FindNodeInFlow(fr, "task.build.good")
-	if !flowExists {
-		t.Error("did not find merge node")
-	}
-	if len(found.Matched) != 1 {
-		t.Error("found wrong merge node count", len(found.Matched))
+	ns = ff.Flow.MatchTag("task.build.good")
+	if len(ns) != 1 {
+		t.Error("found wrong merge node count", len(ns))
 	}
 }
 

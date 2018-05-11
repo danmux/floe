@@ -16,28 +16,7 @@ const (
 	SubTagBad = "bad"
 )
 
-// idFromName makes a file and URL/HTML friendly ID from the name.
-func idFromName(name string) string {
-	s := strings.Split(strings.ToLower(strings.TrimSpace(name)), " ")
-	ns := strings.Join(s, "-")
-	s = strings.Split(ns, ".")
-	return strings.Join(s, "-")
-}
-
-func nameFromID(id string) string {
-	s := strings.Split(strings.ToLower(strings.TrimSpace(id)), "-")
-	return strings.Join(s, " ")
-}
-
-// TODO cleanup - only used once
-type nid interface {
-	setID(string)
-	setName(string)
-	name() string
-	id() string
-}
-
-// NodeClass the type def for the types a Node can be
+// NodeClass the type def for the classes a Node can be
 type NodeClass string
 
 // NodeClass values
@@ -57,37 +36,9 @@ func (n NodeRef) String() string {
 	return fmt.Sprintf("%s.%s", n.Class, n.ID)
 }
 
-// trim trailing spaces and dots and hyphens
-func trimNIDs(s string) string {
-	return strings.Trim(s, " .-")
-}
-
-func zeroNID(n nid) error {
-	name := trimNIDs(n.name())
-	id := strings.ToLower(trimNIDs(n.id()))
-
-	if name == "" && id == "" {
-		return errors.New("task id and name can not both be empty")
-	}
-	if id == "" {
-		id = idFromName(name)
-	}
-	if strings.ContainsAny(id, " .") {
-		return errors.New("a specified id can not contain spaces or full stops")
-	}
-	if name == "" {
-		name = nameFromID(id)
-	}
-
-	n.setID(id)
-	n.setName(name)
-	return nil
-}
-
 // node is the deserialised node whose set of fields cover all types of node
 type node struct {
-	// what flow is this node attached to
-	flowRef    FlowRef
+	flowRef    FlowRef // what flow is this node attached to
 	Class      NodeClass
 	Ref        NodeRef
 	ID         string
@@ -249,4 +200,52 @@ func (t *node) zero(defaultClass NodeClass, flow FlowRef) error {
 	// n.CastOpts(&t.Opts)
 
 	return nil
+}
+
+type nid interface {
+	setID(string)
+	setName(string)
+	name() string
+	id() string
+}
+
+// zeroNid checks and sets ID from name, or name from ID
+func zeroNID(n nid) error {
+	name := trimNIDs(n.name())
+	id := strings.ToLower(trimNIDs(n.id()))
+
+	if name == "" && id == "" {
+		return errors.New("id and name can not both be empty")
+	}
+	if id == "" {
+		id = idFromName(name)
+	}
+	if strings.ContainsAny(id, " .") {
+		return errors.New("a specified id can not contain spaces or full stops")
+	}
+	if name == "" {
+		name = nameFromID(id)
+	}
+
+	n.setID(id)
+	n.setName(name)
+	return nil
+}
+
+// trim trailing spaces and dots and hyphens
+func trimNIDs(s string) string {
+	return strings.Trim(s, " .-")
+}
+
+// idFromName makes a file and URL/HTML friendly ID from the name.
+func idFromName(name string) string {
+	s := strings.Split(strings.ToLower(strings.TrimSpace(name)), " ")
+	ns := strings.Join(s, "-")
+	s = strings.Split(ns, ".")
+	return strings.Join(s, "-")
+}
+
+func nameFromID(id string) string {
+	s := strings.Split(strings.ToLower(strings.TrimSpace(id)), "-")
+	return strings.Join(s, " ")
 }

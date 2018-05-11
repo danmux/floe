@@ -1,15 +1,16 @@
 package hub
 
 import (
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/floeit/floe/client"
 	"github.com/floeit/floe/config"
-	nt "github.com/floeit/floe/config/nodetype"
 	"github.com/floeit/floe/event"
 	"github.com/floeit/floe/log"
+	"github.com/floeit/floe/path"
 	"github.com/floeit/floe/store"
 )
 
@@ -36,12 +37,6 @@ type refNode interface {
 	GetTag(string) string
 }
 
-type exeNode interface {
-	refNode
-	Execute(*nt.Workspace, nt.Opts, chan string) (int, nt.Opts, error)
-	Status(status int) (string, bool)
-}
-
 type mergeNode interface {
 	refNode
 	TypeOfNode() string
@@ -52,10 +47,11 @@ type mergeNode interface {
 type Hub struct {
 	sync.RWMutex
 
-	basePath string         // the configured basePath for the hub
-	hostID   string         // the id fo this host
-	config   *config.Config // the config rules
-	queue    *event.Queue   // the event q to route all events
+	basePath  string         // the configured basePath for the hub
+	cachePath string         // folder to cache working files
+	hostID    string         // the id fo this host
+	config    *config.Config // the config rules
+	queue     *event.Queue   // the event q to route all events
 
 	// any registered timers
 	timers *timers
@@ -80,13 +76,18 @@ func New(host, tags, basePath, adminTok string, c *config.Config, s store.Store,
 	for _, t := range l {
 		tagList = append(tagList, strings.TrimSpace(t))
 	}
+	basePath, err := path.Expand(basePath)
+	if err != nil {
+		log.Fatal("can not set base path", err)
+	}
 	h := &Hub{
-		hostID:   host,
-		tags:     tagList,
-		basePath: basePath,
-		config:   c,
-		queue:    q,
-		runs:     newRunStore(s),
+		hostID:    host,
+		tags:      tagList,
+		basePath:  basePath,
+		cachePath: filepath.Join(basePath, "fetch_cache"),
+		config:    c,
+		queue:     q,
+		runs:      newRunStore(s),
 	}
 	h.timers = newTimers(h)
 	// setup hosts
@@ -99,6 +100,21 @@ func New(host, tags, basePath, adminTok string, c *config.Config, s store.Store,
 	go h.serviceLists()
 
 	return h
+}
+
+// Notify is called whenever an event is sent to the hub, satisfying event.Observer.
+// This is the central dispatch of the two main event types adopted and un-adopted.
+func (h *Hub) Notify(e event.Event) {
+	// if the event has not been previously adopted in any pending run then it is a trigger event
+	if !e.RunRef.Adopted() {
+		err := h.pendFlowFromTrigger(e)
+		if err != nil {
+			log.Error(err)
+		}
+		return
+	}
+	// otherwise it is an adopted run specific event so and is directed to this host
+	h.dispatchToActive(e)
 }
 
 // HostID returns the id for this host
@@ -162,21 +178,6 @@ func (h *Hub) FindRun(flowID, runID string) *Run {
 // Queue returns the hubs queue
 func (h *Hub) Queue() *event.Queue {
 	return h.queue
-}
-
-// Notify is called whenever an event is sent to the hub, satisfying event.Observer.
-// This is the central dispatch of the two main event types adopted and un-adopted.
-func (h *Hub) Notify(e event.Event) {
-	// if the event has not been previously adopted in any pending run then it is a trigger event
-	if !e.RunRef.Adopted() {
-		err := h.pendFlowFromTrigger(e)
-		if err != nil {
-			log.Error(err)
-		}
-		return
-	}
-	// otherwise it is an adopted run specific event so and is directed to this host
-	h.dispatchToActive(e)
 }
 
 func (h *Hub) setupHosts(adminTok string) {

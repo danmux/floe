@@ -48,7 +48,7 @@ type FoundFlow struct {
 }
 
 // FindFlowsByTriggers finds all flows where its subs match the given params
-func (c *Config) FindFlowsByTriggers(eType string, flow FlowRef, opts nt.Opts) map[FlowRef]FoundFlow {
+func (c *Config) FindFlowsByTriggers(triggerType string, flow FlowRef, opts nt.Opts) map[FlowRef]FoundFlow {
 	res := map[FlowRef]FoundFlow{}
 	for _, f := range c.Flows {
 		// if a flow is specified it has to match
@@ -58,13 +58,14 @@ func (c *Config) FindFlowsByTriggers(eType string, flow FlowRef, opts nt.Opts) m
 				continue
 			}
 		}
-		log.Debugf("config - found flow: <%s-%d>. %d triggers", f.ID, f.Ver, len(f.Triggers))
+		log.Debugf("config - checking flow: <%s-%d>. with %d triggers", f.ID, f.Ver, len(f.Triggers))
 		// match on other stuff
-		ns := f.matchTriggers(eType, &opts)
+		ns := f.matchTriggers(triggerType, &opts)
 		// found some matching nodes for this flow
 		if len(ns) > 0 {
+			log.Debugf("config - found flow: <%s-%d>. with %d matching triggers for %s", f.ID, f.Ver, len(ns), triggerType)
 			if len(ns) > 1 {
-				log.Warning("triggered flow has too many triggers, using first", f.ID, f.Ver, len(f.Triggers))
+				log.Warning("config - triggered flow has too many matching triggers, using first", f.ID, f.Ver, len(ns))
 			}
 			// make sure this flow is in the results
 			fr := ns[0].FlowRef()
@@ -78,17 +79,10 @@ func (c *Config) FindFlowsByTriggers(eType string, flow FlowRef, opts nt.Opts) m
 			ff.Matched = []*node{ns[0]} // there should only really be one hence use the first one
 			res[fr] = ff
 		} else {
-			log.Debugf("config - flow:<%s> failed on trigger match", flow)
+			log.Debugf("config - flow: <%s-%d> no trigger match for %s", f.ID, f.Ver, triggerType)
 		}
 	}
 	return res
-}
-
-// FindFlow finds the specific flow where its subs match the given params
-func (c *Config) FindFlow(f FlowRef, eType string, opts nt.Opts) (FoundFlow, bool) {
-	found := c.FindFlowsByTriggers(eType, f, opts)
-	flow, ok := found[f]
-	return flow, ok
 }
 
 // Flow returns the flow config matching the id and version
@@ -116,26 +110,10 @@ func (c *Config) LatestFlow(id string) *Flow {
 	return latest
 }
 
-// FindNodeInFlow returns the nodes matching the tag in this flow matching fRef
-// returns false if the flow is not found
-func (c *Config) FindNodeInFlow(fRef FlowRef, tag string) (FoundFlow, bool) {
-	ff := FoundFlow{}
-	f := c.Flow(fRef)
-	if f == nil {
-		return ff, false
-	}
-	// we found the matching flow so can find any matching nodes
-	return FoundFlow{
-		Ref:     fRef,
-		Flow:    f,
-		Matched: f.MatchTag(tag),
-	}, true
-}
-
 // zero sets up all the default values
 func (c *Config) zero() error {
 	for i, f := range c.Flows {
-		if err := f.Zero(); err != nil {
+		if err := f.zero(); err != nil {
 			return fmt.Errorf("flow %d - %v", i, err)
 		}
 	}

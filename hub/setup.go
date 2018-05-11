@@ -6,7 +6,6 @@ import (
 
 	nt "github.com/floeit/floe/config/nodetype"
 	"github.com/floeit/floe/event"
-	"github.com/floeit/floe/path"
 )
 
 // enforceWS make sure there is a matching file system location and returns the workspace object
@@ -26,12 +25,7 @@ func (h *Hub) enforceWS(runRef event.RunRef, single bool) (*nt.Workspace, error)
 
 // getWorkspace returns the appropriate Workspace struct for this flow
 func (h *Hub) getWorkspace(runRef event.RunRef, single bool) (*nt.Workspace, error) {
-	ebp, err := path.Expand(h.basePath)
-	if err != nil {
-		return nil, err
-	}
-
-	path := filepath.Join(ebp, "spaces", runRef.FlowRef.ID)
+	path := filepath.Join(h.basePath, "spaces", runRef.FlowRef.ID)
 	if single {
 		path = filepath.Join(path, "ws", "single")
 	} else {
@@ -40,6 +34,6 @@ func (h *Hub) getWorkspace(runRef event.RunRef, single bool) (*nt.Workspace, err
 	// setup the workspace config
 	return &nt.Workspace{
 		BasePath:   path,
-		FetchCache: filepath.Join(h.basePath, "fetch_cache"),
+		FetchCache: h.cachePath,
 	}, nil
 }

@@ -126,7 +126,7 @@ func waitEvtTimeout(t *testing.T, ch chan event.Event, msg string) *event.Event 
 	select {
 	case e := <-ch:
 		return &e
-	case <-time.After(time.Second * 5):
+	case <-time.After(time.Second * 20):
 		t.Fatal("timed out waiting for an event -", msg)
 	}
 	return nil

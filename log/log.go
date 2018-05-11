@@ -1,3 +1,4 @@
+// TODO clean this up
 package log
 
 import (
@@ -163,7 +164,4 @@ func (l Log) Debug(vals ...interface{}) {
 }
 func (l Log) Error(vals ...interface{}) {
 	Error(vals...)
-}
-func (l Log) Infof(format string, args ...interface{}) {
-	Infof(format, args...)
 }

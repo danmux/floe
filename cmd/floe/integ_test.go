@@ -407,7 +407,6 @@ func webReq(t *testing.T, method, tok, spath string, rq, rp interface{}, expecte
 			if fail {
 				t.Error("Failed to unmarshal response", err)
 			}
-			rp = nil
 			return false
 		}
 	}

@@ -14,10 +14,10 @@ type logger interface {
 	Info(...interface{})
 	Debug(...interface{})
 	Error(...interface{})
-	Infof(format string, args ...interface{})
 }
 
-// Run executes the command in a bash process capturing the output and returning it in the string slice
+// RunOutput executes the command in a bash process capturing the output and
+// returning it in the string slice
 func RunOutput(log logger, wd, cmd string, args ...string) ([]string, int) {
 	var output []string
 
@@ -82,15 +82,15 @@ func Run(log logger, out chan string, env []string, wd, cmd string, args ...stri
 	var wg sync.WaitGroup
 	wg.Add(2)
 	go func() {
-		if c, err := io.Copy(pw, eOut); err != nil {
-			log.Error(err, c)
+		if c, e := io.Copy(pw, eOut); e != nil {
+			log.Error(e, c)
 		}
 		wg.Done()
 	}()
 
 	go func() {
-		if c, err := io.Copy(pw, sOut); err != nil {
-			log.Error(err, c)
+		if c, e := io.Copy(pw, sOut); e != nil {
+			log.Error(e, c)
 		}
 		wg.Done()
 	}()
@@ -102,8 +102,8 @@ func Run(log logger, out chan string, env []string, wd, cmd string, args ...stri
 		for scanner.Scan() {
 			out <- scanner.Text()
 		}
-		if err := scanner.Err(); err != nil {
-			out <- "scanning output failed with: " + err.Error()
+		if e := scanner.Err(); e != nil {
+			out <- "scanning output failed with: " + e.Error()
 		}
 		scanDone <- true
 	}()
