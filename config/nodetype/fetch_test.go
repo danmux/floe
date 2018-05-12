@@ -72,22 +72,17 @@ func TestFetch(t *testing.T) {
 	}
 }
 
-func sayHello(w http.ResponseWriter, r *http.Request) {
-	message := "this is a file with known hashes"
-	w.Write([]byte(message))
-}
-
+// simple local server that returns a bit of content
 func serveFiles(portChan chan int) {
-
 	listener, err := net.Listen("tcp", ":0")
 	if err != nil {
 		panic(err)
 	}
-
 	mux := http.NewServeMux()
-	mux.HandleFunc("/get-file.txt", sayHello)
-
+	mux.HandleFunc("/get-file.txt", func(w http.ResponseWriter, r *http.Request) {
+		message := "this is a file with known hashes"
+		w.Write([]byte(message))
+	})
 	portChan <- listener.Addr().(*net.TCPAddr).Port
-
 	http.Serve(listener, mux)
 }

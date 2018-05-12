@@ -5,6 +5,8 @@ import (
 	"io/ioutil"
 	"strings"
 
+	"github.com/cavaliercoder/grab"
+
 	nt "github.com/floeit/floe/config/nodetype"
 	yaml "gopkg.in/yaml.v2"
 )
@@ -90,6 +92,8 @@ func (f *Flow) Load(cacheDir string) (err error) {
 	switch getRefType(f.FlowFile) {
 	case "local":
 		content, err = ioutil.ReadFile(f.FlowFile)
+	case "web":
+		content, err = get(cacheDir, f.FlowFile)
 	default:
 		return fmt.Errorf("unrecognised floe file type: <%s>", f.FlowFile)
 	}
@@ -124,6 +128,18 @@ func (f *Flow) Load(cacheDir string) (err error) {
 	}
 	// Pointless overriding triggers - as they are what caused this load
 	return nil
+}
+
+// get gets the file from the web or the cache and returns its contents
+func get(cacheDir, url string) ([]byte, error) {
+	client := grab.NewClient()
+	req, err := grab.NewRequest(cacheDir, url)
+	if err != nil {
+		return nil, err
+	}
+	resp := client.Do(req)
+	<-resp.Done
+	return ioutil.ReadFile(resp.Filename)
 }
 
 // getRefType returns the reference type:

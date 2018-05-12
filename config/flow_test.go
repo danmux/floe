@@ -1,7 +1,10 @@
 package config
 
 import (
+	"fmt"
 	"io/ioutil"
+	"net"
+	"net/http"
 	"testing"
 )
 
@@ -157,35 +160,64 @@ tasks:
 
 func TestLoad(t *testing.T) {
 	t.Parallel()
+
+	// create the local file
 	tf, err := ioutil.TempFile("", "flow-file")
 	if err != nil {
 		t.Fatal(err)
 	}
-
 	_, err = tf.WriteString(floeIn)
 	if err != nil {
 		t.Fatal(err)
 	}
 	tf.Close()
 
-	f := &Flow{
-		FlowFile: tf.Name(),
-	}
-	err = f.Load("")
+	// launch a test server serving the same content
+	portChan := make(chan int)
+	go func() {
+		serveFiles(portChan)
+	}()
+	port := <-portChan
+
+	// store dl files in this temp cache folder
+	tmpCache, err := ioutil.TempDir("", "floe-tests")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	tag := "merge.builds.good"
-	ns := f.MatchTag(tag)
-	if len(ns) != 1 {
-		t.Error("could not find single node", tag, len(ns))
-	}
+	for _, name := range []string{tf.Name(), fmt.Sprintf("http://127.0.0.1:%d/get-file.txt", port)} {
+		f := &Flow{
+			FlowFile: name,
+		}
+		err = f.Load(tmpCache)
+		if err != nil {
+			t.Fatal(err)
+		}
 
-	if f.ResourceTags[0] != "couchbase" {
-		t.Error("got bad resource tag", f.ResourceTags[0])
+		tag := "merge.builds.good"
+		ns := f.MatchTag(tag)
+		if len(ns) != 1 {
+			t.Error("could not find single node", name, tag, len(ns))
+		}
+		if f.ResourceTags[0] != "couchbase" {
+			t.Error("got bad resource tag", name, f.ResourceTags[0])
+		}
+		if f.ResourceTags[1] != "nic" {
+			t.Error("got bad resource tag", name, f.ResourceTags[1])
+		}
 	}
-	if f.ResourceTags[1] != "nic" {
-		t.Error("got bad resource tag", f.ResourceTags[1])
+}
+
+// simple local server that returns a bit of content
+func serveFiles(portChan chan int) {
+	listener, err := net.Listen("tcp", ":0")
+	if err != nil {
+		panic(err)
 	}
+	mux := http.NewServeMux()
+	mux.HandleFunc("/get-file.txt", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(floeIn))
+	})
+	portChan <- listener.Addr().(*net.TCPAddr).Port
+	http.Serve(listener, mux)
 }
