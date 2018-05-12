@@ -55,7 +55,7 @@ func TestEnvVars(t *testing.T) {
 		"shell": "export",
 		"env":   []string{"DAN=fart"},
 	}
-	testNode(t, "exe env vars", exec{}, opts, []string{`DAN="fart"`, `FLOEWS="."`})
+	testNode(t, "exe env vars", exec{}, opts, []string{`DAN="fart"`, `FLOEWS="`})
 }
 
 func testNode(t *testing.T, msg string, nt NodeType, opts Opts, expected []string) bool {
@@ -73,9 +73,13 @@ func testNode(t *testing.T, msg string, nt NodeType, opts Opts, expected []strin
 	if err != nil {
 		t.Fatal("can't create tmp dir")
 	}
+	tmpBase, err := ioutil.TempDir("", "floe-test")
+	if err != nil {
+		t.Fatal("can't create tmp dir")
+	}
 
 	nt.Execute(&Workspace{
-		BasePath:   ".",
+		BasePath:   tmpBase,
 		FetchCache: tmp,
 	}, opts, op)
 
@@ -98,18 +102,17 @@ func testNode(t *testing.T, msg string, nt NodeType, opts Opts, expected []strin
 		}
 	}
 	// output the output if there was a problem
-	if prob {
-		t.Log("cache is at:", tmp)
-		for _, o := range out {
-			t.Log(o)
-		}
+	t.Log("cache is at:", tmp)
+	for _, o := range out {
+		t.Log(o)
 	}
+
 	return prob
 }
 
 func TestExpandEnvOpts(t *testing.T) {
 	t.Parallel()
-	env := []string{"OOF=${ws}/oof"}
+	env := []string{"OOF={{ws}}/oof"}
 	env = expandEnvOpts(env, "base/path")
 	if env[0] != "OOF=base/path/oof" {
 		t.Error("expand failed", env[0])

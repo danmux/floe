@@ -82,12 +82,14 @@ func (f *Flow) MatchTag(tag string) []*node {
 	return res
 }
 
-// Load looks at the FlowFile setting and loads in the flow from that reference
-// overriding any pre-existing settings
-func (f *Flow) Load(cacheDir string) (err error) {
+// Load looks at the FlowFile and loads in the flow from that reference
+// overriding any pre-existing settings, except triggers.
+// The ref param can be used to replace any '{{ref}}' in the FlowFile
+func (f *Flow) Load(cacheDir, ref string) (err error) {
 	if f.FlowFile == "" {
 		return nil
 	}
+	f.FlowFile = strings.Replace(f.FlowFile, "{{ref}}", ref, -1)
 	var content []byte
 	switch getRefType(f.FlowFile) {
 	case "local":
@@ -101,11 +103,14 @@ func (f *Flow) Load(cacheDir string) (err error) {
 		return err
 	}
 
+	// unmarshal into a flow
 	newFlow := &Flow{}
 	err = yaml.Unmarshal(content, &newFlow)
 	if err != nil {
 		return err
 	}
+
+	// set up the flow, and copy bits into this flow
 	err = newFlow.zero()
 	if err != nil {
 		return err

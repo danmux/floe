@@ -93,7 +93,7 @@ func doRun(dir string, env []string, output chan string, cmd string, args ...str
 func expandEnvOpts(es []string, path string) []string {
 	ne := make([]string, len(es))
 	for i, e := range es {
-		ne[i] = strings.Replace(e, "${ws}", path, -1)
+		ne[i] = strings.Replace(e, "{{ws}}", path, -1)
 	}
 	return ne
 }

@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/exec"
 	"strings"
-	"sync"
 	"syscall"
 )
 
@@ -62,38 +61,10 @@ func Run(log logger, out chan string, env []string, wd, cmd string, args ...stri
 	out <- cmd + " " + strings.Join(args, " ")
 	out <- ""
 
-	sOut, err := eCmd.StdoutPipe()
-	if err != nil {
-		log.Error("getting stdout", err)
-		return 1
-	}
-
-	eOut, err := eCmd.StderrPipe()
-	if err != nil {
-		log.Error("getting stderr", err)
-		return 1
-	}
-
 	// safely aggregate both to a single reader
 	pr, pw := io.Pipe()
-
-	// copy both to out and wait for them to close
-	// start these before starting the cmd, to be sure we capture all output
-	var wg sync.WaitGroup
-	wg.Add(2)
-	go func() {
-		if c, e := io.Copy(pw, eOut); e != nil {
-			log.Error(e, c)
-		}
-		wg.Done()
-	}()
-
-	go func() {
-		if c, e := io.Copy(pw, sOut); e != nil {
-			log.Error(e, c)
-		}
-		wg.Done()
-	}()
+	eCmd.Stdout = pw
+	eCmd.Stderr = pw
 
 	// start scanning from the common pipe
 	scanDone := make(chan bool)
@@ -109,7 +80,7 @@ func Run(log logger, out chan string, env []string, wd, cmd string, args ...stri
 	}()
 
 	log.Debug("Exec starting")
-	err = eCmd.Start()
+	err := eCmd.Start()
 	if err != nil {
 		log.Error("start failed", err)
 		out <- err.Error()
@@ -118,15 +89,16 @@ func Run(log logger, out chan string, env []string, wd, cmd string, args ...stri
 		return 1
 	}
 
-	go func() {
-		wg.Wait()
-		pw.Close()
-	}()
-
 	log.Debug("Exec waiting")
 	err = eCmd.Wait()
 
-	// wait for scanner to fully complete
+	// close the writer pipe
+	e := pw.Close()
+	if e != nil {
+		panic("not sure how this particular close could error" + err.Error())
+	}
+
+	// wait to be sure scanner is fully complete
 	<-scanDone
 	close(out)
 

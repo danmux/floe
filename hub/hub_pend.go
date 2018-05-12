@@ -110,7 +110,12 @@ func (h *Hub) pendFlowFromTrigger(e event.Event) error {
 		// make sure the flow has loaded in any references
 		if ff.FlowFile != "" {
 			log.Debugf("<%s> - getting flow from file '%s'", ff.Ref, ff.FlowFile)
-			err := ff.Load(h.cachePath)
+			// grab the ref opts as a string if one exists
+			ref := ""
+			if r, ok := e.Opts["ref"]; ok {
+				ref, _ = r.(string)
+			}
+			err := ff.Load(h.cachePath, ref)
 			if err != nil {
 				log.Errorf("<%s> - could not load in the flow from FlowFile: '%s'", ff.Ref, ff.FlowFile)
 				continue

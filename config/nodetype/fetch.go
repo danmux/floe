@@ -7,6 +7,8 @@ import (
 	"encoding/hex"
 	"fmt"
 	"hash"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -41,10 +43,6 @@ func (g fetch) Execute(ws *Workspace, in Opts, output chan string) (int, Opts, e
 	if fop.Checksum == "" {
 		output <- "(N.B. fetch without a checksum can not be trusted)"
 	}
-	if fop.Location == "" {
-		fop.Location = "${ws}"
-	}
-	fop.Location = strings.Replace(fop.Location, "${ws}", ws.BasePath, -1)
 
 	client := grab.NewClient()
 	req, err := grab.NewRequest(ws.FetchCache, fop.URL)
@@ -106,15 +104,18 @@ Loop:
 		output <- fmt.Sprintf("Download saved to %v", resp.Filename)
 	}
 
-	// TODO - copy to Location
-
-	// Output:
-	// Downloading http://www.golang-book.com/public/pdf/gobook.pdf...
-	//   200 OK
-	//   transferred 42970 / 2893557 bytes (1.49%)
-	//   transferred 1207474 / 2893557 bytes (41.73%)
-	//   transferred 2758210 / 2893557 bytes (95.32%)
-	// Download saved to ./gobook.pdf
+	// if no location was given to link it to then link it to the root of the workspace
+	// this will be used to link to the file in the cache
+	if fop.Location == "" {
+		fop.Location = filepath.Join("{{ws}}", filepath.Base(resp.Filename))
+	}
+	fop.Location = strings.Replace(fop.Location, "{{ws}}", ws.BasePath, -1)
+	os.Remove(fop.Location)
+	err = os.Link(resp.Filename, fop.Location)
+	if err != nil {
+		return 255, nil, err
+	}
+	output <- fmt.Sprintf("Download linked to %v", fop.Location)
 
 	return 0, nil, nil
 }

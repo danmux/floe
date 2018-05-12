@@ -185,11 +185,11 @@ func TestLoad(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	for _, name := range []string{tf.Name(), fmt.Sprintf("http://127.0.0.1:%d/get-file.txt", port)} {
+	for _, name := range []string{tf.Name(), fmt.Sprintf("http://127.0.0.1:%d/{{ref}}.txt", port)} {
 		f := &Flow{
 			FlowFile: name,
 		}
-		err = f.Load(tmpCache)
+		err = f.Load(tmpCache, "get-file")
 		if err != nil {
 			t.Fatal(err)
 		}

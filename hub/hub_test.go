@@ -377,14 +377,14 @@ func TestMergeEnvOpts(t *testing.T) {
 	t.Parallel()
 
 	o := nt.Opts{
-		"env": []string{"OOF=${ws}/oof"},
+		"env": []string{"OOF={{ws}}/oof"},
 	}
 	mergeEnvOpts(o, []string{"DOOF=oops"})
 	env := o["env"].([]string)
 	if env[0] != "DOOF=oops" {
 		t.Error("expand failed", env[0])
 	}
-	if env[1] != "OOF=${ws}/oof" {
+	if env[1] != "OOF={{ws}}/oof" {
 		t.Error("expand failed", env[1])
 	}
 }

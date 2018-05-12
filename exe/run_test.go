@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"io"
 	"os/exec"
-	"sync"
 	"testing"
 )
 
@@ -96,42 +95,8 @@ func TestPlay(t *testing.T) {
 	eCmd := exec.Command("bash", "-c", "export")
 
 	pr, pw := io.Pipe()
-
-	sout, err := eCmd.StdoutPipe()
-	if err != nil {
-		t.Error(err)
-		return
-	}
-
-	serr, err := eCmd.StderrPipe()
-	if err != nil {
-		t.Error(err)
-		return
-	}
-
-	var wg sync.WaitGroup
-	wg.Add(2)
-	go func() {
-		c, e := io.Copy(pw, sout)
-		if e != nil {
-			t.Error(e)
-		}
-		println(c)
-		wg.Done()
-	}()
-
-	go func() {
-		c, e := io.Copy(pw, serr)
-		if e != nil {
-			t.Error(e)
-		}
-		println(c)
-		wg.Done()
-	}()
-	go func() {
-		wg.Wait()
-		pr.Close()
-	}()
+	eCmd.Stdout = pw
+	eCmd.Stderr = pw
 
 	var output []string
 	scanDone := make(chan bool)
@@ -147,7 +112,7 @@ func TestPlay(t *testing.T) {
 		scanDone <- true
 	}()
 
-	err = eCmd.Start()
+	err := eCmd.Start()
 	if err != nil {
 		t.Error(err)
 		return
@@ -157,6 +122,8 @@ func TestPlay(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
+
+	pr.Close()
 	<-scanDone
 	println(len(output))
 }
