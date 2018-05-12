@@ -36,4 +36,19 @@ func TestMergeOpts(t *testing.T) {
 	if e[4].(string) != "rar1" {
 		t.Error("right env not appended")
 	}
+
+	l = Opts{
+		"foo": "bar",
+	}
+	r = Opts{
+		"baz": "boo",
+		"env": []interface{}{
+			"rar0",
+		},
+	}
+	o = MergeOpts(l, r)
+	_, ok = o["env"]
+	if !ok {
+		t.Fatal("no env when it did not exist")
+	}
 }

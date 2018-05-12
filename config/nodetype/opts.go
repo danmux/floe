@@ -60,10 +60,10 @@ func MergeOpts(l, r Opts) Opts {
 		if k == "env" {
 			if v1, ok := o[k]; ok {
 				o[k] = appendIfArr(v1, v)
+				continue
 			}
-		} else {
-			o[k] = v
 		}
+		o[k] = v
 	}
 	return o
 }

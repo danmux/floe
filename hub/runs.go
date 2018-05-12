@@ -416,7 +416,8 @@ func (r *RunStore) pendToRuns(id string) (pending Runs) {
 			continue
 		}
 		pending = append(pending, &Run{
-			Ref: t.Ref,
+			Ref:  t.Ref,
+			Flow: t.Flow,
 		})
 	}
 	return pending

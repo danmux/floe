@@ -62,7 +62,7 @@ func (e exec) Execute(ws *Workspace, in Opts, output chan string) (int, Opts, er
 
 	status := doRun(filepath.Join(ws.BasePath, e.SubDir), e.Env, output, cmd, args...)
 
-	return status, Opts{}, nil
+	return status, in, nil
 }
 
 func doRun(dir string, env []string, output chan string, cmd string, args ...string) int {

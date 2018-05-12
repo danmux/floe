@@ -43,11 +43,7 @@ func hndRun(rw http.ResponseWriter, r *http.Request, ctx *context) (int, string,
 	}
 
 	// get the config for this run
-	conf := ctx.hub.Config()
-	flow := conf.Flow(run.Ref.FlowRef)
-	if flow == nil {
-		return rNotFound, "matching config not found", nil
-	}
+	flow := run.Flow
 
 	graph, problems := flow.Graph()
 
@@ -78,7 +74,7 @@ func hndRun(rw http.ResponseWriter, r *http.Request, ctx *context) (int, string,
 		FlowName: flow.Name,
 		Name:     flow.Name + " " + run.Ref.Run.String(),
 		Triggers: triggers,
-		Graph:    buildRunResp(graph[1:], flow, run),
+		Graph:    buildRunResp(graph[1:], &flow, run),
 		Summary: RunSummary{
 			Ref:       run.Ref,
 			ExecHost:  run.ExecHost,

@@ -59,6 +59,7 @@ func (t *node) Execute(ws *nt.Workspace, opts nt.Opts, output chan string) (int,
 	if n == nil {
 		return 255, nil, fmt.Errorf("no node type found: %s", t.Type)
 	}
+	// combine any event options with the preset options from the config
 	inOpts := nt.MergeOpts(t.Opts, opts)
 	status, opts, err := n.Execute(ws, inOpts, output)
 	if err != nil && t.IgnoreFail {
