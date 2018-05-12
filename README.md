@@ -7,7 +7,6 @@ A workflow engine, well suited to long running business process execution, for e
 * Continuous integration.
 * Customer onboarding.
 
-
 Quick Start
 -----------
 Download or build from scratch `floe` executable.
@@ -30,11 +29,11 @@ Floe Terminology
 ----------------
 Flows are coordinated by nodes issuing events to which other nodes `listen`.
 
-`Host` - Any named running `floe` service, it could be many such processes on single compute unit (vm, container), or one each.
+`Host`    - Any named running `floe` service, it could be many such processes on single compute unit (vm, container), or one each.
 
-`Flow` - A description of a set of `nodes` linked by events. A specific instance of an flow is a `Run`
+`Flow`    - A description of a set of `nodes` linked by events. A specific instance of an flow is a `Run`
 
-`Node` - A config item that can respond to and issue events. A Node is part of a flow. Certain Nodes can Execute actions.
+`Node`    - A config item that can respond to and issue events. A Node is part of a flow. Certain Nodes can Execute actions.
 
 The types of Node are. 
 
@@ -42,15 +41,15 @@ The types of Node are.
 * `Tasks` - Nodes that on responding to an event execute some action, and then emit an event.
 * `Merges` - A node that waits for `all` or `one` of a number of events before issuing its event.
 
-`Run` - A specific invocation of a flow, can be in one of three states Pending, Active, Archive.
+`Run`      - A specific invocation of a flow, can be in one of three states Pending, Active, Archive.
 
-`RunRef` - An 'adopted' RunRef is a globally unique compound reference that resolves to a specific Run.
+`RunRef`   - An 'adopted' RunRef is a globally unique compound reference that resolves to a specific Run.
 
-`Hub`  - Is the central routing object. It instantiates Runs and executes actions on Nodes in the Run based on its config from any events it observes on its queue.
+`Hub`      - Is the central routing object. It instantiates Runs and executes actions on Nodes in the Run based on its config from any events it observes on its queue.
 
-`Event` - Events are issued after a node has completed its duties. Other nodes are configured to listen for events. Certain other events are emitted that announce other state changes. Events are propagated to any clients connected via web sockets.
+`Event`    - Events are issued after a node has completed its duties. Other nodes are configured to listen for events. Certain other events are emitted that announce other state changes. Events are propagated to any clients connected via web sockets.
 
-`Queue` - The hub event queue is the central chanel for all events.
+`Queue`    - The hub event queue is the central chanel for all events.
 
 `RunStore` - the hub references a run store that can persist the following lists - representing the three states of a run..
 * `Pending` - Runs waiting to be executed, a Run on this list is called a Pend.
@@ -108,14 +107,53 @@ Triggers are the things that start a flow off there are a few types of trigger.
 * `data` - Where a web request pushing data to the server may trigger a flow - for example the web interface uses this, to explicitly launch a run.
 * `timer` - A flow can be triggered periodically - as a timer does not contain any repo version info this can only include git 
 
-### Exec Nodes
+### Tasks
 
-The most common type of node - executes a command, e.g. runs a mke command or a bash script.
+All tasks have the following top level fields:
 
-`ignore-fail` - Only ever send the good event, even if the node failed. Can't be used in conjunction with UseStatus.
-`cmd` - Use this if you are running an executable that only depends on the binary
-`shell` - Use this if you are running something that requires the shell, e.g. bash scripts.
-`args` - An array of command line arguments - for simple arguments these can be included space delimited in the `cmd` or `shell` lines, if there are quote enclosed arguments then use this args array.
+* `id`     - (string) A url friendly identity for this node, it has to be unique within a flow. If an id is not give then the name will be used to generate the ID.
+* `name`   - (string) A human friendly name to display in the web interface. If a name is not given then one will be generated from the id (either a `name` or `id` must be given).
+* `class`  - There are two task classes:  
+    * `task`  - A standard task does something - this is the default, and does not need to be in the config explicitly.
+    * `merge` - A merge task waits for all or one of a list of events.
+* `listen` - (string) The event tag that will trigger this 
+
+Standard tasks (class `task`) have the following fields.
+
+* `ignore-fail` - Only ever send an event tag containing the `good`postfix, even if the node failed. Can't be used in conjunction with `use-status`.
+* `type`        - The specific type of task to execute.
+    * `end`          - Special task that when reached positively indicates the flow ended.
+    * `data`         - Accepts data from the web API, and is used to create web forms.
+    * `timer`        - Waits a certain amount of time before firing its success event.
+    * `exec`         - The main work horse, execute commands directly or via invoking a shell.
+    * `fetch`        - Downloads a file over http(s).
+    * `git-checkout` - Checkout a git repo
+* `good`        - ([]int) The array of exit status codes considered a success. Default is `0` (an array of this one value)
+* `use-status`  - (bool) If true then rather emit an event on task end containing the postfix `good` or `bad` use the actual exit code.
+* `opts`        - (map) The variable map of options as needed by each `type`.
+
+Merge tasks (class `merge`) have the following fields.
+
+* `wait` - ([]string) - Array of event tags to wait for.
+* `type` - The type of merge.
+    * `all` - Wait for all events in the wait array.
+    * `any` - Wait for any of the events in the wait array.
+
+### Task Type
+
+The specific task types and associated options. 
+
+#### exec
+
+The most common type of task node - executes a command, e.g. runs a mke command or a bash script.
+
+Options:
+
+* `cmd`     - Use this if you are running an executable that only depends on the binary
+* `shell`   - Use this if you are running something that requires the shell, e.g. bash scripts.
+* `args`    - An array of command line arguments - for simple arguments these can be included space delimited in the `cmd` or `shell` lines, if there are quote enclosed arguments then use this args array.
+* `sub-dir` - The sub directory (relative to the run workspace) to execute the command in.
+* `env`     - ([]string) - In the form of key=value environment variable to be set in the context of the command being executed.
 
 Development
 -----------
