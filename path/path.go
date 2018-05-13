@@ -10,6 +10,9 @@ import (
 
 // Expand expands the tilde and %tmp abbreviations
 func Expand(w string) (string, error) {
+	// make sure the path does not have a trailing separator
+	w = filepath.Clean(w)
+
 	// cant use root or v small paths
 	if len(w) < 2 {
 		return "", errors.New("path too short")

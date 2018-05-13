@@ -2,8 +2,8 @@ package nodetype
 
 // Workspace is anything specific to a workspace for a single run or any locations common between runs
 type Workspace struct {
-	BasePath   string //
-	FetchCache string
+	BasePath   string // The root path for this workspace
+	FetchCache string // The host level cache of downloaded files (not per workspace, but handy to have listed in this struct)
 }
 
 // Opts are the options on the node type that will be compared to those on the event

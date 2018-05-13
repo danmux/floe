@@ -150,14 +150,14 @@ func (q *Queue) Publish(e Event) {
 	q.Unlock()
 
 	// node updates can be noisy - an event is issued for every line of output
-	if e.Tag != "sys.node.update" {
-		// for helpfulness indicate if this event was issued by an already adopted flow
-		isTrig := " (trigger)"
-		if e.RunRef.Adopted() {
-			isTrig = ""
-		}
-		log.Debugf("<%s-ev:%d> - queue publish type:<%s>%s from: %s", e.RunRef, e.ID, e.Tag, isTrig, e.SourceNode)
+	// if e.Tag != "sys.node.update" {
+	// for helpfulness indicate if this event was issued by an already adopted flow
+	isTrig := " (trigger)"
+	if e.RunRef.Adopted() {
+		isTrig = ""
 	}
+	log.Debugf("<%s-ev:%d> - queue publish type:<%s>%s from: %s", e.RunRef, e.ID, e.Tag, isTrig, e.SourceNode)
+	// }
 
 	// and notify all observers - in background goroutines
 	for _, o := range q.observers {

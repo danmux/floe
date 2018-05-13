@@ -95,10 +95,10 @@ Loop:
 			break Loop
 		}
 	}
-
 	// check for errors
 	if err := resp.Err(); err != nil {
 		output <- fmt.Sprintf("Download failed: %v", err)
+		return 255, nil, err
 	} else {
 		output <- fmt.Sprintf("  %v / %v bytes (%.2f%%) in %v", resp.BytesComplete(), resp.Size, 100*resp.Progress(), time.Since(started))
 		output <- fmt.Sprintf("Download saved to %v", resp.Filename)
@@ -107,9 +107,15 @@ Loop:
 	// if no location was given to link it to then link it to the root of the workspace
 	// this will be used to link to the file in the cache
 	if fop.Location == "" {
-		fop.Location = filepath.Join("{{ws}}", filepath.Base(resp.Filename))
+		fop.Location = filepath.Join(wsSub, filepath.Base(resp.Filename))
+	} else if fop.Location[0] != filepath.Separator { // relative paths are relative to the workspace
+		filepath.Join(wsSub, fop.Location)
 	}
-	fop.Location = strings.Replace(fop.Location, "{{ws}}", ws.BasePath, -1)
+	// if the location is a folder (ends in '/') and not a file name then add the filename
+	if fop.Location[len(fop.Location)-1] == filepath.Separator {
+		fop.Location = filepath.Join(fop.Location, filepath.Base(resp.Filename))
+	}
+	fop.Location = expandEnv(fop.Location, ws.BasePath)
 	os.Remove(fop.Location)
 	err = os.Link(resp.Filename, fop.Location)
 	if err != nil {

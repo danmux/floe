@@ -43,6 +43,8 @@ The types of Node are.
 
 `Run`      - A specific invocation of a flow, can be in one of three states Pending, Active, Archive.
 
+`Workspace`- A place on disc for this run where most of the run actions should take place. Since flow can execute arbitrary scripts, there is no guarantee that mutations to storage are constrained to this workspace. It is up to the script author to isolate (e.g. using containers, or great care!) 
+
 `RunRef`   - An 'adopted' RunRef is a globally unique compound reference that resolves to a specific Run.
 
 `Hub`      - Is the central routing object. It instantiates Runs and executes actions on Nodes in the Run based on its config from any events it observes on its queue.
@@ -87,14 +89,20 @@ All config has a Common section which has the following top level config items:
 
 ### Flow Config
 
+**A note on the workspace var**
+Many field values will expand to include the workspace.  Any `{{ws}}` will be replaced by the absolute workspace path.
+Task fields that start `./` (and are not `./...`) will also be replaced by the absolute workspace path, as will any value `.` on its own.
+
 A flow has the following top level config items:
 
 * `id` - string - url friendly ID - computed from the name if not given explicitly.
 * `ver`- int    - Flow version, together with an ID form a global compound unique key.
 * `name` - string - human friendly name for the flow - will show up in web interface.
 * `reuse-space`	- bool - If true then will use the single workspace and will mutex with other instances of this Flow on the same host.
-* `host-tags` - []string - Tags that must match the tags on the host, useful for assigning specific flows to specific hosts.
-* `resource-tags` - []string - Tags that represent a set of shared resources that should not be accessed by two or more runs. So if any flow has an active run on a host then no other flow can launch a run if the flow has any tags matching the one running.
+* `host-tags` - ([]string) - Tags that must match the tags on the host, useful for assigning specific flows to specific hosts.
+* `resource-tags` - ([]string) - Tags that represent a set of shared resources that should not be accessed by two or more runs. So if any flow has an active run on a host then no other flow can launch a run if the flow has any tags matching the one running.
+* `env`     - ([]string) - In the form of key=value environment variable to be set in the context of the command being executed, can include `{{ws}}` to expand to full absolute path - `.` at the start will be treated like `{{ws}}`.
+
 * `flow-file` - string - the reference to a file that can be loaded as the pending run is generated, this file will override the config of the floe - so can be used like a jenkinsfile, three types of reference can be used...
     * `file` - load it from the local file system. e.g. `floes/floe.yaml`
     * `git` - do the shallowest clone of the repo specified and grab the content e.g. `git@github.com:floeit/floe.git/build/FLOE.yaml` in this case if the opts contain a ref then the ref (git ref - e.g. tag, branch etc.) will be used
@@ -139,7 +147,7 @@ Merge tasks (class `merge`) have the following fields.
     * `all` - Wait for all events in the wait array.
     * `any` - Wait for any of the events in the wait array.
 
-### Task Type
+### Task Types
 
 The specific task types and associated options. 
 
@@ -154,6 +162,17 @@ Options:
 * `args`    - An array of command line arguments - for simple arguments these can be included space delimited in the `cmd` or `shell` lines, if there are quote enclosed arguments then use this args array.
 * `sub-dir` - The sub directory (relative to the run workspace) to execute the command in.
 * `env`     - ([]string) - In the form of key=value environment variable to be set in the context of the command being executed.
+
+#### fetch
+
+Downloads and caches a file from the web.
+
+Options:
+
+* `url`           - The URL to get the file from.
+* `checksum`      - The checksum to validate the file.
+* `checksum-algo` - What algorithm to use to compute the checksum `sha256`, `sha1` or `md5` are supported.
+* `location`      - Where to link the file once downloaded - can use `{{ws}}` substitution. Relative paths will be relative to the workspace folder for the run. If no location is given it will be linked to the root of the workspace. If the location ends in `/` (or `\` on some systems) then the file will be named as the download name, but moved to the location specified.
 
 Development
 -----------

@@ -1,6 +1,7 @@
 package hub
 
 import (
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -89,6 +90,12 @@ func New(host, tags, basePath, adminTok string, c *config.Config, s store.Store,
 		queue:     q,
 		runs:      newRunStore(s),
 	}
+	// make sure the cache exists
+	err = os.MkdirAll(h.cachePath, 0700)
+	if err != nil {
+		log.Fatal("can not create the cache path", err)
+	}
+
 	h.timers = newTimers(h)
 	// setup hosts
 	h.setupHosts(adminTok)

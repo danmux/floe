@@ -112,9 +112,45 @@ func testNode(t *testing.T, msg string, nt NodeType, opts Opts, expected []strin
 
 func TestExpandEnvOpts(t *testing.T) {
 	t.Parallel()
-	env := []string{"OOF={{ws}}/oof"}
-	env = expandEnvOpts(env, "base/path")
-	if env[0] != "OOF=base/path/oof" {
-		t.Error("expand failed", env[0])
+
+	fxs := []struct {
+		in  string
+		exp string
+	}{
+		{
+			in:  "OOF={{ws}}/oof",
+			exp: "OOF=/base/path/oof",
+		},
+		{
+			in:  "./go",
+			exp: "/base/path/go",
+		},
+		{
+			in:  "OOF=./oof",
+			exp: "OOF=/base/path/oof",
+		},
+		{
+			in:  "/go{{ws}}",
+			exp: "/go/base/path",
+		},
+		{
+			in:  "/go/{{ws}}",
+			exp: "/go/base/path",
+		},
+		{
+			in:  "./...",
+			exp: "./...",
+		},
+		{
+			in:  "./../",
+			exp: "/base/path/../",
+		},
+	}
+
+	for i, fx := range fxs {
+		got := expandEnv(fx.in, "/base/path")
+		if got != fx.exp {
+			t.Errorf("%d, failed, in: %s, got: %s, wanted: %s", i, fx.in, got, fx.exp)
+		}
 	}
 }
