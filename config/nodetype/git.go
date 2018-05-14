@@ -12,6 +12,7 @@ type gitOpts struct {
 	SubDir  string `json:"sub-dir"`
 	Ref     string `json:"ref"`      // what to checkout
 	FromRef string `json:"from-ref"` // what to checkout and rebase onto Ref
+	KeyFile string `json:"key-file"` // what key file to use
 }
 
 // gitMerge is an executable node that checks out a hash and then
@@ -75,10 +76,13 @@ func (g gitCheckout) Execute(ws *Workspace, in Opts, output chan string) (int, O
 		output <- "Cloning into 'floe'..."
 		return 0, nil, nil
 	}
-
+	var env []string
+	if gop.KeyFile != "" {
+		env = []string{fmt.Sprintf(`GIT_SSH_COMMAND=ssh -i %s`, gop.KeyFile)}
+	}
 	// git clone --branch mytag0.1 --depth 1 https://example.com/my/repo.git
 	args := []string{"clone", "--branch", gop.Ref, "--depth", "1", gop.URL}
-	status := doRun(filepath.Join(ws.BasePath, gop.SubDir), nil, output, "git", args...)
+	status := doRun(filepath.Join(ws.BasePath, gop.SubDir), env, output, "git", args...)
 
 	return status, nil, nil
 }

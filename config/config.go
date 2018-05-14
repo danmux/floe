@@ -25,6 +25,8 @@ type commonConfig struct {
 	// StoreType define which type of store to use
 	StoreType string `yaml:"store-type"` // memory, local, ec2
 
+	GitKey string `yaml:"git-key"` // path to the git key to use
+
 	// TODO ec2 - or back to github
 	// Store Root is ec2 bucket path
 	// StoreRoot string `yaml:"store-root"`

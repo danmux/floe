@@ -187,6 +187,11 @@ func (h *Hub) prepareForExec(runRef event.RunRef, e *event.Event, singleWs bool,
 		return nil
 	}
 
+	// inject any top level config opts
+	if h.config != nil && h.config.Common.GitKey != "" {
+		e.Opts["key-file"] = h.config.Common.GitKey
+	}
+
 	// any event env with the flow level env
 	mergeEnvOpts(e.Opts, flowEnv)
 

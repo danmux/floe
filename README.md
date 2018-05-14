@@ -85,7 +85,7 @@ All config has a Common section which has the following top level config items:
 * `base-url`    - string - the api base url,  in case hosting on a sub domain.
 * `config-path` - string - is a path to the config which can be a path to a file in a git repo e.g. git@github.com:floeit/floe.git/build/FLOE.yaml
 * `store-type`  - string - define which type of store to use - memory, local, ec2
-
+* `key-file`    - the private key to use with git. e.g. 'git-key: "/home/ubuntu/.ssh/id_floedemo_rsa"' if empty then the system installed key is used.
 
 ### Flow Config
 
