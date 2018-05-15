@@ -23,6 +23,7 @@ _testmain.go
 *.exe
 *.test
 bin/
+Notes.md
 
 workspace
 workspace_old

@@ -1,0 +1,115 @@
+common:
+    base-url: "/build/api" 
+    store-type: local
+    hosts:
+        - http://127.0.0.1:8080
+        # - http://127.0.0.1:8090
+
+flows:
+    - id: build-project              # the name of this flow
+      name: Build Project
+      ver: 1
+      reuse-space: false               # reuse the workspace (false) - if true /single used 
+      resource-tags: [couchbase, nic] # resource labels that any other flows cant share
+      host-tags: [linux, go, couch]   # all these tags must match the tags on any host for it to be able to run there
+
+      triggers:                      # external events to subscribe to
+        - name: push                 # name of this trigger
+          type: git-push             # the type of this trigger
+          opts:
+            url: blah.blah           # which url to monitor
+
+        - name: start
+          type: data
+          opts:
+            form:
+              title: Start
+              fields:
+                - id: ref
+                  prompt: Ref (branch or hash)
+                  type: text
+                  value: master
+                - id: from-ref
+                  prompt: Ref to merge (branch or hash)
+                  type: text 
+            
+      tasks: 
+        - name: Checkout             # the name of this node 
+          type: git-merge            # the task type 
+          listen: trigger.good       # the event tag that triggers this node
+          good: [0]                  # define what the good statuses are, default [0]
+          ignore-fail: false         # if true only emit good
+          opts:
+            sub-dir: src/github.com/floeit
+            url: git@github.com:floeit/floe.git
+        
+        - name: Echo
+          type: exec
+          listen: task.checkout.good
+          opts:
+            cmd: "echo"
+            args: ["dan is a goon"]
+
+        - name: Build                
+          type: exec
+          listen: task.checkout.good    
+          opts:
+            cmd: "ls"        # the command to execute 
+            args: ["-lrt", "/"]
+
+        - name: Test
+          type: exec                 # execute a command
+          listen: task.build.good    
+          opts:
+            shell: "sleep 10"         # the command to execute 
+
+        - name: Sign Off
+          type: data
+          listen: task.build.good    # for a data node this event has to have occured before the data node can accept data
+          opts:
+            form:
+              title: Sign off Manual Testing
+              fields:
+                - id: tests_passed
+                  prompt: Did the manual testing pass?
+                  type: bool
+                - id: to_hash
+                  prompt: To Branch (or hash)
+                  type: string
+
+        - name: Wait For Tests and Sign Off
+          class: merge
+          id: signed
+          type: all
+          wait: [task.echo.good, task.test.good, task.sign-off.good]
+
+        - name: Final Task
+          type: exec                 # execute a command
+          listen: merge.signed.good
+          opts:
+            cmd: "ls"         # the command to execute 
+
+        - name: complete
+          listen: task.final-task.good
+          type: end                 # getting here means the flow was a success 'end' is the special definitive end event
+
+    - id: danmux
+      ver: 1
+      
+      triggers:
+        - name: start
+          type: data
+          opts:
+            form:
+              title: Start
+              fields:
+                - id: ref # ref is a magic name that the git-checkout task type will use
+                  prompt: Git Ref (branch or hash etc)
+                  type: text
+        
+        - name: Every 5 Minutes
+          type: timer                # fires every period seconds
+          opts:
+            period: 300              # how often to fire in seconds
+
+      flow-file: floe.yml            # get the actual flow from this file

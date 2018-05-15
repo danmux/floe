@@ -1,3 +1,4 @@
+// TODO clean this up
 package log
 
 import (
@@ -6,6 +7,8 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"runtime"
+	"strings"
 	"sync"
 )
 
@@ -26,7 +29,7 @@ const (
 var (
 	logger *log.Logger
 	logbuf bytes.Buffer
-	level  int = 6
+	level  int = 7
 	mu     sync.Mutex
 )
 
@@ -67,11 +70,27 @@ func PrintLog() {
 	fmt.Print(&logbuf)
 }
 
+func prefix(level string, args ...interface{}) []interface{} {
+	_, file, line, ok := runtime.Caller(2)
+	if !ok {
+		file = "???"
+		line = 0
+	} else {
+		bits := strings.Split(file, "/")
+		if len(bits) > 2 {
+			file = bits[len(bits)-2] + "/" + bits[len(bits)-1]
+		}
+	}
+	a := []interface{}{level, fmt.Sprintf("(%s:%d)", file, line)}
+	a = append(a, args...)
+	return a
+}
+
 func Debug(args ...interface{}) {
 	if badLevel(lDbg) {
 		return
 	}
-	args = append([]interface{}{dbg}, args...)
+	args = prefix(dbg, args...)
 	logger.Println(args...)
 }
 
@@ -79,14 +98,16 @@ func Debugf(format string, args ...interface{}) {
 	if badLevel(lDbg) {
 		return
 	}
-	logger.Println(dbg, fmt.Sprintf(format, args...))
+	args = []interface{}{fmt.Sprintf(format, args...)}
+	args = prefix(dbg, args...)
+	logger.Println(args...)
 }
 
 func Info(args ...interface{}) {
 	if badLevel(lInf) {
 		return
 	}
-	args = append([]interface{}{inf}, args...)
+	args = prefix(inf, args...)
 	logger.Println(args...)
 }
 
@@ -94,14 +115,16 @@ func Infof(format string, args ...interface{}) {
 	if badLevel(lInf) {
 		return
 	}
-	logger.Println(inf, fmt.Sprintf(format, args...))
+	args = []interface{}{fmt.Sprintf(format, args...)}
+	args = prefix(inf, args...)
+	logger.Println(args...)
 }
 
 func Warning(args ...interface{}) {
 	if badLevel(lWar) {
 		return
 	}
-	args = append([]interface{}{war}, args...)
+	args = prefix(war, args...)
 	logger.Println(args...)
 }
 
@@ -109,7 +132,16 @@ func Error(args ...interface{}) {
 	if badLevel(lErr) {
 		return
 	}
-	args = append([]interface{}{err}, args...)
+	args = prefix(err, args...)
+	logger.Println(args...)
+}
+
+func Errorf(format string, args ...interface{}) {
+	if badLevel(lErr) {
+		return
+	}
+	args = []interface{}{fmt.Sprintf(format, args...)}
+	args = prefix(err, args...)
 	logger.Println(args...)
 }
 
@@ -117,46 +149,19 @@ func Fatal(args ...interface{}) {
 	if badLevel(lErr) {
 		return
 	}
-	args = append([]interface{}{err}, args...)
+	args = prefix(err, args...)
 	logger.Println(args...)
 	os.Exit(255)
 }
 
-func Errorf(format string, args ...interface{}) {
-	if badLevel(lErr) {
-		return
-	}
-	logger.Println(err, fmt.Sprintf(format, args...))
+type Log struct{}
+
+func (l Log) Info(vals ...interface{}) {
+	Info(vals...)
 }
-
-// func V(l int) bool {
-// 	return l < level
-// }
-
-// func Info(args ...interface{}) {
-// 	glog.InfoDepth(1, args...)
-// }
-
-// func Infof(format string, args ...interface{}) {
-// 	glog.InfoDepth(1, fmt.Sprintf(format, args...))
-// }
-
-// func Error(args ...interface{}) {
-// 	glog.ErrorDepth(1, args...)
-// }
-
-// func Warning(args ...interface{}) {
-// 	glog.WarningDepth(1, args...)
-// }
-
-// func Fatal(args ...interface{}) {
-// 	glog.FatalDepth(1, args...)
-// }
-
-// func Errorf(format string, args ...interface{}) {
-// 	glog.ErrorDepth(1, fmt.Sprintf(format, args...))
-// }
-
-// func V(level glog.Level) glog.Verbose {
-// 	return glog.V(level)
-// }
+func (l Log) Debug(vals ...interface{}) {
+	Debug(vals...)
+}
+func (l Log) Error(vals ...interface{}) {
+	Error(vals...)
+}

@@ -1,0 +1,676 @@
+/*! HTML5 Boilerplate v5.0 | MIT License | http://h5bp.com/ */
+
+html {
+    color: #515354;
+    background-color: #eee;
+    font: 1em Helvetica, Helvetica Neue, Arial;
+    line-height: 1.3;
+    font-weight: lighter;
+}
+
+h1, h2, h3, h4, h5 {
+    margin: 6px 0;
+    font-weight: lighter;
+}
+
+a {
+    color: #515354;
+    text-decoration: none;
+}
+
+::-moz-selection {
+    background: #D8DDD7;
+    text-shadow: none;
+}
+
+::selection {
+    background: #D8DDD7;
+    text-shadow: none;
+}
+
+hr {
+    display: block;
+    height: 1px;
+    border: 0;
+    border-top: 1px solid #ccc;
+    margin: 1em 0;
+    padding: 0;
+}
+
+audio,
+canvas,
+iframe,
+img,
+svg,
+video {
+    vertical-align: middle;
+}
+
+fieldset {
+    border: 0;
+    margin: 0;
+    padding: 0;
+}
+
+textarea {
+    resize: vertical;
+}
+
+.browserupgrade {
+    margin: 0.2em 0;
+    background: #ccc;
+    color: #000;
+    padding: 0.2em 0;
+}
+
+
+/* ===== Initializr Styles ==================================================
+   Author: Jonathan Verrecchia - verekia.com/initializr/responsive-template
+   ========================================================================== */
+
+.wrapper {
+    width: 90%;
+    margin: 0 5%;
+}
+
+.footer-container,
+.main aside {
+    border-top: 1px solid #D8DDD7;
+}
+
+.header-container,
+.footer-container,
+.main aside,
+.login,
+box {
+    background: #ffffff;
+}
+
+a:visited {
+    color: #1B1F21;
+}
+
+a:hover {
+    color: #525E63;
+}
+
+/* ==============
+    MOBILE: Menu
+   ============== */
+
+nav ul {
+    padding: 0;
+    list-style-type: none;
+    display: inline;
+}
+
+nav ul li {
+    display: inline;
+    padding: 0 15px;
+}
+
+nav a {
+    margin: 0;
+    padding: 10px 2%;
+    text-align: center;
+    display: inline-block
+}
+
+/* ==============
+    MOBILE: Main
+   ============== */
+
+.main {
+    padding: 30px 0;
+    min-height: 300px;
+}
+
+.main article h1 {
+    font-size: 2em;
+}
+
+.main aside {
+    padding: 6px 3% 0;
+}
+
+.footer-container footer {
+    padding: 1px 0;
+}
+
+/* ===============
+    ALL: IE Fixes
+   =============== */
+
+.ie7 .title {
+    padding-top: 20px;
+}
+
+/* ==========================================================================
+   Author's custom styles
+   ========================================================================== */
+@font-face {
+    font-family: 'floe';
+    src: url('../font/floe.woff2') format('woff2'),
+         url('../font/floe.woff') format('woff');
+         
+    font-weight: normal;
+    font-style: normal;
+}
+
+/* fonts */
+.icon-cog:before { content: '\e800'; }
+.icon-off:before { content: '\e801'; }
+.icon-angle-circled-right:before { content: '\f138'}
+
+i {
+    font-family: "floe";
+    font-style: normal;
+    font-weight: normal;
+}
+/* end of fonts */
+
+code {
+    display: block;
+    white-space: pre;
+    color: lightgray;
+    background-color: #111;
+    margin: 40px 0;
+    padding: 10px;
+    overflow: scroll;
+}
+
+.title {
+    float: left;
+}
+
+.header-container,
+.main aside,
+.login,
+box {
+   -webkit-box-shadow: 0 0 1px #aaa;
+      -moz-box-shadow: 0 0 1px #aaa;
+           box-shadow: 0 0 1px #aaa;
+}
+
+.crumb {
+    font-size: 9pt; 
+}
+
+.clear {
+    clear: both;
+}
+
+.err-msg {
+    margin: 10px;
+    padding: 5px;
+    box-shadow: 0 0 1px red;
+    background-color: lightcoral;
+}
+.error {
+    display: none;
+}
+
+.error.show {
+    display: block;
+}
+
+nav {
+    float: right;
+    width: 105px;
+}
+
+.header-logo {
+    width: 30px;
+}
+
+.login {
+    margin: 0 auto;
+    padding: 20px;
+    width: 40%;
+}
+
+.flow-single h2 {
+    float: left;
+}
+
+.flow-single .label {
+    margin: 6px;
+    float: left;
+}
+
+.flow-single summary span {
+    margin: 6px;
+    padding: 5px;
+    float: left;
+}
+
+box {
+    display: block;
+    float: left;
+    min-width: 220px;
+    padding: 10px 15px 2px;
+    margin: 5px 10px;
+    border-radius: 3px;
+    min-height: 70px;
+    transition: all 0.5s ease-in-out;
+}
+
+box h3 {
+    text-transform: uppercase;
+    font-size: 12pt;
+}
+
+box.run {
+    padding: 2px 15px;
+    min-height: 30px;
+}
+
+box h4{
+    max-width: 180px;
+    font-size: 12pt;
+    float: left;
+}
+
+.label{
+    margin: 5px 0;
+    padding: 5px;
+    color: #fff;
+    background-color: #999;
+    border-radius: 2px;
+}
+
+box .label {
+    font-size: 8pt;
+    float: right;
+}
+
+.label.running {
+    background-color: #195fd1;
+}
+
+.label.good {
+    background-color: #42c88a;
+}
+
+.label.bad {
+    background-color: #d8201a;
+}
+
+box .gear {
+    padding-top: 7px;
+    float: right;
+}
+
+top {
+    display: block;
+    overflow: hidden;
+}
+
+detail {
+    display: block;
+    /* border-top: 1px solid #ddd; */
+}
+
+box detail{
+    clear: both;
+    font-size: 8pt;
+}
+
+box.task {
+    border-left: 4px solid #ddd;
+}
+
+box.flow detail {
+    min-height: 50px;
+}
+
+box.success, box.finished{
+    border-left: 4px solid #42c88a;
+}
+
+box.failed {
+    border-left: 4px solid #d8201a;
+}
+
+box.waiting {
+    border-left: 4px solid #195fd1;
+}
+
+box.disabled {
+    background-color: #f0f0f0;
+    color: #ccc;
+}
+
+divider {
+    clear: both;
+    border-bottom: 1px solid #ccc;
+    display: block;
+    height: 20px;
+    margin-bottom: 20px
+}
+
+subtitle {
+    font-size: 8pt;
+}
+
+heading {
+    display: block;
+    font-size: 10pt;
+    text-transform: uppercase;
+    border-bottom: 1px solid #ccc;
+    font-weight: lighter;
+    margin: 0 0 10px;
+}
+
+triggers {
+    display: block;
+    clear: both;
+}
+
+box.trigger {
+    min-height: 40px;
+}
+
+.value {
+    background-color: #eee;
+    border-radius: 3px;
+    box-shadow: 0 0 1px #aaa;
+    padding: 1px 5px;
+    min-height: 22px;
+    font-size: 12pt;
+}
+
+.kvrow {
+    margin-bottom: 10px;
+}
+
+.level {
+    display: block;
+    clear: left;
+}
+
+tasks {
+    margin: 20px auto;
+    width: 50%; 
+}
+
+.ago {
+    float: left;
+    min-height: 15px;
+}
+
+.took {
+    float: right;
+}
+
+.section {
+    overflow: hidden;
+    margin: 20px auto;
+}
+
+prompt {
+    margin-top: 10px;
+    display: block;
+    font-size: 11pt;
+}
+
+input {
+    margin-top: 10px;
+    display: block;
+
+    display: block;
+    width: 90%;
+    height: 24px;
+    padding: 3px 6px;
+    font-size: 12pt;
+    line-height: 1.42857143;
+    font-weight: lighter;
+    color: #333333;
+    background-color: #ffffff;
+    background-image: none;
+    border: 1px solid #cacaca;
+    border-radius: 3px;
+    box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.075);
+    transition: border-color ease-in-out .15s, box-shadow ease-in-out .15s;
+}
+
+.btn {
+    margin: 10px 0;
+    border: 1px solid transparent;
+    background-color: #e8e8e8;
+
+    display: inline-block;
+    font-weight: normal;
+    text-align: center;
+    vertical-align: middle;
+    touch-action: manipulation;
+    cursor: pointer;
+    background-image: none;
+    white-space: nowrap;
+    padding: 6px 12px;
+    font-size: 14px;
+    line-height: 1.42857143;
+    border-radius: 3px;
+    user-select: none;
+}
+
+.btn:hover,
+.btn:focus {
+  background-color: #dbdbdb;
+  border-color: #bbb;
+}
+.btn:active,
+.btn.active {
+  background-color: #f5f5f5;
+  border-color: #e8e8e8;
+}
+
+/* Expanding thing */
+
+i.icon-angle-circled-right {
+    margin-top: 4px;
+    color: #888;
+    float: right;
+    font-size: 15pt;
+    transition-duration: 0.5s;
+}
+
+.open {
+    transform: rotate(90deg);
+}
+
+.expander  {
+    height: auto;
+    max-height: 0;
+    max-width: 220px;
+    margin-top: 35px;
+    overflow: hidden;
+    transition: max-height 0.5s, max-width 0.5s;
+}
+
+.show-some {
+    max-height: 30px;
+}
+
+.expand {
+    max-height: 300px;
+    max-width: 1030px;
+    overflow: scroll;
+}
+
+/* ==========================================================================
+   Media Queries
+   ========================================================================== */
+
+@media only screen and (min-width: 480px) {
+
+/* ====================
+    INTERMEDIATE: Menu
+   ==================== */
+
+    /* nav a {
+        float: left;
+        width: 27%;
+        margin: 0 1.7%;
+        padding: 10px 2%;
+        margin-bottom: 0;
+    } */
+
+    nav li:first-child a {
+        margin-left: 0;
+    }
+
+    nav li:last-child a {
+        margin-right: 0;
+    }
+
+/* ========================
+    INTERMEDIATE: IE Fixes
+   ======================== */
+
+    .oldie nav a {
+        margin: 0 0.7%;
+    }
+}
+
+
+@media only screen and (min-width: 768px) {
+
+/* ============
+    WIDE: Main
+   ============ */
+
+    .main article {
+        float: left;
+        width: 57%;
+    }
+
+    .main aside {
+        float: right;
+        width: 28%;
+    }
+}
+
+@media only screen and (min-width: 1140px) {
+
+/* ===============
+    Maximal Width
+   =============== */
+
+    .wrapper {
+        width: 1026px; /* 1140px - 10% for margins */
+        margin: 0 auto;
+    }
+}
+
+/* ==========================================================================
+   Helper classes
+   ========================================================================== */
+
+.hidden {
+    display: none !important;
+    visibility: hidden;
+}
+
+.visuallyhidden {
+    border: 0;
+    clip: rect(0 0 0 0);
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    padding: 0;
+    position: absolute;
+    width: 1px;
+}
+
+.visuallyhidden.focusable:active,
+.visuallyhidden.focusable:focus {
+    clip: auto;
+    height: auto;
+    margin: 0;
+    overflow: visible;
+    position: static;
+    width: auto;
+}
+
+.invisible {
+    visibility: hidden;
+}
+
+.clearfix:before,
+.clearfix:after {
+    content: " ";
+    display: table;
+}
+
+.clearfix:after {
+    clear: both;
+}
+
+.clearfix {
+    *zoom: 1;
+}
+
+/* ==========================================================================
+   Print styles
+   ========================================================================== */
+
+@media print {
+    *,
+    *:before,
+    *:after {
+        background: transparent !important;
+        color: #000 !important;
+        box-shadow: none !important;
+        text-shadow: none !important;
+    }
+
+    a,
+    a:visited {
+        text-decoration: underline;
+    }
+
+    a[href]:after {
+        content: " (" attr(href) ")";
+    }
+
+    abbr[title]:after {
+        content: " (" attr(title) ")";
+    }
+
+    a[href^="#"]:after,
+    a[href^="javascript:"]:after {
+        content: "";
+    }
+
+    pre,
+    blockquote {
+        border: 1px solid #999;
+        page-break-inside: avoid;
+    }
+
+    thead {
+        display: table-header-group;
+    }
+
+    tr,
+    img {
+        page-break-inside: avoid;
+    }
+
+    img {
+        max-width: 100% !important;
+    }
+
+    p,
+    h2,
+    h3 {
+        orphans: 3;
+        widows: 3;
+    }
+
+    h2,
+    h3 {
+        page-break-after: avoid;
+    }
+}
