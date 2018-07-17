@@ -5,7 +5,7 @@ package git
 import "testing"
 
 func TestGitLs(t *testing.T) {
-	output, ok := GitLs(&tLog{t: t}, "git@github.com:floeit/floe.git")
+	output, ok := Ls(&tLog{t: t}, "git@github.com:floeit/floe.git")
 	if !ok {
 		t.Error("git ls failed")
 	}

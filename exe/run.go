@@ -39,7 +39,7 @@ func RunOutput(log logger, wd, cmd string, args ...string) ([]string, int) {
 // Run executes the command in a bash process
 func Run(log logger, out chan string, env []string, wd, cmd string, args ...string) int {
 
-	log.Info("Exec Cmd: ", cmd, " Args: ", args)
+	log.Info("Exec Cmd:", cmd, "Args:", args)
 
 	if wd != "" {
 		// make sure working directory is in place
@@ -56,7 +56,7 @@ func Run(log logger, out chan string, env []string, wd, cmd string, args ...stri
 
 	// this is mandatory
 	eCmd.Dir = wd
-	log.Info("In working directory: ", eCmd.Dir)
+	log.Info("In working directory:", eCmd.Dir)
 
 	out <- cmd + " " + strings.Join(args, " ")
 	out <- ""
@@ -105,7 +105,7 @@ func Run(log logger, out chan string, env []string, wd, cmd string, args ...stri
 	log.Debug("exec cmd complete")
 
 	if err != nil {
-		log.Error("Command failed ", err)
+		log.Error("Command failed:", err)
 		exitCode := 1
 		if msg, ok := err.(*exec.ExitError); ok {
 			if status, ok := msg.Sys().(syscall.WaitStatus); ok {

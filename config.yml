@@ -9,7 +9,7 @@ flows:
     - id: build-project              # the name of this flow
       name: Build Project
       ver: 1
-      reuse-space: false               # reuse the workspace (false) - if true /single used 
+      reuse-space: false              # reuse the workspace (false) - if true /single used 
       resource-tags: [couchbase, nic] # resource labels that any other flows cant share
       host-tags: [linux, go, couch]   # all these tags must match the tags on any host for it to be able to run there
 

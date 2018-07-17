@@ -1,6 +1,7 @@
 package hub
 
 import (
+	"sync"
 	"time"
 
 	"github.com/floeit/floe/config"
@@ -16,6 +17,7 @@ type timer struct {
 }
 
 type timers struct {
+	mu   sync.RWMutex
 	list map[string]*timer
 }
 
@@ -26,6 +28,7 @@ func newTimers(h *Hub) *timers {
 
 	go func() {
 		for now := range time.Tick(time.Second) {
+			t.mu.RLock()
 			for _, tim := range t.list {
 				if !now.After(tim.next) {
 					continue
@@ -54,17 +57,23 @@ func newTimers(h *Hub) *timers {
 				}
 				log.Debugf("<%s> - from timer trigger added to pending", ref)
 			}
+			t.mu.RUnlock()
 		}
 	}()
 	return t
 }
 
 func (t *timers) register(flow config.FlowRef, nodeID string, opts nt.Opts) {
-	period := opts["period"].(int)
+	period, ok := opts["period"].(int)
+	if !ok {
+		period = 10
+	}
+	t.mu.Lock()
 	t.list[flow.String()+"-"+nodeID] = &timer{
 		flow:   flow,
 		nodeID: nodeID,
 		period: period,
 		next:   time.Now().UTC().Add(time.Duration(period) * time.Second),
 	}
+	t.mu.Unlock()
 }

@@ -95,14 +95,13 @@ Loop:
 			break Loop
 		}
 	}
-	// check for errors
+	// check for errors, emit it and bail
 	if err := resp.Err(); err != nil {
 		output <- fmt.Sprintf("Download failed: %v", err)
 		return 255, nil, err
-	} else {
-		output <- fmt.Sprintf("  %v / %v bytes (%.2f%%) in %v", resp.BytesComplete(), resp.Size, 100*resp.Progress(), time.Since(started))
-		output <- fmt.Sprintf("Download saved to %v", resp.Filename)
 	}
+	output <- fmt.Sprintf("  %v / %v bytes (%.2f%%) in %v", resp.BytesComplete(), resp.Size, 100*resp.Progress(), time.Since(started))
+	output <- fmt.Sprintf("Download saved to %v", resp.Filename)
 
 	// if no location was given to link it to then link it to the root of the workspace
 	// this will be used to link to the file in the cache

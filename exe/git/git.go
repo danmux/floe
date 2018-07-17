@@ -20,7 +20,7 @@ type Hashes struct {
 
 // Ls list a remote repo
 func Ls(log logger, url string) (*Hashes, bool) {
-	gitOut, status := exe.RunOutput(log, "git", "ls-remote "+url, "")
+	gitOut, status := exe.RunOutput(log, "", "git", "ls-remote", url)
 	if status != 0 {
 		return nil, false
 	}
