@@ -53,7 +53,7 @@ func TestTimers(t *testing.T) {
 		Ver: 1,
 	}, "test-node", nt.Opts{
 		"period": 1,
-	})
+	}, startFlowTrigger)
 
 	select {
 	case <-time.After(time.Second * 2):

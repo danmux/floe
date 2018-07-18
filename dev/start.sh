@@ -1,5 +1,5 @@
-start.sh
 #!/usr/bin/env bash
+set -ex
 
 # example startup commands for the demo.floe.it server.
 # for your own use change the certs or remove them, change the public ip. 
